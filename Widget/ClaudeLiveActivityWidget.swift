@@ -65,7 +65,7 @@ struct ClaudeLiveActivityWidget: Widget {
                             if !context.state.lastResponse.isEmpty {
                                 // マーキーは 1 行なのでアイコンは中央揃え（.top だと浮く）
                                 HStack(alignment: .center, spacing: 6) {
-                                    ReplyIcon(size: 13, color: status.color)
+                                    ReplyIcon(size: 24, color: Color.claudeBrand)
                                     MarqueeText(
                                         text: context.state.lastResponse,
                                         font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
@@ -74,7 +74,7 @@ struct ClaudeLiveActivityWidget: Widget {
                                 }
                             } else if !context.state.lastPrompt.isEmpty {
                                 HStack(alignment: .center, spacing: 6) {
-                                    PromptIcon(size: 13, color: .secondary)
+                                    PromptIcon(size: 24, color: .secondary)
                                     MarqueeText(
                                         text: context.state.lastPrompt,
                                         font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
@@ -94,7 +94,7 @@ struct ClaudeLiveActivityWidget: Widget {
                     .padding(.horizontal, 4)
                 }
             } compactLeading: {
-                ClaudeMarkIcon(size: 16, color: status.color)
+                ClaudeMarkIcon(size: 20, color: status.color)
             } compactTrailing: {
                 StatusIconView(status: status, size: 20)
             } minimal: {
@@ -256,7 +256,7 @@ private struct LockScreenView: View {
             } else {
                 // ヘッダ: プロジェクト名・Mac 名・経過時間
                 HStack(spacing: 6) {
-                    ClaudeMarkIcon(size: 13, color: status.color)
+                    ClaudeMarkIcon(size: 26, color: status.color)
                     Text(context.attributes.projectName)
                         .font(.caption.bold())
                         .lineLimit(1)
@@ -310,7 +310,7 @@ private struct LockScreenView: View {
                 if !context.state.lastPrompt.isEmpty {
                     // マーキーは 1 行なのでアイコンは中央揃え（.top だと浮く）
                     HStack(alignment: .center, spacing: 6) {
-                        PromptIcon(size: 14, color: .secondary)
+                        PromptIcon(size: 26, color: .secondary)
                         MarqueeText(
                             text: context.state.lastPrompt,
                             font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
@@ -320,7 +320,7 @@ private struct LockScreenView: View {
                 }
                 if !context.state.lastResponse.isEmpty {
                     HStack(alignment: .center, spacing: 6) {
-                        ReplyIcon(size: 14, color: status.color)
+                        ReplyIcon(size: 26, color: Color.claudeBrand)
                         MarqueeText(
                             text: context.state.lastResponse,
                             font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
