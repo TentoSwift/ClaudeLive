@@ -20,19 +20,20 @@ struct ClaudeLiveActivityWidget: Widget {
                         .padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    ElapsedTimerText(startedAt: context.state.startedAt)
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: 60)
-                        .padding(.trailing, 4)
+                    // 質問中は経過時間よりも質問カードの横幅を優先する
+                    if status != .question {
+                        ElapsedTimerText(startedAt: context.state.startedAt)
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: 60)
+                            .padding(.trailing, 4)
+                    }
                 }
                 DynamicIslandExpandedRegion(.center) {
                     if status == .question {
-                        // 質問中はプロジェクト名・セッション名を省いて、
-                        // 「質問」ラベルと下の質問カードにスペースを譲る
-                        Text(status.label)
-                            .font(.caption.bold())
-                            .foregroundStyle(status.color)
+                        // 質問中はプロジェクト名・セッション名・「質問」ラベルも省き、
+                        // 質問カードに最大限スペースを譲る（ボタンで質問中だと分かるため冗長）
+                        EmptyView()
                     } else {
                         VStack(spacing: 2) {
                             Text(context.state.sessionName.isEmpty
@@ -266,8 +267,11 @@ private struct QuestionView: View {
         Button(intent: AnswerQuestionIntent(sessionId: sessionId, answer: label)) {
             Text(label)
                 .font(compact ? .caption2.bold() : .subheadline.bold())
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
+                // 1 行に収まらない選択肢ラベルは、縮小だけでなく折り返しでも読めるようにする
+                // （選択肢の文言が読めないまま押させるのを避ける）
+                .lineLimit(2)
+                .minimumScaleFactor(0.55)
+                .multilineTextAlignment(.center)
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, compact ? 6 : 10)
