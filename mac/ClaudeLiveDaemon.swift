@@ -1,0 +1,1212 @@
+// ClaudeLive デーモン（Mac 側）
+//
+// Claude Code の hooks から HTTP でイベントを受け取り、
+// APNs 経由で iPhone のライブアクティビティを start / update / end する。
+// 依存ライブラリなし（Foundation + Network + CryptoKit のみ）。
+//
+// ビルド: swiftc -O -o claudelive-daemon ClaudeLiveDaemon.swift
+// 設定:   ~/.claudelive/config.json（初回起動時にテンプレートを生成）
+//
+// エンドポイント:
+//   POST /hook      Claude Code hooks からのイベント（stdin JSON をそのまま転送）
+//   POST /register  iPhone アプリからのトークン登録
+//   GET  /sessions  対話セッション一覧
+//   GET  /messages  transcript から会話テキストを抽出（閲覧専用。返信はできない）
+//   GET  /usage     Claude Code の使用量（5時間/週間制限）
+//   GET  /status    デバッグ用の状態表示
+//   POST /reset     トークン・開始フラグを全クリア
+
+import CryptoKit
+import Foundation
+import Network
+
+// MARK: - パスとログ
+
+let baseDir = FileManager.default.homeDirectoryForCurrentUser
+    .appendingPathComponent(".claudelive", isDirectory: true)
+let configPath = baseDir.appendingPathComponent("config.json")
+let tokensPath = baseDir.appendingPathComponent("tokens.json")
+let logPath = baseDir.appendingPathComponent("daemon.log")
+
+let logFormatter: DateFormatter = {
+    let f = DateFormatter()
+    f.dateFormat = "yyyy-MM-dd HH:mm:ss"
+    return f
+}()
+
+func log(_ message: String) {
+    let line = "[\(logFormatter.string(from: Date()))] \(message)\n"
+    print(line, terminator: "")
+    if let data = line.data(using: .utf8) {
+        if let handle = try? FileHandle(forWritingTo: logPath) {
+            handle.seekToEndOfFile()
+            handle.write(data)
+            try? handle.close()
+        } else {
+            try? data.write(to: logPath)
+        }
+    }
+}
+
+// MARK: - 設定
+
+struct Config: Codable {
+    var teamId: String
+    var keyId: String
+    var p8Path: String
+    var bundleId: String
+    /// "development"（Xcode から入れたビルド）or "production"（TestFlight / App Store）
+    var apnsEnvironment: String
+    var port: UInt16
+
+    static let template = Config(
+        teamId: "LV3H7Q68W6",
+        keyId: "APNS_KEY_ID_HERE",
+        p8Path: "~/.claudelive/AuthKey.p8",
+        bundleId: "com.tento.ClaudeLive",
+        apnsEnvironment: "development",
+        port: 53536)
+
+    static func load() -> Config {
+        try? FileManager.default.createDirectory(at: baseDir, withIntermediateDirectories: true)
+        if let data = try? Data(contentsOf: configPath),
+           let config = try? JSONDecoder().decode(Config.self, from: data) {
+            return config
+        }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try? (try? encoder.encode(template))?.write(to: configPath)
+        log("config.json が無かったのでテンプレートを作成しました: \(configPath.path)")
+        log("APNs キー ID と .p8 のパスを設定してください")
+        return template
+    }
+
+    var apnsHost: String {
+        apnsEnvironment == "production" ? "api.push.apple.com" : "api.sandbox.push.apple.com"
+    }
+
+    var expandedP8Path: String {
+        (p8Path as NSString).expandingTildeInPath
+    }
+}
+
+// MARK: - APNs クライアント
+
+final class APNSClient {
+    private let config: Config
+    private var cachedJWT: (token: String, issuedAt: Date)?
+    private let session = URLSession(configuration: .ephemeral)
+
+    init(config: Config) {
+        self.config = config
+    }
+
+    private func base64URL(_ data: Data) -> String {
+        data.base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+    }
+
+    /// ES256 署名の JWT。APNs の要件（20〜60 分ごとに更新）に合わせて 45 分キャッシュ
+    private func jwt() throws -> String {
+        if let cached = cachedJWT, Date().timeIntervalSince(cached.issuedAt) < 45 * 60 {
+            return cached.token
+        }
+        let pem = try String(contentsOfFile: config.expandedP8Path, encoding: .utf8)
+        let key = try P256.Signing.PrivateKey(pemRepresentation: pem)
+        let header = base64URL(Data(#"{"alg":"ES256","kid":"\#(config.keyId)"}"#.utf8))
+        let claims = base64URL(
+            Data(#"{"iss":"\#(config.teamId)","iat":\#(Int(Date().timeIntervalSince1970))}"#.utf8))
+        let input = "\(header).\(claims)"
+        let signature = try key.signature(for: Data(input.utf8))
+        let token = "\(input).\(base64URL(signature.rawRepresentation))"
+        cachedJWT = (token, Date())
+        return token
+    }
+
+    /// Live Activity 用プッシュを送る。completion(成功したか)
+    func send(deviceToken: String, payload: [String: Any],
+              label: String, completion: @escaping (Bool) -> Void) {
+        let token: String
+        let body: Data
+        do {
+            token = try jwt()
+            body = try JSONSerialization.data(withJSONObject: payload)
+        } catch {
+            log("APNs 準備失敗 (\(label)): \(error)")
+            completion(false)
+            return
+        }
+        var request = URLRequest(
+            url: URL(string: "https://\(config.apnsHost)/3/device/\(deviceToken)")!)
+        request.httpMethod = "POST"
+        request.setValue("bearer \(token)", forHTTPHeaderField: "authorization")
+        request.setValue("\(config.bundleId).push-type.liveactivity",
+                         forHTTPHeaderField: "apns-topic")
+        request.setValue("liveactivity", forHTTPHeaderField: "apns-push-type")
+        request.setValue("10", forHTTPHeaderField: "apns-priority")
+        request.setValue("0", forHTTPHeaderField: "apns-expiration")
+        request.httpBody = body
+
+        session.dataTask(with: request) { data, response, error in
+            if let error {
+                log("APNs 送信エラー (\(label)): \(error.localizedDescription)")
+                completion(false)
+                return
+            }
+            let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+            if status == 200 {
+                log("APNs OK (\(label))")
+                completion(true)
+            } else {
+                let reason = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+                log("APNs \(status) (\(label)): \(reason)")
+                completion(false)
+            }
+        }.resume()
+    }
+}
+
+// MARK: - 使用量 API（ClaudeUsageBar の UsageAPI.swift を移植）
+//
+// Claude Code がキーチェーンに保存する OAuth トークンを使って
+// 5時間制限・週間制限の使用率を取得する。iOS からは直接叩けない
+// （キーチェーンは Mac のものなので）ため、この Mac 側デーモンが仲介する
+
+struct UsageLimitEntry {
+    let kind: String          // "session" / "weekly_all" / "weekly_scoped"
+    let percent: Double
+    let severity: String
+    let resetsAt: Date?
+    let scopeName: String?    // weekly_scoped のモデル名（例: "Fable"）
+    let isActive: Bool
+}
+
+struct UsageSnapshot {
+    let limits: [UsageLimitEntry]
+    let fetchedAt: Date
+
+    func toJSON() -> String {
+        let iso = ISO8601DateFormatter()
+        let entries: [[String: Any]] = limits.map { e in
+            var dict: [String: Any] = [
+                "kind": e.kind, "percent": e.percent, "severity": e.severity,
+                "isActive": e.isActive,
+            ]
+            if let resetsAt = e.resetsAt { dict["resetsAt"] = iso.string(from: resetsAt) }
+            if let scopeName = e.scopeName { dict["scopeName"] = scopeName }
+            return dict
+        }
+        let obj: [String: Any] = [
+            "ok": true, "limits": entries, "fetchedAt": iso.string(from: fetchedAt),
+        ]
+        let data = (try? JSONSerialization.data(withJSONObject: obj)) ?? Data("{}".utf8)
+        return String(data: data, encoding: .utf8) ?? "{}"
+    }
+}
+
+enum UsageError: Error, CustomStringConvertible {
+    case tokenNotFound, authFailed, rateLimited(until: Date), httpError(Int), network(String), decodeFailed
+
+    var description: String {
+        switch self {
+        case .tokenNotFound: return "認証情報が見つかりません"
+        case .authFailed: return "トークン期限切れ"
+        case .rateLimited(let until): return "レート制限中（\(Int(until.timeIntervalSinceNow))秒後に再試行可）"
+        case .httpError(let c): return "APIエラー(\(c))"
+        case .network(let s): return "通信エラー: \(s)"
+        case .decodeFailed: return "応答の解析に失敗"
+        }
+    }
+}
+
+enum UsageAPI {
+    private static let endpoint = URL(string: "https://api.anthropic.com/api/oauth/usage")!
+    private static let tokenEndpoint = URL(string: "https://console.anthropic.com/v1/oauth/token")!
+    private static let clientID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
+
+    static func fetch() async throws -> UsageSnapshot {
+        let token = try await validAccessToken()
+        var req = URLRequest(url: endpoint, timeoutInterval: 15)
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let data: Data, resp: URLResponse
+        do { (data, resp) = try await URLSession.shared.data(for: req) }
+        catch { throw UsageError.network(error.localizedDescription) }
+
+        guard let http = resp as? HTTPURLResponse else { throw UsageError.decodeFailed }
+        if http.statusCode == 401 { throw UsageError.authFailed }
+        if http.statusCode == 429 {
+            let secs = (http.value(forHTTPHeaderField: "retry-after").flatMap(Double.init)) ?? 600
+            throw UsageError.rateLimited(until: Date().addingTimeInterval(secs))
+        }
+        guard http.statusCode == 200 else { throw UsageError.httpError(http.statusCode) }
+        return try parse(data)
+    }
+
+    private static func validAccessToken() async throws -> String {
+        var (obj, oauth) = try readCredential()
+        let expiresAt = (oauth["expiresAt"] as? Double) ?? Double((oauth["expiresAt"] as? Int) ?? 0)
+        let now = Date().timeIntervalSince1970 * 1000
+        if expiresAt > now + 60_000, let token = oauth["accessToken"] as? String, !token.isEmpty {
+            return token
+        }
+        guard let refresh = oauth["refreshToken"] as? String, !refresh.isEmpty else {
+            if let token = oauth["accessToken"] as? String, !token.isEmpty { return token }
+            throw UsageError.tokenNotFound
+        }
+        let refreshed = try await refreshTokens(refreshToken: refresh)
+        oauth["accessToken"] = refreshed.access
+        if let r = refreshed.refresh { oauth["refreshToken"] = r }
+        oauth["expiresAt"] = now + refreshed.expiresInSecs * 1000
+        obj["claudeAiOauth"] = oauth
+        writeCredential(obj)
+        return refreshed.access
+    }
+
+    private static func refreshTokens(refreshToken: String)
+        async throws -> (access: String, refresh: String?, expiresInSecs: Double) {
+        var req = URLRequest(url: tokenEndpoint, timeoutInterval: 15)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "grant_type": "refresh_token", "refresh_token": refreshToken, "client_id": clientID,
+        ])
+        let data: Data, resp: URLResponse
+        do { (data, resp) = try await URLSession.shared.data(for: req) }
+        catch { throw UsageError.network(error.localizedDescription) }
+        let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+        if code == 429 { throw UsageError.rateLimited(until: Date().addingTimeInterval(600)) }
+        guard code == 200,
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let access = json["access_token"] as? String, !access.isEmpty
+        else { throw UsageError.authFailed }
+        let expiresIn = (json["expires_in"] as? Double) ?? Double((json["expires_in"] as? Int) ?? 3600)
+        return (access, json["refresh_token"] as? String, expiresIn)
+    }
+
+    /// キーチェーン（無ければファイル）から資格情報 JSON を読む
+    private static func readCredential() throws -> (obj: [String: Any], oauth: [String: Any]) {
+        var raw: Data?
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/security")
+        proc.arguments = ["find-generic-password", "-s", "Claude Code-credentials", "-w"]
+        let pipe = Pipe()
+        proc.standardOutput = pipe
+        proc.standardError = Pipe()
+        if (try? proc.run()) != nil {
+            let out = pipe.fileHandleForReading.readDataToEndOfFile()
+            proc.waitUntilExit()
+            if proc.terminationStatus == 0, !out.isEmpty { raw = out }
+        }
+        if raw == nil {
+            let fileURL = FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent(".claude/.credentials.json")
+            raw = try? Data(contentsOf: fileURL)
+        }
+        guard let json = raw,
+              let obj = try? JSONSerialization.jsonObject(with: json) as? [String: Any],
+              let oauth = obj["claudeAiOauth"] as? [String: Any]
+        else { throw UsageError.tokenNotFound }
+        return (obj, oauth)
+    }
+
+    private static func writeCredential(_ obj: [String: Any]) {
+        guard let data = try? JSONSerialization.data(withJSONObject: obj),
+              let str = String(data: data, encoding: .utf8) else { return }
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/security")
+        proc.arguments = ["add-generic-password", "-U",
+                          "-a", NSUserName(), "-s", "Claude Code-credentials", "-w", str]
+        proc.standardOutput = Pipe()
+        proc.standardError = Pipe()
+        try? proc.run()
+        proc.waitUntilExit()
+    }
+
+    private struct APIResponse: Decodable {
+        struct Limit: Decodable {
+            struct Scope: Decodable {
+                struct Model: Decodable { let display_name: String? }
+                let model: Model?
+            }
+            let kind: String
+            let percent: Double?
+            let severity: String?
+            let resets_at: String?
+            let scope: Scope?
+            let is_active: Bool?
+        }
+        struct Bucket: Decodable {
+            let utilization: Double?
+            let resets_at: String?
+        }
+        let limits: [Limit]?
+        let five_hour: Bucket?
+        let seven_day: Bucket?
+    }
+
+    private static func parse(_ data: Data) throws -> UsageSnapshot {
+        guard let resp = try? JSONDecoder().decode(APIResponse.self, from: data) else {
+            throw UsageError.decodeFailed
+        }
+        var entries: [UsageLimitEntry] = []
+        if let limits = resp.limits, !limits.isEmpty {
+            for l in limits {
+                entries.append(UsageLimitEntry(
+                    kind: l.kind, percent: l.percent ?? 0, severity: l.severity ?? "normal",
+                    resetsAt: l.resets_at.flatMap(parseISO), scopeName: l.scope?.model?.display_name,
+                    isActive: l.is_active ?? false))
+            }
+        } else {
+            if let f = resp.five_hour, let u = f.utilization {
+                entries.append(UsageLimitEntry(kind: "session", percent: u, severity: "normal",
+                                               resetsAt: f.resets_at.flatMap(parseISO),
+                                               scopeName: nil, isActive: true))
+            }
+            if let w = resp.seven_day, let u = w.utilization {
+                entries.append(UsageLimitEntry(kind: "weekly_all", percent: u, severity: "normal",
+                                               resetsAt: w.resets_at.flatMap(parseISO),
+                                               scopeName: nil, isActive: false))
+            }
+        }
+        return UsageSnapshot(limits: entries, fetchedAt: Date())
+    }
+
+    private static let isoFractional: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+    private static let isoPlain: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
+
+    private static func parseISO(_ s: String) -> Date? {
+        isoFractional.date(from: s) ?? isoPlain.date(from: s)
+    }
+}
+
+// MARK: - トークン保存
+
+struct TokenStore: Codable {
+    var pushToStartToken: String?
+    var activityTokens: [String: String] = [:]  // sessionId -> token
+    var deviceName: String?
+
+    static func load() -> TokenStore {
+        if let data = try? Data(contentsOf: tokensPath),
+           let store = try? JSONDecoder().decode(TokenStore.self, from: data) {
+            return store
+        }
+        return TokenStore()
+    }
+
+    func save() {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try? (try? encoder.encode(self))?.write(to: tokensPath)
+    }
+}
+
+// MARK: - セッション状態
+
+final class SessionState {
+    let id: String
+    var projectName: String
+    var hostName: String
+    /// セッション名（~/.claude/sessions のレジストリ由来。例 "claud-52"）
+    var name = ""
+    var cwd = ""
+    var transcriptPath = ""
+    var startedAt = Date()
+    var status = "waiting"
+    var detail = "セッション開始"
+    var currentTool = ""
+    var logs: [String] = []
+    var toolCount = 0
+    var lastPrompt = ""
+    var lastResponse = ""
+    /// UserPromptSubmit か PreToolUse を一度でも観測したか。
+    /// SessionStart だけで即終了する内部的・裏側のプロセス（サブエージェント等）を
+    /// 通知しないためのゲート
+    var hasSubstantiveActivity = false
+    var startPushSent = false
+    var lastPushAt = Date.distantPast
+    var updateScheduled = false
+    /// 直近でフックを受信した時刻。working/compacting のまま長時間これが
+    /// 更新されない場合、Mac のスリープやネットワーク断とみなす
+    var lastHookAt = Date()
+
+    init(id: String, projectName: String, hostName: String) {
+        self.id = id
+        self.projectName = projectName
+        self.hostName = hostName
+    }
+}
+
+// MARK: - セッションレジストリ（~/.claude/sessions/<pid>.json）
+
+/// Claude Code が起動中セッションごとに書くレジストリ。
+/// セッション名・種別（interactive/headless）・cwd が取れる。
+/// PID が生きているファイルだけを有効とみなす
+struct RegistryEntry {
+    let sessionId: String
+    let name: String
+    let kind: String
+    let cwd: String
+}
+
+func loadSessionRegistry() -> [String: RegistryEntry] {
+    let dir = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent(".claude/sessions", isDirectory: true)
+    var result: [String: RegistryEntry] = [:]
+    let files = (try? FileManager.default.contentsOfDirectory(
+        at: dir, includingPropertiesForKeys: nil)) ?? []
+    for file in files where file.pathExtension == "json" {
+        guard let pid = Int32(file.deletingPathExtension().lastPathComponent),
+              pid > 0, kill(pid, 0) == 0,
+              let data = try? Data(contentsOf: file),
+              let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let sessionId = obj["sessionId"] as? String else { continue }
+        let entry = RegistryEntry(
+            sessionId: sessionId,
+            name: obj["name"] as? String ?? "",
+            kind: obj["kind"] as? String ?? "",
+            cwd: obj["cwd"] as? String ?? "")
+        // 同じセッション ID が複数ある場合（-p --resume の並走など）は interactive を優先
+        if let existing = result[sessionId], existing.kind == "interactive" { continue }
+        result[sessionId] = entry
+    }
+    return result
+}
+
+// MARK: - デーモン本体
+
+final class Daemon {
+    private let config: Config
+    private let apns: APNSClient
+    private let queue = DispatchQueue(label: "claudelive.daemon")
+    private var tokens = TokenStore.load()
+    private var sessions: [String: SessionState] = [:]
+    private var listener: NWListener?
+    private var connections: [ObjectIdentifier: NWConnection] = [:]
+    private let macName = Host.current().localizedName ?? "Mac"
+
+    /// 更新プッシュの最小間隔（PreToolUse の連打をまとめる）
+    private let minPushInterval: TimeInterval = 1.0
+
+    /// push-to-start のレート制限（フィルタをすり抜けたノイズがあっても
+    /// iPhone を通知で埋め尽くさないための安全弁）
+    private var recentStartPushes: [Date] = []
+    private let maxStartsPerWindow = 3
+    private let startPushWindow: TimeInterval = 120
+
+    private var watchdogTimer: DispatchSourceTimer?
+
+    init(config: Config) {
+        self.config = config
+        self.apns = APNSClient(config: config)
+    }
+
+    // MARK: HTTP サーバ
+
+    func start() {
+        guard let port = NWEndpoint.Port(rawValue: config.port) else {
+            log("不正なポート: \(config.port)")
+            exit(1)
+        }
+        let listener: NWListener
+        do {
+            listener = try NWListener(using: .tcp, on: port)
+        } catch {
+            log("ポート \(config.port) で待ち受けできません: \(error)")
+            exit(1)
+        }
+        listener.service = NWListener.Service(name: macName, type: "_claudelive._tcp")
+        listener.newConnectionHandler = { [weak self] connection in
+            self?.accept(connection)
+        }
+        listener.stateUpdateHandler = { state in
+            if case .failed(let error) = state {
+                log("リスナー停止: \(error)")
+                exit(1)
+            }
+        }
+        listener.start(queue: queue)
+        self.listener = listener
+        startWatchdog()
+        log("起動: port \(config.port), APNs \(config.apnsHost), bundle \(config.bundleId)")
+        if tokens.pushToStartToken == nil {
+            log("push-to-start トークン未登録。iPhone で ClaudeLive アプリを開いて登録してください")
+        }
+    }
+
+    private func accept(_ connection: NWConnection) {
+        let key = ObjectIdentifier(connection)
+        connections[key] = connection
+        var buffer = Data()
+
+        func receive() {
+            connection.receive(minimumIncompleteLength: 1, maximumLength: 1 << 16) {
+                [weak self] data, _, isComplete, error in
+                guard let self else { return }
+                if let data { buffer.append(data) }
+                if let request = Self.parseHTTP(buffer) {
+                    self.route(request, on: connection)
+                } else if isComplete || error != nil {
+                    self.close(connection)
+                } else {
+                    receive()
+                }
+            }
+        }
+        connection.start(queue: queue)
+        receive()
+    }
+
+    private func close(_ connection: NWConnection) {
+        connection.cancel()
+        connections.removeValue(forKey: ObjectIdentifier(connection))
+    }
+
+    private struct HTTPRequest {
+        var method: String
+        var path: String
+        var body: Data
+    }
+
+    private static func parseHTTP(_ data: Data) -> HTTPRequest? {
+        guard let headerEnd = data.range(of: Data("\r\n\r\n".utf8)) else { return nil }
+        guard let head = String(data: data[..<headerEnd.lowerBound], encoding: .utf8) else {
+            return nil
+        }
+        let lines = head.components(separatedBy: "\r\n")
+        let parts = lines[0].components(separatedBy: " ")
+        guard parts.count >= 2 else { return nil }
+        var contentLength = 0
+        for line in lines.dropFirst() {
+            let kv = line.split(separator: ":", maxSplits: 1)
+            if kv.count == 2, kv[0].lowercased() == "content-length" {
+                contentLength = Int(kv[1].trimmingCharacters(in: .whitespaces)) ?? 0
+            }
+        }
+        let body = data[headerEnd.upperBound...]
+        guard body.count >= contentLength else { return nil }
+        return HTTPRequest(method: parts[0], path: parts[1], body: Data(body.prefix(contentLength)))
+    }
+
+    private func respond(_ connection: NWConnection, status: String = "200 OK",
+                         json: String = #"{"ok":true}"#) {
+        let response = "HTTP/1.1 \(status)\r\nContent-Type: application/json\r\nContent-Length: \(json.utf8.count)\r\nConnection: close\r\n\r\n\(json)"
+        connection.send(content: Data(response.utf8), completion: .contentProcessed { [weak self] _ in
+            self?.close(connection)
+        })
+    }
+
+    private func route(_ request: HTTPRequest, on connection: NWConnection) {
+        let (path, query) = Self.splitQuery(request.path)
+        switch (request.method, path) {
+        case ("GET", "/sessions"):
+            respond(connection, json: sessionsJSON())
+        case ("GET", "/messages"):
+            if let sessionId = query["session"] {
+                let limit = query["limit"].flatMap(Int.init) ?? 40
+                respond(connection, json: messagesJSON(sessionId: sessionId, limit: limit))
+            } else {
+                respond(connection, status: "400 Bad Request", json: #"{"ok":false}"#)
+            }
+        case ("GET", "/usage"):
+            Task {
+                let json = await usageJSON()
+                queue.async { self.respond(connection, json: json) }
+            }
+        case ("POST", "/hook"):
+            respond(connection)  // hooks を待たせないよう先に応答
+            if let json = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any] {
+                handleHook(json)
+            }
+        case ("POST", "/register"):
+            if let json = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any] {
+                handleRegister(json)
+                respond(connection)
+            } else {
+                respond(connection, status: "400 Bad Request", json: #"{"ok":false}"#)
+            }
+        case ("GET", "/status"):
+            respond(connection, json: statusJSON())
+        case ("POST", "/reset"):
+            // iPhone 側の実態と食い違ったとき（アクティビティを手動で消した等）の脱出口。
+            // トークンと開始フラグを捨てて、次のフックから作り直す
+            tokens.activityTokens.removeAll()
+            tokens.save()
+            for session in sessions.values {
+                session.startPushSent = false
+            }
+            recentStartPushes.removeAll()
+            log("リセット: アクティビティトークンと開始フラグをクリア")
+            respond(connection)
+        default:
+            respond(connection, status: "404 Not Found", json: #"{"ok":false}"#)
+        }
+    }
+
+    private func statusJSON() -> String {
+        let sessionList = sessions.values.map {
+            [
+                "sessionId": $0.id, "project": $0.projectName, "status": $0.status,
+                "startPushSent": $0.startPushSent,
+                "hasActivityToken": tokens.activityTokens[$0.id] != nil,
+                "startedAt": Int($0.startedAt.timeIntervalSince1970),
+            ] as [String: Any]
+        }
+        let info: [String: Any] = [
+            "ok": true,
+            "host": macName,
+            "hasPushToStartToken": tokens.pushToStartToken != nil,
+            "device": tokens.deviceName ?? "",
+            "activityTokenCount": tokens.activityTokens.count,
+            "sessions": sessionList,
+        ]
+        let data = (try? JSONSerialization.data(withJSONObject: info)) ?? Data("{}".utf8)
+        return String(data: data, encoding: .utf8) ?? "{}"
+    }
+
+    // MARK: セッション一覧・会話・返信
+
+    private static func splitQuery(_ rawPath: String) -> (String, [String: String]) {
+        guard let qIndex = rawPath.firstIndex(of: "?") else { return (rawPath, [:]) }
+        let path = String(rawPath[..<qIndex])
+        var query: [String: String] = [:]
+        for pair in rawPath[rawPath.index(after: qIndex)...].components(separatedBy: "&") {
+            let kv = pair.components(separatedBy: "=")
+            guard kv.count == 2 else { continue }
+            query[kv[0]] = kv[1].removingPercentEncoding ?? kv[1]
+        }
+        return (path, query)
+    }
+
+    /// レジストリ（生きている対話セッション）とフックで観測した状態をマージして返す
+    private func sessionsJSON() -> String {
+        let registry = loadSessionRegistry()
+        var list: [[String: Any]] = []
+        for (sessionId, entry) in registry where entry.kind == "interactive" {
+            let session = sessions[sessionId]
+            list.append([
+                "sessionId": sessionId,
+                "name": entry.name,
+                "project": (entry.cwd as NSString).lastPathComponent,
+                "status": session?.status ?? "idle",
+                "detail": session?.detail ?? "",
+                "currentTool": session?.currentTool ?? "",
+                "toolCount": session?.toolCount ?? 0,
+                "startedAt": Int((session?.startedAt ?? Date()).timeIntervalSince1970),
+                "hasActivityToken": tokens.activityTokens[sessionId] != nil,
+                "lastPrompt": session?.lastPrompt ?? "",
+                "lastResponse": session?.lastResponse ?? "",
+            ])
+        }
+        list.sort { ($0["startedAt"] as? Int ?? 0) > ($1["startedAt"] as? Int ?? 0) }
+        let data = (try? JSONSerialization.data(withJSONObject: ["ok": true, "host": macName, "sessions": list]))
+            ?? Data("{}".utf8)
+        return String(data: data, encoding: .utf8) ?? "{}"
+    }
+
+    /// transcript JSONL から直近の会話（ユーザー入力と Claude の返答テキスト）を抽出する。
+    /// 形式は Claude Code 内部仕様でバージョンにより変わりうる。壊れても空を返すだけにする
+    private func messagesJSON(sessionId: String, limit: Int) -> String {
+        let path = transcriptPath(for: sessionId)
+        var messages: [[String: String]] = []
+        if let path, let handle = FileHandle(forReadingAtPath: path) {
+            // 長大なファイルは末尾 2MB だけ読む
+            let maxBytes: UInt64 = 2 * 1024 * 1024
+            let size = (try? handle.seekToEnd()) ?? 0
+            let offset = size > maxBytes ? size - maxBytes : 0
+            try? handle.seek(toOffset: offset)
+            let data = (try? handle.readToEnd()) ?? Data()
+            try? handle.close()
+            var lines = data.split(separator: UInt8(ascii: "\n"))
+            if offset > 0, !lines.isEmpty { lines.removeFirst() }  // 途中から読んだ先頭行は捨てる
+
+            for line in lines {
+                guard let obj = (try? JSONSerialization.jsonObject(with: Data(line))) as? [String: Any],
+                      let type = obj["type"] as? String, type == "user" || type == "assistant",
+                      obj["isSidechain"] as? Bool != true,
+                      obj["isMeta"] as? Bool != true,
+                      let message = obj["message"] as? [String: Any] else { continue }
+                var text = ""
+                if let content = message["content"] as? String {
+                    text = content
+                } else if let content = message["content"] as? [[String: Any]] {
+                    text = content.compactMap { item in
+                        (item["type"] as? String) == "text" ? item["text"] as? String : nil
+                    }.joined(separator: "\n")
+                }
+                let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                // tool_result のみの user 行や、コマンド実行などのシステム的な行は出さない
+                guard !trimmed.isEmpty, !trimmed.hasPrefix("<"),
+                      !trimmed.hasPrefix("[Request interrupted") else { continue }
+                messages.append([
+                    "role": type,
+                    "text": String(trimmed.prefix(2000)),
+                    "timestamp": obj["timestamp"] as? String ?? "",
+                ])
+            }
+        }
+        let tail = Array(messages.suffix(limit))
+        let data = (try? JSONSerialization.data(withJSONObject: ["ok": true, "messages": tail]))
+            ?? Data("{}".utf8)
+        return String(data: data, encoding: .utf8) ?? "{}"
+    }
+
+    private func transcriptPath(for sessionId: String) -> String? {
+        if let session = sessions[sessionId], !session.transcriptPath.isEmpty {
+            return session.transcriptPath
+        }
+        // フック未観測のセッションは cwd から導出する
+        // （プロジェクトディレクトリ名は cwd の英数字以外を "-" に置換したもの）
+        guard let entry = loadSessionRegistry()[sessionId] else { return nil }
+        let munged = entry.cwd.map { ch in
+            ch.isLetter || ch.isNumber ? String(ch) : "-"
+        }.joined()
+        let path = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".claude/projects/\(munged)/\(sessionId).jsonl").path
+        return FileManager.default.fileExists(atPath: path) ? path : nil
+    }
+
+    // MARK: 使用量（Claude Code の OAuth usage API）
+
+    /// 直近の取得結果をキャッシュし、iPhone からの連打で API を叩き過ぎないようにする
+    private var cachedUsageJSON: String?
+    private var cachedUsageAt = Date.distantPast
+    private let usageCacheTTL: TimeInterval = 60
+
+    private func usageJSON() async -> String {
+        if let cached = cachedUsageJSON, Date().timeIntervalSince(cachedUsageAt) < usageCacheTTL {
+            return cached
+        }
+        let json: String
+        do {
+            let snapshot = try await UsageAPI.fetch()
+            json = snapshot.toJSON()
+        } catch {
+            log("使用量取得失敗: \(error)")
+            json = #"{"ok":false,"error":"\#(String(describing: error).replacingOccurrences(of: "\"", with: "'"))"}"#
+        }
+        cachedUsageJSON = json
+        cachedUsageAt = Date()
+        return json
+    }
+
+    // MARK: iPhone からのトークン登録
+
+    private func handleRegister(_ json: [String: Any]) {
+        if let device = json["device"] as? String {
+            tokens.deviceName = device
+        }
+        var newStartToken = false
+        if let token = json["pushToStartToken"] as? String, token != tokens.pushToStartToken {
+            tokens.pushToStartToken = token
+            newStartToken = true
+            log("push-to-start トークン登録 (\(tokens.deviceName ?? "?"))")
+        }
+        var newActivitySessions: [String] = []
+        var revivedSessions = false
+        if let map = json["activityTokens"] as? [String: String] {
+            // iPhone 側の「いま生きているアクティビティ」のスナップショットとして扱う。
+            // 消えたトークンは破棄し、そのセッションを再開始可能に戻す
+            // （アクティビティを手動で消されると、古いトークン宛ての update は
+            // APNs 200 のまま黙って捨てられ続けるので、Mac 側からは検知できない）
+            for sessionId in tokens.activityTokens.keys where map[sessionId] == nil {
+                tokens.activityTokens.removeValue(forKey: sessionId)
+                if let session = sessions[sessionId] {
+                    session.startPushSent = false
+                    revivedSessions = true
+                }
+                log("アクティビティトークン破棄（iPhone 側で終了済み）: \(sessionId.prefix(8))")
+            }
+            for (sessionId, token) in map where tokens.activityTokens[sessionId] != token {
+                tokens.activityTokens[sessionId] = token
+                newActivitySessions.append(sessionId)
+                log("アクティビティトークン登録: session \(sessionId.prefix(8))")
+            }
+        }
+        tokens.save()
+
+        // 待たされていたプッシュを流す
+        if newStartToken || revivedSessions {
+            for session in sessions.values where !session.startPushSent {
+                pushStart(session)
+            }
+        }
+        for sessionId in newActivitySessions {
+            if let session = sessions[sessionId] {
+                pushUpdate(session)
+            }
+        }
+    }
+
+    // MARK: Claude Code hooks の処理
+
+    private func handleHook(_ json: [String: Any]) {
+        guard let event = json["hook_event_name"] as? String,
+              let sessionId = json["session_id"] as? String else { return }
+        // サブエージェント（Agent ツールや内部処理の裏側プロセス）発のフックは対象外。
+        // この環境ではユーザーが直接見ているメインセッション以外にも
+        // 短命な Claude Code プロセスがフックを発火させることがあるため
+        guard json["agent_id"] == nil else { return }
+
+        if event == "SessionEnd" {
+            if let session = sessions[sessionId] {
+                pushEnd(session)
+                sessions.removeValue(forKey: sessionId)
+                tokens.activityTokens.removeValue(forKey: sessionId)
+                tokens.save()
+            }
+            return
+        }
+
+        let session = ensureSession(sessionId, json: json)
+        session.lastHookAt = Date()
+        if let transcript = json["transcript_path"] as? String {
+            session.transcriptPath = transcript
+        }
+        var alert: [String: Any]? = nil
+
+        switch event {
+        case "SessionStart":
+            session.status = "waiting"
+            session.detail = "セッション開始"
+
+        case "UserPromptSubmit":
+            session.status = "working"
+            session.currentTool = ""
+            session.detail = ""
+            session.lastResponse = ""  // 新しいターンが始まるので前の返答は消す
+            session.hasSubstantiveActivity = true
+            if let prompt = json["prompt"] as? String {
+                session.lastPrompt = Self.truncate(prompt, 180)
+            }
+
+        case "PreToolUse":
+            session.status = "working"
+            session.hasSubstantiveActivity = true
+            let toolName = json["tool_name"] as? String ?? "?"
+            session.currentTool = toolName
+            session.toolCount += 1
+            let line = Self.toolLogLine(
+                name: toolName, input: json["tool_input"] as? [String: Any] ?? [:])
+            session.logs.insert(line, at: 0)
+            if session.logs.count > 6 { session.logs.removeLast() }
+
+        case "PostToolUse":
+            session.currentTool = ""
+
+        case "Notification":
+            let message = json["message"] as? String ?? ""
+            if message.localizedCaseInsensitiveContains("permission") {
+                session.status = "permission"
+                session.detail = message
+                alert = [
+                    "title": "\(session.projectName): 許可待ち",
+                    "body": message,
+                    "sound": "default",
+                ]
+            } else {
+                session.status = "waiting"
+                session.detail = message.isEmpty ? "入力を待っています" : message
+                alert = [
+                    "title": "\(session.projectName): 入力待ち",
+                    "body": session.detail,
+                    "sound": "default",
+                ]
+            }
+            session.currentTool = ""
+
+        case "Stop":
+            session.status = "done"
+            session.detail = ""
+            session.currentTool = ""
+            session.lastResponse = Self.extractLastResponse(json) ?? ""
+            alert = [
+                "title": "\(session.projectName): 完了",
+                "body": session.lastResponse.isEmpty
+                    ? "Claude Code の応答が完了しました" : session.lastResponse,
+                "sound": "default",
+            ]
+
+        case "PreCompact":
+            session.status = "compacting"
+            session.detail = "コンテキストを圧縮しています…"
+
+        default:
+            return  // SubagentStop などは表示しない
+        }
+
+        sync(session, alert: alert)
+    }
+
+    private func ensureSession(_ sessionId: String, json: [String: Any]) -> SessionState {
+        if let existing = sessions[sessionId] {
+            if existing.name.isEmpty,
+               let entry = loadSessionRegistry()[sessionId] {
+                existing.name = entry.name
+            }
+            return existing
+        }
+        let cwd = json["cwd"] as? String ?? ""
+        let projectName = cwd.isEmpty ? "Claude Code" : (cwd as NSString).lastPathComponent
+        let session = SessionState(id: sessionId, projectName: projectName, hostName: macName)
+        session.cwd = cwd
+        if let entry = loadSessionRegistry()[sessionId] {
+            session.name = entry.name
+        }
+        // デーモン再起動でメモリ上のセッションは消えるが、
+        // 既に per-activity トークンがあるなら iPhone 側にアクティビティは生きている。
+        // push-to-start を再送すると重複したアクティビティができてしまうので、
+        // 開始済み扱いにして update から再開する
+        if tokens.activityTokens[sessionId] != nil {
+            session.startPushSent = true
+        }
+        sessions[sessionId] = session
+        log("セッション開始: \(projectName) (\(sessionId.prefix(8)))")
+        return session
+    }
+
+    private static func truncate(_ text: String, _ max: Int) -> String {
+        let flattened = text.replacingOccurrences(of: "\n", with: " ")
+        return flattened.count <= max ? flattened : String(flattened.prefix(max)) + "…"
+    }
+
+    /// Stop フックの `last_assistant_message` から返答テキストを取り出す。
+    /// ドキュメントに厳密な型の記載がないため、素の文字列と
+    /// `{text:...}` / `{content:[{text:...}]}` 形の両方を受け付ける。
+    private static func extractLastResponse(_ json: [String: Any]) -> String? {
+        guard let raw = json["last_assistant_message"] else { return nil }
+        if let text = raw as? String {
+            return text.isEmpty ? nil : truncate(text, 300)
+        }
+        if let obj = raw as? [String: Any] {
+            if let text = obj["text"] as? String {
+                return truncate(text, 300)
+            }
+            if let content = obj["content"] as? [[String: Any]] {
+                let text = content.compactMap { $0["text"] as? String }.joined(separator: " ")
+                return text.isEmpty ? nil : truncate(text, 300)
+            }
+        }
+        return nil
+    }
+
+    private static func toolLogLine(name: String, input: [String: Any]) -> String {
+        let emoji: String
+        switch name {
+        case "Bash": emoji = "⚙️"
+        case "Read": emoji = "📖"
+        case "Edit", "Write", "NotebookEdit": emoji = "✏️"
+        case "Grep", "Glob": emoji = "🔍"
+        case "Task", "Agent": emoji = "🤖"
+        case "WebFetch", "WebSearch": emoji = "🌐"
+        default: emoji = "🔧"
+        }
+        var detail = ""
+        if let command = input["command"] as? String {
+            detail = command
+        } else if let path = input["file_path"] as? String {
+            detail = (path as NSString).lastPathComponent
+        } else if let pattern = input["pattern"] as? String {
+            detail = pattern
+        } else if let description = input["description"] as? String {
+            detail = description
+        } else if let prompt = input["prompt"] as? String {
+            detail = prompt
+        }
+        let text = detail.isEmpty ? name : "\(name): \(detail)"
+        return "\(emoji) \(truncate(text, 60))"
+    }
+
+    // MARK: プッシュ送信
+
+    /// 状態変化をアクティビティに反映する。
+    /// アラート付き（許可待ちなど）は即送信、それ以外は 1 秒間隔でまとめる。
+    private func sync(_ session: SessionState, alert: [String: Any]?) {
+        if !session.startPushSent {
+            pushStart(session)
+            return
+        }
+        guard tokens.activityTokens[session.id] != nil else { return }
+        if alert != nil {
+            pushUpdate(session, alert: alert)
+            return
+        }
+        let elapsed = Date().timeIntervalSince(session.lastPushAt)
+        if elapsed >= minPushInterval {
+            pushUpdate(session)
+        } else if !session.updateScheduled {
+            session.updateScheduled = true
+            queue.asyncAfter(deadline: .now() + (minPushInterval - elapsed)) { [weak self] in
+                session.updateScheduled = false
+                self?.pushUpdate(session)
+            }
+        }
+    }
+
+    private func contentState(for session: SessionState) -> [String: Any] {
+        [
+            "status": session.status,
+            "detail": session.detail,
+            "currentTool": session.currentTool,
+            "recentLogs": Array(session.logs.prefix(4)),
+            // ActivityKit のデフォルト JSONDecoder は Date を
+            // 2001-01-01 基準の秒数として読む
+            "startedAt": session.startedAt.timeIntervalSinceReferenceDate,
+            "toolCount": session.toolCount,
+            "lastPrompt": session.lastPrompt,
+            "lastResponse": session.lastResponse,
+            "sessionName": session.name,
+        ]
+    }
+
+    private func relevance(for session: SessionState) -> Double {
+        session.status == "permission" ? 1.0 : (session.status == "waiting" ? 0.8 : 0.5)
+    }
+
+    private func pushStart(_ session: SessionState) {
+        guard let token = tokens.pushToStartToken else { return }
+        guard !session.startPushSent else { return }
+        // アプリ側でローカル起動済み（トークンあり）なら開始プッシュは不要。
+        // 送ると同じセッションのアクティビティが二重にできてしまう
+        if tokens.activityTokens[session.id] != nil {
+            session.startPushSent = true
+            pushUpdate(session)
+            return
+        }
+        // プロンプト送信かツール実行が実際にあるまでは通知しない
+        // （SessionStart 直後に終わる裏側の短命プロセスを除外する）
+        guard session.hasSubstantiveActivity else { return }
+        // レジストリで「対話セッション」と確認できたものだけ通知する。
+        // サブエージェントや headless 実行はここで確実に落ちる
+        guard let entry = loadSessionRegistry()[session.id], entry.kind == "interactive" else {
+            return
+        }
+        if session.name.isEmpty { session.name = entry.name }
+
+        let now = Date()
+        recentStartPushes.removeAll { now.timeIntervalSince($0) > startPushWindow }
+        guard recentStartPushes.count < maxStartsPerWindow else {
+            log("push-to-start をレート制限で抑制: \(session.projectName) (\(session.id.prefix(8)))")
+            return
+        }
+        recentStartPushes.append(now)
+
+        session.startPushSent = true  // 多重送信防止（失敗したら戻す）
+        let payload: [String: Any] = [
+            "aps": [
+                "timestamp": Int(Date().timeIntervalSince1970),
+                "event": "start",
+                "content-state": contentState(for: session),
+                "attributes-type": "ClaudeActivityAttributes",
+                "attributes": [
+                    "sessionId": session.id,
+                    "projectName": session.projectName,
+                    "hostName": session.hostName,
+                ],
+                "alert": [
+                    "title": session.projectName,
+                    "body": "Claude Code セッション開始",
+                ],
+                "relevance-score": relevance(for: session),
+                "stale-date": Int(Date().timeIntervalSince1970) + 900,
+            ]
+        ]
+        apns.send(deviceToken: token, payload: payload,
+                  label: "start \(session.projectName)") { [queue] ok in
+            queue.async {
+                if ok {
+                    session.lastPushAt = Date()
+                } else {
+                    session.startPushSent = false
+                }
+            }
+        }
+    }
+
+    private func pushUpdate(_ session: SessionState, alert: [String: Any]? = nil) {
+        guard let token = tokens.activityTokens[session.id] else { return }
+        var aps: [String: Any] = [
+            "timestamp": Int(Date().timeIntervalSince1970),
+            "event": "update",
+            "content-state": contentState(for: session),
+            "relevance-score": relevance(for: session),
+            "stale-date": Int(Date().timeIntervalSince1970) + 900,
+        ]
+        if let alert { aps["alert"] = alert }
+        session.lastPushAt = Date()
+        apns.send(deviceToken: token, payload: ["aps": aps],
+                  label: "update \(session.projectName) [\(session.status)]") { _ in }
+    }
+
+    private func pushEnd(_ session: SessionState, status: String = "done",
+                         detail: String = "セッション終了", dismissAfter: Int = 180) {
+        guard let token = tokens.activityTokens[session.id] else { return }
+        var state = contentState(for: session)
+        state["status"] = status
+        state["detail"] = detail
+        state["currentTool"] = ""
+        let payload: [String: Any] = [
+            "aps": [
+                "timestamp": Int(Date().timeIntervalSince1970),
+                "event": "end",
+                "content-state": state,
+                "dismissal-date": Int(Date().timeIntervalSince1970) + dismissAfter,
+            ] as [String: Any]
+        ]
+        apns.send(deviceToken: token, payload: payload,
+                  label: "end \(session.projectName)") { _ in }
+        log("セッション終了 (\(status)): \(session.projectName) (\(session.id.prefix(8)))")
+    }
+
+    // MARK: 接続断の監視
+
+    /// working/compacting のまま、この時間フックが来なければ接続断とみなす。
+    /// 長時間かかるビルド等の誤検知を避けるため余裕を持たせる
+    private let disconnectTimeout: TimeInterval = 15 * 60
+
+    private func startWatchdog() {
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now() + 60, repeating: 60)
+        timer.setEventHandler { [weak self] in
+            self?.checkForDisconnectedSessions()
+        }
+        timer.resume()
+        watchdogTimer = timer
+    }
+
+    private func checkForDisconnectedSessions() {
+        let now = Date()
+        var changed = false
+        for session in sessions.values {
+            guard session.status == "working" || session.status == "compacting" else { continue }
+            guard now.timeIntervalSince(session.lastHookAt) > disconnectTimeout else { continue }
+            log("接続が途切れたと判断してアクティビティを終了: \(session.projectName) (\(session.id.prefix(8)))")
+            pushEnd(session, status: "error", detail: "接続が途切れたため終了しました", dismissAfter: 60)
+            sessions.removeValue(forKey: session.id)
+            if tokens.activityTokens.removeValue(forKey: session.id) != nil {
+                changed = true
+            }
+        }
+        if changed { tokens.save() }
+    }
+}
+
+// MARK: - エントリポイント
+
+let config = Config.load()
+let daemon = Daemon(config: config)
+daemon.start()
+dispatchMain()

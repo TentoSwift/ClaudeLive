@@ -1,0 +1,449 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		CB00000000000000000000A1 /* ClaudeLiveApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A1 /* ClaudeLiveApp.swift */; };
+		CB00000000000000000000A2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A2 /* ContentView.swift */; };
+		CB00000000000000000000A3 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A3 /* AppModel.swift */; };
+		CB00000000000000000000A4 /* ClaudeActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A4 /* ClaudeActivityAttributes.swift */; };
+		CB00000000000000000000A9 /* SessionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000AA /* SessionsView.swift */; };
+		CB00000000000000000000AB /* MarkdownText.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000AB /* MarkdownText.swift */; };
+		CB00000000000000000000A5 /* ClaudeActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A4 /* ClaudeActivityAttributes.swift */; };
+		CB00000000000000000000A6 /* ClaudeLiveWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A5 /* ClaudeLiveWidgetBundle.swift */; };
+		CB00000000000000000000A7 /* ClaudeLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A6 /* ClaudeLiveActivityWidget.swift */; };
+		CB00000000000000000000A8 /* ClaudeLiveWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000B0 /* ClaudeLiveWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		D100000000000000000000A1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CD00000000000000000000A3 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CD00000000000000000000A2;
+			remoteInfo = ClaudeLiveWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		CE00000000000000000000A3 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				CB00000000000000000000A8 /* ClaudeLiveWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		CA00000000000000000000A1 /* ClaudeLiveApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLiveApp.swift; sourceTree = "<group>"; };
+		CA00000000000000000000A2 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		CA00000000000000000000A3 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		CA00000000000000000000A4 /* ClaudeActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeActivityAttributes.swift; sourceTree = "<group>"; };
+		CA00000000000000000000A5 /* ClaudeLiveWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLiveWidgetBundle.swift; sourceTree = "<group>"; };
+		CA00000000000000000000A6 /* ClaudeLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLiveActivityWidget.swift; sourceTree = "<group>"; };
+		CA00000000000000000000A7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		CA00000000000000000000A8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		CA00000000000000000000A9 /* ClaudeLive.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ClaudeLive.entitlements; sourceTree = "<group>"; };
+		CA00000000000000000000AA /* SessionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionsView.swift; sourceTree = "<group>"; };
+		CA00000000000000000000AB /* MarkdownText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownText.swift; sourceTree = "<group>"; };
+		CA00000000000000000000AF /* ClaudeLive.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ClaudeLive.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CA00000000000000000000B0 /* ClaudeLiveWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = ClaudeLiveWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		CC00000000000000000000A1 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				CA00000000000000000000A1 /* ClaudeLiveApp.swift */,
+				CA00000000000000000000A2 /* ContentView.swift */,
+				CA00000000000000000000A3 /* AppModel.swift */,
+				CA00000000000000000000AA /* SessionsView.swift */,
+				CA00000000000000000000AB /* MarkdownText.swift */,
+				CA00000000000000000000A7 /* Info.plist */,
+				CA00000000000000000000A9 /* ClaudeLive.entitlements */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		CC00000000000000000000A2 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				CA00000000000000000000A4 /* ClaudeActivityAttributes.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		CC00000000000000000000A3 /* Widget */ = {
+			isa = PBXGroup;
+			children = (
+				CA00000000000000000000A8 /* Info.plist */,
+				CA00000000000000000000A5 /* ClaudeLiveWidgetBundle.swift */,
+				CA00000000000000000000A6 /* ClaudeLiveActivityWidget.swift */,
+			);
+			path = Widget;
+			sourceTree = "<group>";
+		};
+		CC00000000000000000000A4 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				CA00000000000000000000AF /* ClaudeLive.app */,
+				CA00000000000000000000B0 /* ClaudeLiveWidget.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		CC00000000000000000000A5 = {
+			isa = PBXGroup;
+			children = (
+				CC00000000000000000000A1 /* App */,
+				CC00000000000000000000A2 /* Shared */,
+				CC00000000000000000000A3 /* Widget */,
+				CC00000000000000000000A4 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		CD00000000000000000000A1 /* ClaudeLive */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D000000000000000000000A2 /* Build configuration list for PBXNativeTarget "ClaudeLive" */;
+			buildPhases = (
+				CE00000000000000000000A1 /* Sources */,
+				CE00000000000000000000A3 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D100000000000000000000A2 /* PBXTargetDependency */,
+			);
+			name = ClaudeLive;
+			packageProductDependencies = (
+			);
+			productName = ClaudeLive;
+			productReference = CA00000000000000000000AF /* ClaudeLive.app */;
+			productType = "com.apple.product-type.application";
+		};
+		CD00000000000000000000A2 /* ClaudeLiveWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D000000000000000000000A3 /* Build configuration list for PBXNativeTarget "ClaudeLiveWidget" */;
+			buildPhases = (
+				CE00000000000000000000A2 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ClaudeLiveWidget;
+			packageProductDependencies = (
+			);
+			productName = ClaudeLiveWidget;
+			productReference = CA00000000000000000000B0 /* ClaudeLiveWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		CD00000000000000000000A3 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					CD00000000000000000000A1 = {
+						DevelopmentTeam = LV3H7Q68W6;
+						ProvisioningStyle = Automatic;
+					};
+					CD00000000000000000000A2 = {
+						DevelopmentTeam = LV3H7Q68W6;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = D000000000000000000000A1 /* Build configuration list for PBXProject "ClaudeLive" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = CC00000000000000000000A5;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = CC00000000000000000000A4 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				CD00000000000000000000A1 /* ClaudeLive */,
+				CD00000000000000000000A2 /* ClaudeLiveWidget */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		CE00000000000000000000A1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CB00000000000000000000A1 /* ClaudeLiveApp.swift in Sources */,
+				CB00000000000000000000A2 /* ContentView.swift in Sources */,
+				CB00000000000000000000A3 /* AppModel.swift in Sources */,
+				CB00000000000000000000A9 /* SessionsView.swift in Sources */,
+				CB00000000000000000000AB /* MarkdownText.swift in Sources */,
+				CB00000000000000000000A4 /* ClaudeActivityAttributes.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CE00000000000000000000A2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CB00000000000000000000A5 /* ClaudeActivityAttributes.swift in Sources */,
+				CB00000000000000000000A6 /* ClaudeLiveWidgetBundle.swift in Sources */,
+				CB00000000000000000000A7 /* ClaudeLiveActivityWidget.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D100000000000000000000A2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CD00000000000000000000A2 /* ClaudeLiveWidget */;
+			targetProxy = D100000000000000000000A1 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		CF00000000000000000000A1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = LV3H7Q68W6;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Debug;
+		};
+		CF00000000000000000000A2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = LV3H7Q68W6;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Release;
+		};
+		CF00000000000000000000A3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/ClaudeLive.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = App/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.tento.ClaudeLive;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		CF00000000000000000000A4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/ClaudeLive.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = App/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.tento.ClaudeLive;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		CF00000000000000000000A5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = Widget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.tento.ClaudeLive.Widget;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		CF00000000000000000000A6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = Widget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.tento.ClaudeLive.Widget;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		D000000000000000000000A1 /* Build configuration list for PBXProject "ClaudeLive" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CF00000000000000000000A1 /* Debug */,
+				CF00000000000000000000A2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D000000000000000000000A2 /* Build configuration list for PBXNativeTarget "ClaudeLive" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CF00000000000000000000A3 /* Debug */,
+				CF00000000000000000000A4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D000000000000000000000A3 /* Build configuration list for PBXNativeTarget "ClaudeLiveWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CF00000000000000000000A5 /* Debug */,
+				CF00000000000000000000A6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = CD00000000000000000000A3 /* Project object */;
+}

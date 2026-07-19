@@ -1,0 +1,21 @@
+# Xcode / Swift build
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcworkspace/xcshareddata/swiftpm/Package.resolved
+.swiftpm/
+
+# Mac デーモンのビルド成果物・秘密情報（リポジトリに含めない）
+mac/claudelive-daemon
+*.p8
+AuthKey*.p8
+
+# ~/.claudelive/ 配下の実データ（config.json / tokens.json / *.log）は
+# もともとリポジトリ外だが、誤って持ち込んだ場合に備えて除外
+config.json
+tokens.json
+*.log
+
+# macOS
+.DS_Store
