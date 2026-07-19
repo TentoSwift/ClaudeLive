@@ -7,7 +7,7 @@ struct ClaudeLiveActivityWidget: Widget {
         ActivityConfiguration(for: ClaudeActivityAttributes.self) { context in
             // ロック画面 / 通知バナー
             LockScreenView(context: context)
-                .activityBackgroundTint(Color.black.opacity(0.65))
+                .activityBackgroundTint(Color.claudeBrand.opacity(0.65))
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             let status = ClaudeStatus(context.state.status)
