@@ -95,7 +95,10 @@ struct ClaudeLiveActivityWidget: Widget {
                                     .lineLimit(2)
                                     .contentTransition(.opacity)
                             }
-                            LogLinesView(logs: context.state.recentLogs, maxLines: 1)
+                            // 完了時、返答が長くて場所を取るならツールログは省いて返答を優先する
+                            if !(status == .done && context.state.lastResponse.count > 24) {
+                                LogLinesView(logs: context.state.recentLogs, maxLines: 1)
+                            }
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -348,8 +351,10 @@ private struct LockScreenView: View {
                     }
                 }
 
-                // 直近のツールログ
-                LogLinesView(logs: context.state.recentLogs, maxLines: 2)
+                // 直近のツールログ（完了時、返答が長くて場所を取るなら省いて返答を優先する）
+                if !(status == .done && context.state.lastResponse.count > 40) {
+                    LogLinesView(logs: context.state.recentLogs, maxLines: 2)
+                }
 
                 // フッタ: ツール実行数
                 if context.state.toolCount > 0 {
