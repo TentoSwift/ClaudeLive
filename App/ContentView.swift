@@ -140,6 +140,9 @@ struct ContentView: View {
             Button("マーキーテスト（質問文）") {
                 model.testMarqueeQuestion()
             }
+            Button("マーキーテスト（入力）") {
+                model.testMarqueePrompt()
+            }
             Button("マーキーテスト（返答）") {
                 model.testMarqueeResponse()
             }

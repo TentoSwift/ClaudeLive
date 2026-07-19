@@ -75,8 +75,15 @@ struct ClaudeLiveActivityWidget: Widget {
                                         color: .primary, lineHeight: 14)
                                 }
                             } else if !context.state.lastPrompt.isEmpty {
-                                ConversationLine(icon: "person.fill", iconColor: .secondary,
-                                                text: context.state.lastPrompt, maxLines: 2)
+                                HStack(alignment: .top, spacing: 6) {
+                                    Image(systemName: "person.fill")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                    MarqueeText(
+                                        text: context.state.lastPrompt,
+                                        font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
+                                        color: .secondary, lineHeight: 14)
+                                }
                             } else if !context.state.detail.isEmpty {
                                 Text(context.state.detail)
                                     .font(.footnote)
@@ -199,8 +206,15 @@ private struct LockScreenView: View {
 
                 // 直近のやり取り: ユーザー入力 → Claude の返答
                 if !context.state.lastPrompt.isEmpty {
-                    ConversationLine(icon: "person.fill", iconColor: .secondary,
-                                    text: context.state.lastPrompt, maxLines: 2)
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "person.fill")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        MarqueeText(
+                            text: context.state.lastPrompt,
+                            font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
+                            color: .secondary, lineHeight: 16)
+                    }
                 }
                 if !context.state.lastResponse.isEmpty {
                     HStack(alignment: .top, spacing: 6) {
@@ -375,26 +389,6 @@ private struct QuestionView: View {
                 .background(tint, in: Capsule())
         }
         .buttonStyle(.plain)
-    }
-}
-
-/// ユーザー入力 / Claude の返答を1行で表示する共通ビュー
-private struct ConversationLine: View {
-    let icon: String
-    let iconColor: Color
-    let text: String
-    let maxLines: Int
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Image(systemName: icon)
-                .font(.caption2)
-                .foregroundStyle(iconColor)
-            Text(text)
-                .font(.footnote)
-                .lineLimit(maxLines)
-                .contentTransition(.opacity)
-        }
     }
 }
 

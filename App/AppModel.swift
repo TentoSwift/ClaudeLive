@@ -493,7 +493,25 @@ final class AppModel: ObservableObject {
                 state.currentTool = ""
                 state.question = ""
                 state.options = []
+                state.lastPrompt = ""
                 state.lastResponse = "こちらは返答テキストのマーキーテストです。同じくわざと長く作った文章が横に流れるかどうかを、質問カードとは別に確認できます。"
+                await activity.update(.init(state: state, staleDate: nil))
+            }
+        }
+    }
+
+    func testMarqueePrompt() {
+        Task {
+            for activity in Activity<ClaudeActivityAttributes>.activities
+            where activity.attributes.sessionId == "test" {
+                var state = activity.content.state
+                state.status = "working"
+                state.detail = ""
+                state.currentTool = ""
+                state.question = ""
+                state.options = []
+                state.lastResponse = ""
+                state.lastPrompt = "こちらはユーザー入力のマーキーテストです。わざと長く作った文章が横に流れるかどうかを確認できます。"
                 await activity.update(.init(state: state, staleDate: nil))
             }
         }
