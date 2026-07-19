@@ -219,9 +219,10 @@ private struct QuestionView: View {
         VStack(alignment: .leading, spacing: compact ? 5 : 8) {
             Text(question)
                 .font(compact ? .caption2 : .subheadline.weight(.semibold))
-                // 選択肢を 1 行横並びにしたことで縦に余裕ができたので、
-                // Dynamic Island でも 2 行までは見せる（全文はロック画面で 4 行表示）
-                .lineLimit(compact ? 2 : 4)
+                // 質問中はヘッダー（プロジェクト名等）を消して縦を空けているので、
+                // Dynamic Island でも 3 行まで見せる（全文はロック画面で 4 行表示）
+                // ※ WidgetKit はアニメーションを実行しないためマーキー（流れるテキスト）は不可
+                .lineLimit(compact ? 3 : 4)
                 .fixedSize(horizontal: false, vertical: true)
 
             let items = Array(options.prefix(4))
