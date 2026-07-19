@@ -2,6 +2,14 @@ import ActivityKit
 import SwiftUI
 import WidgetKit
 
+/// インライン Markdown（**強調**・`コード` など）を解釈する
+private func styledMarkdown(_ text: String) -> AttributedString {
+    (try? AttributedString(
+        markdown: text,
+        options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
+        ?? AttributedString(text)
+}
+
 struct ClaudeLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: ClaudeActivityAttributes.self) { context in
@@ -70,33 +78,43 @@ struct ClaudeLiveActivityWidget: Widget {
                                          compact: true,
                                          isSettled: context.state.textSettled)
                         } else {
-                            if !context.state.lastResponse.isEmpty {
-                                // マーキーは 1 行なのでアイコンは中央揃え（.top だと浮く）
-                                HStack(alignment: .center, spacing: 6) {
-                                    ReplyIcon(size: 24, color: Color.claudeBrand, status: status)
-                                    MarqueeText(
-                                        text: context.state.lastResponse,
-                                        font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
-                                        color: .primary, lineHeight: 14,
-                                        isSettled: context.state.textSettled)
+                            // 完了時、返答が長くて場所を取るならツールログ・実行回数は省いて
+                            // 返答を複数行で優先表示する（マーキーは1行しか流せないため）
+                            let expandResponse = status == .done && context.state.lastResponse.count > 24
+                            if expandResponse {
+                                HStack(alignment: .top, spacing: 6) {
+                                    ReplyIcon(size: 20, color: Color.claudeBrand, status: status)
+                                    Text(styledMarkdown(context.state.lastResponse))
+                                        .font(.footnote)
+                                        .foregroundStyle(.primary)
+                                        .lineLimit(4)
                                 }
-                            } else if !context.state.lastPrompt.isEmpty {
-                                HStack(alignment: .center, spacing: 6) {
-                                    PromptIcon(size: 24, color: .secondary)
-                                    MarqueeText(
-                                        text: context.state.lastPrompt,
-                                        font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
-                                        color: .secondary, lineHeight: 14,
-                                        isSettled: context.state.textSettled)
+                            } else {
+                                if !context.state.lastResponse.isEmpty {
+                                    // マーキーは 1 行なのでアイコンは中央揃え（.top だと浮く）
+                                    HStack(alignment: .center, spacing: 6) {
+                                        ReplyIcon(size: 24, color: Color.claudeBrand, status: status)
+                                        MarqueeText(
+                                            text: context.state.lastResponse,
+                                            font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
+                                            color: .primary, lineHeight: 14,
+                                            isSettled: context.state.textSettled)
+                                    }
+                                } else if !context.state.lastPrompt.isEmpty {
+                                    HStack(alignment: .center, spacing: 6) {
+                                        PromptIcon(size: 24, color: .secondary)
+                                        MarqueeText(
+                                            text: context.state.lastPrompt,
+                                            font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
+                                            color: .secondary, lineHeight: 14,
+                                            isSettled: context.state.textSettled)
+                                    }
+                                } else if !context.state.detail.isEmpty {
+                                    Text(context.state.detail)
+                                        .font(.footnote)
+                                        .lineLimit(2)
+                                        .contentTransition(.opacity)
                                 }
-                            } else if !context.state.detail.isEmpty {
-                                Text(context.state.detail)
-                                    .font(.footnote)
-                                    .lineLimit(2)
-                                    .contentTransition(.opacity)
-                            }
-                            // 完了時、返答が長くて場所を取るならツールログは省いて返答を優先する
-                            if !(status == .done && context.state.lastResponse.count > 24) {
                                 LogLinesView(logs: context.state.recentLogs, maxLines: 1)
                             }
                         }
@@ -328,39 +346,49 @@ private struct LockScreenView: View {
                     Spacer(minLength: 0)
                 }
 
-                // 直近のやり取り: ユーザー入力 → Claude の返答
-                if !context.state.lastPrompt.isEmpty {
-                    // マーキーは 1 行なのでアイコンは中央揃え（.top だと浮く）
-                    HStack(alignment: .center, spacing: 6) {
-                        PromptIcon(size: 26, color: .secondary)
-                        MarqueeText(
-                            text: context.state.lastPrompt,
-                            font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
-                            color: .secondary, lineHeight: 16,
-                            isSettled: context.state.textSettled)
+                // 完了時、返答が長くて場所を取るならツールログ・実行回数は省いて
+                // 返答を複数行で優先表示する（マーキーは1行しか流せないため）
+                let expandResponse = status == .done && context.state.lastResponse.count > 40
+                if expandResponse {
+                    HStack(alignment: .top, spacing: 6) {
+                        ReplyIcon(size: 22, color: Color.claudeBrand, status: status)
+                        Text(styledMarkdown(context.state.lastResponse))
+                            .font(.footnote)
+                            .foregroundStyle(.primary)
+                            .lineLimit(4)
                     }
-                }
-                if !context.state.lastResponse.isEmpty {
-                    HStack(alignment: .center, spacing: 6) {
-                        ReplyIcon(size: 26, color: Color.claudeBrand, status: status)
-                        MarqueeText(
-                            text: context.state.lastResponse,
-                            font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
-                            color: .primary, lineHeight: 16,
-                            isSettled: context.state.textSettled)
+                } else {
+                    // 直近のやり取り: ユーザー入力 → Claude の返答
+                    if !context.state.lastPrompt.isEmpty {
+                        // マーキーは 1 行なのでアイコンは中央揃え（.top だと浮く）
+                        HStack(alignment: .center, spacing: 6) {
+                            PromptIcon(size: 26, color: .secondary)
+                            MarqueeText(
+                                text: context.state.lastPrompt,
+                                font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
+                                color: .secondary, lineHeight: 16,
+                                isSettled: context.state.textSettled)
+                        }
                     }
-                }
+                    if !context.state.lastResponse.isEmpty {
+                        HStack(alignment: .center, spacing: 6) {
+                            ReplyIcon(size: 26, color: Color.claudeBrand, status: status)
+                            MarqueeText(
+                                text: context.state.lastResponse,
+                                font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
+                                color: .primary, lineHeight: 16,
+                                isSettled: context.state.textSettled)
+                        }
+                    }
 
-                // 直近のツールログ（完了時、返答が長くて場所を取るなら省いて返答を優先する）
-                if !(status == .done && context.state.lastResponse.count > 40) {
                     LogLinesView(logs: context.state.recentLogs, maxLines: 2)
-                }
 
-                // フッタ: ツール実行数
-                if context.state.toolCount > 0 {
-                    Text("ツール実行 \(context.state.toolCount) 回")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                    // フッタ: ツール実行数
+                    if context.state.toolCount > 0 {
+                        Text("ツール実行 \(context.state.toolCount) 回")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
                 }
             }
         }
