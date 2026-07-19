@@ -233,12 +233,15 @@ private struct QuestionView: View {
 
             let items = Array(options.prefix(4))
             if compact {
-                // Dynamic Island: 見切れ防止のため 1 行に横並び
+                // Dynamic Island: 見切れ防止のため 1 行に横並び。
+                // カード自体の丸みにボタンの角が重ならないよう左右に余白を持たせる
                 HStack(spacing: 5) {
                     ForEach(Array(items.enumerated()), id: \.offset) { _, label in
                         answerButton(label)
                     }
                 }
+                .padding(.horizontal, 6)
+                .padding(.bottom, 4)
             } else {
                 // ロック画面: 2 列グリッド。最後の 1 個は横幅いっぱい
                 ForEach(0..<((items.count + 1) / 2), id: \.self) { row in
@@ -275,8 +278,8 @@ private struct QuestionView: View {
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, compact ? 6 : 10)
-                .padding(.horizontal, 4)
-                .background(tint, in: RoundedRectangle(cornerRadius: 9))
+                .padding(.horizontal, compact ? 8 : 6)
+                .background(tint, in: Capsule())
         }
         .buttonStyle(.plain)
     }
