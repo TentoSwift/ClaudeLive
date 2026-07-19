@@ -870,6 +870,11 @@ final class Daemon {
                     "body": message,
                     "sound": "default",
                 ]
+            } else if session.status == "done" {
+                // Stop で既に完了・返答表示済みのところに来る「入力待ち」通知は
+                // 何もしない。ここで終了させると、表示されたばかりの返答が
+                // 読む間もなく消えてしまう（実際に起きた不具合）
+                return
             } else {
                 // 入力待ちはライブアクティビティに残さない。通知だけ送って終了する
                 // （次に実際のやり取り＝UserPromptSubmit があるまで再開しない）
