@@ -152,7 +152,7 @@ private struct SmallSymbolIcon: View {
 
 /// 状態アイコン。
 /// - 作業中（.working）: Claude ブランドのモーフィングアニメ
-/// - 完了（.done）: Claude マーク + チェックのカスタムシンボル（Claude カラー）
+/// - 完了（.done）/ 質問（.question）: 専用のカスタムシンボル（Claude カラー）
 /// - それ以外: 通常の SF Symbols アイコン
 ///
 /// 見た目の大きさが揃うよう、SF Symbols とカスタムシンボルはどちらも
@@ -162,12 +162,21 @@ private struct StatusIconView: View {
     let size: CGFloat
     var animateWhenWorking: Bool = true
 
+    /// Claude マークにバッジを付けたカスタムシンボル（Assets.xcassets）
+    private var customSymbolName: String? {
+        switch status {
+        case .done:     return "ClaudeBadgeCheckmark"
+        case .question: return "ClaudeBadgeQuestionmark"
+        default:        return nil
+        }
+    }
+
     var body: some View {
         Group {
             if status == .working && animateWhenWorking {
                 SpinnerProofView(size: size, color: status.color)
-            } else if status == .done {
-                Image("ClaudeBadgeCheckmark")
+            } else if let name = customSymbolName {
+                Image(name)
                     .renderingMode(.template)
                     .resizable()
                     .scaledToFit()
