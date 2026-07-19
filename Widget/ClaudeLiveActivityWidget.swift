@@ -86,6 +86,17 @@ struct ClaudeLiveActivityWidget: Widget {
                                         .lineLimit(10)
                                 }
                             } else {
+                                // プロンプトと返答、両方あれば両方表示する（完了時も入力を残す）
+                                if !context.state.lastPrompt.isEmpty {
+                                    HStack(alignment: .center, spacing: 6) {
+                                        PromptIcon(size: 24, color: .secondary)
+                                        MarqueeText(
+                                            text: context.state.lastPrompt,
+                                            font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
+                                            color: .secondary, lineHeight: 14,
+                                            isSettled: context.state.textSettled)
+                                    }
+                                }
                                 if !context.state.lastResponse.isEmpty {
                                     // マーキーは 1 行なのでアイコンは中央揃え（.top だと浮く）
                                     HStack(alignment: .center, spacing: 6) {
@@ -96,16 +107,9 @@ struct ClaudeLiveActivityWidget: Widget {
                                             color: .primary, lineHeight: 14,
                                             isSettled: context.state.textSettled)
                                     }
-                                } else if !context.state.lastPrompt.isEmpty {
-                                    HStack(alignment: .center, spacing: 6) {
-                                        PromptIcon(size: 24, color: .secondary)
-                                        MarqueeText(
-                                            text: context.state.lastPrompt,
-                                            font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
-                                            color: .secondary, lineHeight: 14,
-                                            isSettled: context.state.textSettled)
-                                    }
-                                } else if !context.state.detail.isEmpty {
+                                }
+                                if context.state.lastPrompt.isEmpty, context.state.lastResponse.isEmpty,
+                                   !context.state.detail.isEmpty {
                                     Text(context.state.detail)
                                         .font(.footnote)
                                         .lineLimit(2)
