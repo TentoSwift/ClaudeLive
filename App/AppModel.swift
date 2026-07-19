@@ -25,6 +25,7 @@ final class AppModel: ObservableObject {
     struct RemoteSession: Identifiable {
         let id: String        // sessionId
         var name: String
+        var title: String
         var project: String
         var status: String
         var detail: String
@@ -181,6 +182,7 @@ final class AppModel: ObservableObject {
             return RemoteSession(
                 id: sessionId,
                 name: entry["name"] as? String ?? "",
+                title: entry["title"] as? String ?? "",
                 project: entry["project"] as? String ?? "",
                 status: entry["status"] as? String ?? "idle",
                 detail: entry["detail"] as? String ?? "",
@@ -270,6 +272,7 @@ final class AppModel: ObservableObject {
                 lastPrompt: "",
                 lastResponse: "",
                 sessionName: entry["name"] as? String ?? "",
+                sessionTitle: entry["title"] as? String ?? "",
                 question: "",
                 options: [])
             // pushType .token なのでトークンが発行され、track → /register 経由で
@@ -475,6 +478,7 @@ final class AppModel: ObservableObject {
             lastPrompt: "決定性のリプレイテストを追加して、CI で毎回回るようにして",
             lastResponse: "",
             sessionName: "claud-test",
+            sessionTitle: "決定性のリプレイテストを追加して、CI で毎回回るようにして",
             question: "",
             options: [])
         do {

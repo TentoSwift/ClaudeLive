@@ -125,6 +125,14 @@ private struct LockScreenView: View {
                     .foregroundStyle(.secondary)
             }
 
+            // セッションのタイトル（最初の入力から生成）。質問中は選択肢に譲って隠す
+            if !context.state.sessionTitle.isEmpty, status != .question {
+                Text(context.state.sessionTitle)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
             // メイン: 状態 + 実行中ツール
             HStack(spacing: 8) {
                 Image(systemName: status.icon)

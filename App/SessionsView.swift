@@ -102,6 +102,13 @@ private struct SessionRow: View {
                     .font(.caption)
                     .foregroundStyle(session.status == "idle" ? Color.secondary : status.color)
             }
+            // 質問中はボタン UI が主役なのでタイトルは出さない（他の状態では常に表示）
+            if !session.title.isEmpty, session.status != "question" {
+                Text(session.title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
             HStack(spacing: 6) {
                 Text(session.project)
                     .font(.caption)

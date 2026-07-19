@@ -429,6 +429,8 @@ final class SessionState {
     var hostName: String
     /// セッション名（~/.claude/sessions のレジストリ由来。例 "claud-52"）
     var name = ""
+    /// セッションのタイトル。最初のユーザー入力から一度だけ作り、以後変えない
+    var title = ""
     var cwd = ""
     var transcriptPath = ""
     var startedAt = Date()
@@ -739,6 +741,7 @@ final class Daemon {
             list.append([
                 "sessionId": sessionId,
                 "name": entry.name,
+                "title": session?.title ?? "",
                 "project": (entry.cwd as NSString).lastPathComponent,
                 "status": session?.status ?? "idle",
                 "detail": session?.detail ?? "",
@@ -1032,6 +1035,9 @@ final class Daemon {
             session.hasSubstantiveActivity = true
             if let prompt = json["prompt"] as? String {
                 session.lastPrompt = Self.truncate(prompt, 180)
+                if session.title.isEmpty {
+                    session.title = Self.truncate(prompt, 60)
+                }
             }
 
         case "PreToolUse":
@@ -1223,6 +1229,7 @@ final class Daemon {
             "lastPrompt": session.lastPrompt,
             "lastResponse": session.lastResponse,
             "sessionName": session.name,
+            "sessionTitle": session.title,
             "question": session.question,
             "options": session.options,
         ]

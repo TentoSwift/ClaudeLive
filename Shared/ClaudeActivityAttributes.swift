@@ -30,6 +30,9 @@ struct ClaudeActivityAttributes: ActivityAttributes {
         var lastResponse: String
         /// セッション名（例 "claud-52"）。後から判明することがあるので ContentState 側に持つ
         var sessionName: String
+        /// セッションのタイトル。最初のユーザー入力を短くしたもの（以後変わらない）。
+        /// Claude Code 自体はタイトルを保存しないので、このアプリ側で作った代替物
+        var sessionTitle: String
         /// Claude からの質問（AskUserQuestion）。空 = 質問なし
         var question: String
         /// 質問の選択肢ラベル（最大 4）。タップすると Mac へ回答が送られる
