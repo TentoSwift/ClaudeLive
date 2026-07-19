@@ -53,7 +53,7 @@ struct MarqueeText: View {
                     .font(font)
                     .foregroundStyle(color)
                     .lineLimit(1)
-                    .frame(width: width, alignment: .leading)
+                    .frame(width: width, height: lineHeight, alignment: .leading)
             } else {
                 // 右端の外から入り、左端の外まで完全に出て一巡（ジャンプカットで再開）
                 let gap: CGFloat = 32
