@@ -17,16 +17,12 @@ struct MarqueeText: View {
 
     private var uiFont: UIFont { .systemFont(ofSize: uiFontSize, weight: uiFontWeight) }
 
-    // 文字数が多いほどループを長くして、読める速さ（目安: 秒間 9 文字）を保つ。
-    // コマ数はレイヤーが増えすぎないよう上限 12 で頭打ちにする
-    // （マスクをタイル敷き詰めにした分、1コマあたりの部品数が増えたため、
-    // コマ数を欲張ると WidgetKit の複雑度制限に当たるリスクがある）
-    private var loopDuration: TimeInterval {
-        max(4, Double(text.count) / 9.0)
-    }
-    private var frameCount: Int {
-        min(12, max(8, Int((loopDuration * 1.5).rounded())))
-    }
+    // ★ この方式は特殊フォントの「1 秒ごと偶数/奇数の点滅＝周期 2 秒」に
+    //   完全に依存しているため、ループ長は 2 秒固定でなければ動かない
+    //   （変えるとコマの表示タイミングが点滅と噛み合わず静止する）。
+    //   動作実証済みのスピナーと同じ値。長文だと速いのは技術的な宿命
+    private let loopDuration: TimeInterval = 2.0
+    private let frameCount: Int = 10
 
     private func textWidth(_ text: String) -> CGFloat {
         (text as NSString).size(withAttributes: [.font: uiFont]).width
