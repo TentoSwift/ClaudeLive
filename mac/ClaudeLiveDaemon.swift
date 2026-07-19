@@ -16,6 +16,7 @@
 //   GET  /status    デバッグ用の状態表示
 //   POST /reset     トークン・開始フラグを全クリア
 
+import AppKit
 import CryptoKit
 import Foundation
 import Network
@@ -563,6 +564,7 @@ final class Daemon {
         listener.start(queue: queue)
         self.listener = listener
         startWatchdog()
+        observeSystemPowerEvents()
         log("起動: port \(config.port), APNs \(config.apnsHost), bundle \(config.bundleId)")
         if tokens.pushToStartToken == nil {
             log("push-to-start トークン未登録。iPhone で ClaudeLive アプリを開いて登録してください")
@@ -1381,6 +1383,41 @@ final class Daemon {
         }
         if changed { tokens.save() }
     }
+
+    // MARK: スリープ・シャットダウンの即時検知
+
+    /// 無音タイムアウトを待たず、Mac がスリープ／シャットダウンする瞬間に
+    /// 全セッションのライブアクティビティを終了する
+    private func observeSystemPowerEvents() {
+        let center = NSWorkspace.shared.notificationCenter
+        center.addObserver(forName: NSWorkspace.willSleepNotification,
+                           object: nil, queue: nil) { [weak self] _ in
+            self?.queue.async { self?.endAllForPowerEvent(reason: "Mac がスリープしたため終了しました") }
+        }
+        center.addObserver(forName: NSWorkspace.willPowerOffNotification,
+                           object: nil, queue: nil) { [weak self] _ in
+            self?.queue.async { self?.endAllForPowerEvent(reason: "Mac がシャットダウンしたため終了しました") }
+        }
+        center.addObserver(forName: NSWorkspace.didWakeNotification,
+                           object: nil, queue: nil) { [weak self] _ in
+            self?.queue.async { log("Mac のスリープ復帰を検知") }
+        }
+    }
+
+    private func endAllForPowerEvent(reason: String) {
+        var changed = false
+        for session in sessions.values {
+            guard session.status != "done" else { continue }
+            log("\(reason): \(session.projectName) (\(session.id.prefix(8)))")
+            releaseQuestion(sessionId: session.id, answer: nil, notify: false)
+            pushEnd(session, status: "error", detail: reason, dismissAfter: 30)
+            if tokens.activityTokens.removeValue(forKey: session.id) != nil {
+                changed = true
+            }
+        }
+        sessions.removeAll()
+        if changed { tokens.save() }
+    }
 }
 
 // MARK: - エントリポイント
@@ -1388,4 +1425,6 @@ final class Daemon {
 let config = Config.load()
 let daemon = Daemon(config: config)
 daemon.start()
-dispatchMain()
+// NSWorkspace の通知（スリープ/シャットダウン検知）は CFRunLoop を回さないと
+// 配信されないため、dispatchMain() ではなく RunLoop.main.run() で待ち受ける
+RunLoop.main.run()
