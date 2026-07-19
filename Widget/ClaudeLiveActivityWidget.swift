@@ -87,7 +87,7 @@ struct ClaudeLiveActivityWidget: Widget {
                                     Text(styledMarkdown(context.state.lastResponse))
                                         .font(.footnote)
                                         .foregroundStyle(.primary)
-                                        .lineLimit(4)
+                                        .lineLimit(5)
                                 }
                             } else {
                                 if !context.state.lastResponse.isEmpty {
@@ -252,7 +252,8 @@ private struct StatusIconView: View {
                     .resizable()
                     .scaledToFit()
                     .foregroundStyle(status.color)
-                    .symbolEffect(.pulse, isActive: status.needsAttention || status == .compacting)
+                    .symbolEffect(.pulse, isActive: status.needsAttention)
+                    .symbolEffect(.bounce.byLayer, options: .repeating, isActive: status == .compacting)
             }
         }
         .frame(width: size, height: size)
@@ -355,7 +356,7 @@ private struct LockScreenView: View {
                         Text(styledMarkdown(context.state.lastResponse))
                             .font(.footnote)
                             .foregroundStyle(.primary)
-                            .lineLimit(4)
+                            .lineLimit(5)
                     }
                 } else {
                     // 直近のやり取り: ユーザー入力 → Claude の返答
