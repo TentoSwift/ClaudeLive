@@ -313,6 +313,11 @@ final class AppModel: ObservableObject {
                     if case let .service(name, _, _, _) = $0.endpoint { return name }
                     return nil
                 }
+                // 回答ボタン（AnswerQuestionIntent）が Bonjour サービス名で
+                // 直接接続できるように保存しておく
+                if let first = self.discoveredServers.first {
+                    UserDefaults.standard.set(first, forKey: "lastServiceName")
+                }
                 self.registerToServer()
                 self.adoptSessions()
             }

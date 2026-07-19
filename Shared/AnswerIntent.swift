@@ -1,5 +1,6 @@
 import AppIntents
 import Foundation
+import Network
 
 /// ライブアクティビティの回答ボタンから実行される App Intent。
 /// LiveActivityIntent はアプリ本体のプロセスで実行されるため、
@@ -38,8 +39,15 @@ struct AnswerQuestionIntent: LiveActivityIntent {
             "pass": pass,
         ] as [String: Any]) else { return .result() }
 
-        // 直近の接続で確認できたデーモン URL → 手動指定の順に試す
         let defaults = UserDefaults.standard
+
+        // 1. Bonjour サービス名へ直接接続（IP アドレスに依存しない最も確実な経路）
+        if let serviceName = defaults.string(forKey: "lastServiceName"),
+           await Self.postOverService(name: serviceName, body: body) {
+            return .result()
+        }
+
+        // 2. 保存済み URL / 手動指定へのフォールバック
         var urls: [URL] = []
         if let saved = defaults.string(forKey: "lastDaemonURL"),
            let url = URL(string: saved + "/answer") {
@@ -62,5 +70,47 @@ struct AnswerQuestionIntent: LiveActivityIntent {
             }
         }
         return .result()
+    }
+
+    /// Bonjour サービスエンドポイントへ TCP 接続して素の HTTP/1.1 で POST する
+    /// （アプリ本体のトークン登録と同じ方式。名前解決は Network.framework 任せ）
+    private static func postOverService(name: String, body: Data) async -> Bool {
+        let endpoint = NWEndpoint.service(
+            name: name, type: "_claudelive._tcp", domain: "local", interface: nil)
+        return await withCheckedContinuation { continuation in
+            let queue = DispatchQueue(label: "claudelive.answer")
+            let connection = NWConnection(to: endpoint, using: .tcp)
+            var finished = false
+            let finish: (Bool) -> Void = { ok in
+                queue.async {
+                    guard !finished else { return }
+                    finished = true
+                    connection.cancel()
+                    continuation.resume(returning: ok)
+                }
+            }
+            queue.asyncAfter(deadline: .now() + 6) { finish(false) }
+            connection.stateUpdateHandler = { state in
+                switch state {
+                case .ready:
+                    var request = Data(
+                        "POST /answer HTTP/1.1\r\nHost: claudelive\r\nContent-Type: application/json\r\nContent-Length: \(body.count)\r\nConnection: close\r\n\r\n".utf8)
+                    request.append(body)
+                    connection.send(content: request, completion: .contentProcessed { error in
+                        guard error == nil else { finish(false); return }
+                        connection.receive(minimumIncompleteLength: 1, maximumLength: 4096) {
+                            data, _, _, _ in
+                            let head = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+                            finish(head.contains(" 200 "))
+                        }
+                    })
+                case .failed:
+                    finish(false)
+                default:
+                    break
+                }
+            }
+            connection.start(queue: queue)
+        }
     }
 }
