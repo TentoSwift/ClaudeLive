@@ -65,7 +65,7 @@ struct ClaudeLiveActivityWidget: Widget {
                             if !context.state.lastResponse.isEmpty {
                                 // マーキーは 1 行なのでアイコンは中央揃え（.top だと浮く）
                                 HStack(alignment: .center, spacing: 6) {
-                                    ReplyIcon(size: 24, color: Color.claudeBrand)
+                                    ReplyIcon(size: 24, color: Color.claudeBrand, status: status)
                                     MarqueeText(
                                         text: context.state.lastResponse,
                                         font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
@@ -171,9 +171,14 @@ private struct PromptIcon: View {
 private struct ReplyIcon: View {
     let size: CGFloat
     var color: Color = .primary
+    var status: ClaudeStatus? = nil
+
+    private var symbolName: String {
+        status == .done ? "ClaudeBubbleReplyDone" : "ClaudeBubbleReply"
+    }
 
     var body: some View {
-        Image("ClaudeBubbleReply")
+        Image(symbolName)
             .renderingMode(.template)
             .resizable()
             .scaledToFit()
@@ -320,7 +325,7 @@ private struct LockScreenView: View {
                 }
                 if !context.state.lastResponse.isEmpty {
                     HStack(alignment: .center, spacing: 6) {
-                        ReplyIcon(size: 26, color: Color.claudeBrand)
+                        ReplyIcon(size: 26, color: Color.claudeBrand, status: status)
                         MarqueeText(
                             text: context.state.lastResponse,
                             font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
