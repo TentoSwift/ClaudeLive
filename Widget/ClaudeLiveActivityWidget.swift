@@ -87,7 +87,7 @@ struct ClaudeLiveActivityWidget: Widget {
                                     Text(styledMarkdown(context.state.lastResponse))
                                         .font(.footnote)
                                         .foregroundStyle(.primary)
-                                        .lineLimit(5)
+                                        .lineLimit(7)
                                 }
                             } else {
                                 if !context.state.lastResponse.isEmpty {
@@ -356,7 +356,7 @@ private struct LockScreenView: View {
                         Text(styledMarkdown(context.state.lastResponse))
                             .font(.footnote)
                             .foregroundStyle(.primary)
-                            .lineLimit(5)
+                            .lineLimit(7)
                     }
                 } else {
                     // 直近のやり取り: ユーザー入力 → Claude の返答
