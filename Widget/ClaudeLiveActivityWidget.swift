@@ -64,9 +64,7 @@ struct ClaudeLiveActivityWidget: Widget {
                         } else {
                             if !context.state.lastResponse.isEmpty {
                                 HStack(alignment: .top, spacing: 6) {
-                                    Image(systemName: "sparkle")
-                                        .font(.caption2)
-                                        .foregroundStyle(status.color)
+                                    ClaudeMarkIcon(size: 11, color: status.color)
                                     MarqueeText(
                                         text: context.state.lastResponse,
                                         font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
@@ -97,8 +95,7 @@ struct ClaudeLiveActivityWidget: Widget {
                     .padding(.horizontal, 4)
                 }
             } compactLeading: {
-                Image(systemName: "sparkle")
-                    .foregroundStyle(status.color)
+                ClaudeMarkIcon(size: 16, color: status.color)
             } compactTrailing: {
                 StatusIconView(status: status, size: 20)
             } minimal: {
@@ -115,7 +112,23 @@ struct ClaudeLiveActivityWidget: Widget {
     }
 }
 
-/// ロック画面・バナーの表示
+/// Claude のマーク（Assets.xcassets のカスタムシンボル）。
+/// SF Symbols ではないので .font() ではサイズが決まらず、
+/// resizable + 明示サイズで描画する必要がある
+private struct ClaudeMarkIcon: View {
+    let size: CGFloat
+    var color: Color = .primary
+
+    var body: some View {
+        Image("ClaudeMark")
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .foregroundStyle(color)
+    }
+}
+
 /// 状態アイコン。作業中（.working）だけ Claude ブランドのモーフィングアニメ
 /// （SpinnerProofView）にし、それ以外は通常の SF Symbols アイコンにする
 private struct StatusIconView: View {
@@ -168,9 +181,7 @@ private struct LockScreenView: View {
             } else {
                 // ヘッダ: プロジェクト名・Mac 名・経過時間
                 HStack(spacing: 6) {
-                    Image(systemName: "sparkle")
-                        .font(.caption)
-                        .foregroundStyle(status.color)
+                    ClaudeMarkIcon(size: 13, color: status.color)
                     Text(context.attributes.projectName)
                         .font(.caption.bold())
                         .lineLimit(1)
@@ -235,9 +246,7 @@ private struct LockScreenView: View {
                 }
                 if !context.state.lastResponse.isEmpty {
                     HStack(alignment: .top, spacing: 6) {
-                        Image(systemName: "sparkle")
-                            .font(.caption)
-                            .foregroundStyle(status.color)
+                        ClaudeMarkIcon(size: 13, color: status.color)
                         MarqueeText(
                             text: context.state.lastResponse,
                             font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
