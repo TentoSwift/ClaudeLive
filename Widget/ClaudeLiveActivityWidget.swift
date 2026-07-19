@@ -14,8 +14,9 @@ struct ClaudeLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: ClaudeActivityAttributes.self) { context in
             // ロック画面 / 通知バナー
+            // watchOS の Smart Stack はカード側が背景を持つため、ここでは
+            // 黒背景を付けず LockScreenView 側で iOS のときだけ付ける
             LockScreenView(context: context)
-                .activityBackgroundTint(Color.black.opacity(0.65))
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             let status = ClaudeStatus(context.state.status)
@@ -274,6 +275,7 @@ private struct LockScreenView: View {
             WatchSmallView(context: context, status: status)
         } else {
             fullBody
+                .activityBackgroundTint(Color.black.opacity(0.65))
         }
     }
 
