@@ -1,5 +1,6 @@
 import CoreText
 import SwiftUI
+import UIKit
 
 // WidgetKit / ActivityKit のビュー内で「連続アニメーション」を実現するための仕組み。
 // 元ネタ: Kyome22/AnimationLimitBreaker（brycebostwick/WidgetAnimation ベース、いずれも公開 API のみ）
@@ -29,27 +30,48 @@ enum FrameAnimation {
         return CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
     }
 
+    /// バンドルに同梱したルーズなリソース画像（アセットカタログ不使用）を読み込む
+    static func bundledImage(_ name: String, ext: String = "png") -> Image? {
+        guard let url = Bundle(for: BundleToken.self).url(forResource: name, withExtension: ext)
+            ?? Bundle.main.url(forResource: name, withExtension: ext),
+              let uiImage = UIImage(contentsOfFile: url.path) else { return nil }
+        return Image(uiImage: uiImage)
+    }
+
     private final class BundleToken {}
 }
 
-/// 検証用: くるくる回る（ように見える）ゲージアイコンのコマ送りアニメ。
-/// これが Live Activity 内で実際に動けば、フォントマスク方式が使えると分かる
+/// Claude ブランドのモーフィングアイコン（星→花→放射→歯車…）をコマ送りする。
+/// 元画像は透過 PNG（Widget/Animation/spinner-frame*.png）で、既に色が
+/// ついているので tint はかけず、そのまま表示する
 struct SpinnerProofView: View {
     let size: CGFloat
-    let color: Color
+    let color: Color  // 画像読み込み失敗時のフォールバック表示にのみ使う
 
-    private static let percents = [0, 33, 50, 67, 100, 67, 50, 33]
+    private static let frameNames = [
+        "spinner-frame1", "spinner-frame2", "spinner-frame3",
+        "spinner-frame4", "spinner-frame5",
+    ]
 
     var body: some View {
         FrameAnimatingView(
             size: size,
             loopDuration: 2,
-            frames: Self.percents.map { p in
-                Image(systemName: "gauge.with.dots.needle.\(p)percent")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: size, height: size)
-                    .foregroundStyle(color)
+            frames: Self.frameNames.map { name in
+                Group {
+                    if let image = FrameAnimation.bundledImage(name) {
+                        image
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: size, height: size)
+                    } else {
+                        Image(systemName: "sparkle")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: size, height: size)
+                            .foregroundStyle(color)
+                    }
+                }
             })
     }
 }
