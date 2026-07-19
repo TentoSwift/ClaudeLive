@@ -260,7 +260,19 @@ private struct WatchSmallView: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                if !context.state.detail.isEmpty {
+
+                // 状態の一言だけでなく、Claude が実際に何を言った/何を頼まれたかを
+                // 一番情報量の多い内容として表示する（返答 > 入力 > detail の優先順）
+                if !context.state.lastResponse.isEmpty {
+                    Text(context.state.lastResponse)
+                        .font(.caption2)
+                        .lineLimit(3)
+                } else if !context.state.lastPrompt.isEmpty {
+                    Text(context.state.lastPrompt)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                } else if !context.state.detail.isEmpty {
                     Text(context.state.detail)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
