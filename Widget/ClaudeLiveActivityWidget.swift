@@ -28,21 +28,15 @@ struct ClaudeLiveActivityWidget: Widget {
                         .padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    // 質問中は経過時間よりも質問カードの横幅を優先する
-                    if status != .question {
-                        HStack(spacing: 4) {
-                            if !context.state.model.isEmpty {
-                                Text(shortModelName(context.state.model))
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-                            ElapsedTimerText(startedAt: context.state.startedAt)
-                                .font(.caption.monospacedDigit())
-                                .foregroundStyle(.secondary)
-                        }
-                        .frame(maxWidth: 100)
-                        .padding(.trailing, 4)
+                    // 質問中は経過時間よりも質問カードの横幅を優先する。
+                    // DI では経過時間は表示しない（ロック画面側にはある）
+                    if status != .question, !context.state.model.isEmpty {
+                        Text(shortModelName(context.state.model))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .frame(maxWidth: 100)
+                            .padding(.trailing, 4)
                     }
                 }
                 DynamicIslandExpandedRegion(.center) {
