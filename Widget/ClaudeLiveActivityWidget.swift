@@ -20,6 +20,8 @@ struct ClaudeLiveActivityWidget: Widget {
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             let status = ClaudeStatus(context.state.status)
+            // 完了時、返答が長くて場所を取るなら他の情報（プロジェクト名・状態ラベル等）は省く
+            let expandResponse = status == .done && context.state.lastResponse.count > 24
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     StatusIconView(status: status, size: 24)
@@ -44,9 +46,9 @@ struct ClaudeLiveActivityWidget: Widget {
                     }
                 }
                 DynamicIslandExpandedRegion(.center) {
-                    if status == .question {
-                        // 質問中はプロジェクト名・セッション名・「質問」ラベルも省き、
-                        // 質問カードに最大限スペースを譲る（ボタンで質問中だと分かるため冗長）
+                    if status == .question || expandResponse {
+                        // 質問中、または完了時の長い返答表示中はプロジェクト名・セッション名・
+                        // 状態ラベルも省き、内容の表示に最大限スペースを譲る
                         EmptyView()
                     } else {
                         VStack(spacing: 2) {
@@ -81,7 +83,6 @@ struct ClaudeLiveActivityWidget: Widget {
                         } else {
                             // 完了時、返答が長くて場所を取るならツールログ・実行回数は省いて
                             // 返答を複数行で優先表示する（マーキーは1行しか流せないため）
-                            let expandResponse = status == .done && context.state.lastResponse.count > 24
                             if expandResponse {
                                 HStack(alignment: .top, spacing: 6) {
                                     ReplyIcon(size: 20, color: Color.claudeBrand, status: status)
