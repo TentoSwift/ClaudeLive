@@ -95,6 +95,11 @@ struct ClaudeLiveActivityWidget: Widget {
             }
             .keylineTint(status.color)
         }
+        // watchOS 11+ の Smart Stack にも表示する（WWDC24 "Bring your Live
+        // Activity to Apple Watch"）。対応ファミリーは .small のみ。
+        // 新規の watch ターゲットは不要 — 既存の LockScreenView が
+        // activityFamily 環境値で分岐して描画する
+        .supplementalActivityFamilies([.small])
     }
 }
 
@@ -102,9 +107,21 @@ struct ClaudeLiveActivityWidget: Widget {
 private struct LockScreenView: View {
     let context: ActivityViewContext<ClaudeActivityAttributes>
 
+    // watchOS の Smart Stack から描画されるときだけ .small になる。
+    // iOS のロック画面 / バナーでは常に nil（＝ .small 以外の扱い）
+    @Environment(\.activityFamily) private var activityFamily
+
     private var status: ClaudeStatus { ClaudeStatus(context.state.status) }
 
     var body: some View {
+        if activityFamily == .small {
+            WatchSmallView(context: context, status: status)
+        } else {
+            fullBody
+        }
+    }
+
+    private var fullBody: some View {
         VStack(alignment: .leading, spacing: 6) {
             if !context.state.question.isEmpty {
                 // 質問中は質問文と選択肢ボタンだけを表示する
@@ -203,6 +220,55 @@ private struct LockScreenView: View {
                     .padding(8)
             }
         }
+    }
+}
+
+/// watchOS の Smart Stack（.small ファミリーのみ対応）向けの表示。
+/// スペースが極小なのでテキスト中心・要素は最小限にする。
+/// 質問中もボタンは出さず文字で知らせるだけ（回答は iPhone 側で行う）
+private struct WatchSmallView: View {
+    let context: ActivityViewContext<ClaudeActivityAttributes>
+    let status: ClaudeStatus
+
+    // 常時表示（Always On Display）中は輝度を落として表示される。
+    // 色をそのまま使うと明るすぎるので、暗めの表現に切り替える
+    @Environment(\.isLuminanceReduced) private var isLuminanceReduced
+
+    private var tint: Color { isLuminanceReduced ? .white.opacity(0.6) : status.color }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 4) {
+                Image(systemName: status.icon)
+                    .foregroundStyle(tint)
+                Text(context.state.sessionName.isEmpty
+                     ? context.attributes.projectName
+                     : context.state.sessionName)
+                    .font(.caption2.bold())
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+
+            if !context.state.question.isEmpty {
+                // 質問中は質問文を短く表示するだけ（回答ボタンは iPhone 側）
+                Text(context.state.question)
+                    .font(.caption2)
+                    .lineLimit(2)
+            } else {
+                Text(status.label
+                     + (context.state.currentTool.isEmpty ? "" : " · \(context.state.currentTool)"))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                if !context.state.detail.isEmpty {
+                    Text(context.state.detail)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
