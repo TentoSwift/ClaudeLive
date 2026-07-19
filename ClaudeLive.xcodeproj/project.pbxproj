@@ -19,6 +19,7 @@
 		CB00000000000000000000A6 /* ClaudeLiveWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A5 /* ClaudeLiveWidgetBundle.swift */; };
 		CB00000000000000000000A7 /* ClaudeLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A6 /* ClaudeLiveActivityWidget.swift */; };
 		CB00000000000000000000B1 /* FrameAnimation.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000B1 /* FrameAnimation.swift */; };
+		CB00000000000000000000B3 /* MarqueeText.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000B3 /* MarqueeText.swift */; };
 		CB00000000000000000000B2 /* FillRect-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000B2 /* FillRect-Regular.otf */; };
 		CB00000000000000000000A8 /* ClaudeLiveWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000B0 /* ClaudeLiveWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
@@ -55,6 +56,7 @@
 		CA00000000000000000000A5 /* ClaudeLiveWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLiveWidgetBundle.swift; sourceTree = "<group>"; };
 		CA00000000000000000000A6 /* ClaudeLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLiveActivityWidget.swift; sourceTree = "<group>"; };
 		CA00000000000000000000B1 /* FrameAnimation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameAnimation.swift; sourceTree = "<group>"; };
+		CA00000000000000000000B3 /* MarqueeText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarqueeText.swift; sourceTree = "<group>"; };
 		CA00000000000000000000B2 /* FillRect-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "FillRect-Regular.otf"; sourceTree = "<group>"; };
 		CA00000000000000000000A7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		CA00000000000000000000A8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -105,6 +107,7 @@
 			isa = PBXGroup;
 			children = (
 				CA00000000000000000000B1 /* FrameAnimation.swift */,
+				CA00000000000000000000B3 /* MarqueeText.swift */,
 				CA00000000000000000000B2 /* FillRect-Regular.otf */,
 			);
 			path = Animation;
@@ -232,6 +235,7 @@
 				CB00000000000000000000A6 /* ClaudeLiveWidgetBundle.swift in Sources */,
 				CB00000000000000000000A7 /* ClaudeLiveActivityWidget.swift in Sources */,
 				CB00000000000000000000B1 /* FrameAnimation.swift in Sources */,
+				CB00000000000000000000B3 /* MarqueeText.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

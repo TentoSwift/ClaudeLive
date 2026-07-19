@@ -65,8 +65,15 @@ struct ClaudeLiveActivityWidget: Widget {
                                          compact: true)
                         } else {
                             if !context.state.lastResponse.isEmpty {
-                                ConversationLine(icon: "sparkle", iconColor: status.color,
-                                                text: context.state.lastResponse, maxLines: 2)
+                                HStack(alignment: .top, spacing: 6) {
+                                    Image(systemName: "sparkle")
+                                        .font(.caption2)
+                                        .foregroundStyle(status.color)
+                                    MarqueeText(
+                                        text: context.state.lastResponse,
+                                        font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
+                                        color: .primary, lineHeight: 14)
+                                }
                             } else if !context.state.lastPrompt.isEmpty {
                                 ConversationLine(icon: "person.fill", iconColor: .secondary,
                                                 text: context.state.lastPrompt, maxLines: 2)
@@ -196,8 +203,15 @@ private struct LockScreenView: View {
                                     text: context.state.lastPrompt, maxLines: 2)
                 }
                 if !context.state.lastResponse.isEmpty {
-                    ConversationLine(icon: "sparkle", iconColor: status.color,
-                                    text: context.state.lastResponse, maxLines: 3)
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "sparkle")
+                            .font(.caption)
+                            .foregroundStyle(status.color)
+                        MarqueeText(
+                            text: context.state.lastResponse,
+                            font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
+                            color: .primary, lineHeight: 16)
+                    }
                 }
 
                 // 直近のツールログ
@@ -298,14 +312,15 @@ private struct QuestionView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 5 : 8) {
-            Text(question)
-                .font(compact ? .caption2 : .footnote.weight(.semibold))
-                // 質問中はステータス行やヘッダーを消して縦を空けているので、
-                // Dynamic Island は 3 行・ロック画面は 6 行まで見せる
-                // ※ WidgetKit はアニメーションを実行しないためマーキー（流れるテキスト）は不可
-                //   （_clockHandRotationEffect は現行 SDK で宣言が削除済みで使えない）
-                .lineLimit(compact ? 3 : 6)
-                .fixedSize(horizontal: false, vertical: true)
+            // 質問文はフォントマスク方式のコマ送りアニメで横スクロール表示する
+            // （公開 API のみで実現。Kyome22/AnimationLimitBreaker を移植）
+            MarqueeText(
+                text: question,
+                font: compact ? .caption2 : .footnote.weight(.semibold),
+                uiFontSize: compact ? 11 : 13,
+                uiFontWeight: compact ? .regular : .semibold,
+                color: .primary,
+                lineHeight: compact ? 14 : 18)
 
             let items = Array(options.prefix(4))
             if compact && items.count <= 3 {
