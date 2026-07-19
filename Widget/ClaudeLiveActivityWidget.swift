@@ -117,6 +117,7 @@ struct ClaudeLiveActivityWidget: Widget {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 4)
+                    .ignoresSafeArea(.container, edges: .bottom)
                 }
             } compactLeading: {
                 ClaudeMarkIcon(size: 20, color: status.color)
