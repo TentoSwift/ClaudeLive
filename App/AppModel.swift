@@ -410,9 +410,9 @@ final class AppModel: ObservableObject {
             detail: "",
             currentTool: "Bash",
             recentLogs: [
-                "⚙️ Bash: xcodebuild test -scheme BomberMP",
-                "✏️ Edit: Simulation.swift",
-                "📖 Read: GameState.swift",
+                "terminal|Bash: xcodebuild test -scheme BomberMP",
+                "pencil|Edit: Simulation.swift",
+                "doc.text|Read: GameState.swift",
             ],
             startedAt: Date(),
             toolCount: 12,

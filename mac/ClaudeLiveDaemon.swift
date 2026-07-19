@@ -1001,16 +1001,19 @@ final class Daemon {
         return nil
     }
 
+    /// ログ 1 行は "SFSymbol名|本文" 形式で送る。
+    /// 絵文字ではなく SF Symbols を使うため、アイコンの識別子だけを渡して
+    /// 実際の描画は iOS 側（LogLinesView）に任せる
     private static func toolLogLine(name: String, input: [String: Any]) -> String {
-        let emoji: String
+        let symbol: String
         switch name {
-        case "Bash": emoji = "⚙️"
-        case "Read": emoji = "📖"
-        case "Edit", "Write", "NotebookEdit": emoji = "✏️"
-        case "Grep", "Glob": emoji = "🔍"
-        case "Task", "Agent": emoji = "🤖"
-        case "WebFetch", "WebSearch": emoji = "🌐"
-        default: emoji = "🔧"
+        case "Bash": symbol = "terminal"
+        case "Read": symbol = "doc.text"
+        case "Edit", "Write", "NotebookEdit": symbol = "pencil"
+        case "Grep", "Glob": symbol = "magnifyingglass"
+        case "Task", "Agent": symbol = "sparkles"
+        case "WebFetch", "WebSearch": symbol = "globe"
+        default: symbol = "wrench.and.screwdriver"
         }
         var detail = ""
         if let command = input["command"] as? String {
@@ -1025,7 +1028,7 @@ final class Daemon {
             detail = prompt
         }
         let text = detail.isEmpty ? name : "\(name): \(detail)"
-        return "\(emoji) \(truncate(text, 60))"
+        return "\(symbol)|\(truncate(text, 60))"
     }
 
     // MARK: プッシュ送信

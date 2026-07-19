@@ -283,40 +283,54 @@ private struct WatchSmallView: View {
 
     private var tint: Color { isLuminanceReduced ? .white.opacity(0.6) : status.color }
 
+    /// インライン Markdown（**強調**・`コード` など）を解釈する
+    private func styled(_ text: String) -> AttributedString {
+        (try? AttributedString(
+            markdown: text,
+            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
+            ?? AttributedString(text)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            HStack(spacing: 4) {
+            HStack(spacing: 5) {
                 // 常時表示(AOD)中はアニメを止めて静止アイコンに（輝度を落とす必要があり、
                 // このアイコン画像は固定色のため tint を効かせられないため）
-                StatusIconView(status: status, size: 15, animateWhenWorking: !isLuminanceReduced)
+                StatusIconView(status: status, size: 22, animateWhenWorking: !isLuminanceReduced)
                 Text(context.state.sessionName.isEmpty
                      ? context.attributes.projectName
                      : context.state.sessionName)
                     .font(.caption2.bold())
+                    .lineLimit(1)
+                // 状態ラベル（「作業中」など）はセッション名の隣に置く
+                Text(status.label)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
                 Spacer(minLength: 0)
             }
 
             if !context.state.question.isEmpty {
                 // 質問中は質問文を短く表示するだけ（回答ボタンは iPhone 側）
-                Text(context.state.question)
+                Text(styled(context.state.question))
                     .font(.caption2)
                     .lineLimit(2)
             } else {
-                Text(status.label
-                     + (context.state.currentTool.isEmpty ? "" : " · \(context.state.currentTool)"))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                if !context.state.currentTool.isEmpty {
+                    Text(context.state.currentTool)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
 
                 // 状態の一言だけでなく、Claude が実際に何を言った/何を頼まれたかを
                 // 一番情報量の多い内容として表示する（返答 > 入力 > detail の優先順）
                 if !context.state.lastResponse.isEmpty {
-                    Text(context.state.lastResponse)
+                    Text(styled(context.state.lastResponse))
                         .font(.caption2)
                         .lineLimit(3)
                 } else if !context.state.lastPrompt.isEmpty {
-                    Text(context.state.lastPrompt)
+                    Text(styled(context.state.lastPrompt))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .lineLimit(3)
@@ -329,6 +343,8 @@ private struct WatchSmallView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
     }
 }
 
@@ -418,15 +434,31 @@ private struct LogLinesView: View {
     let logs: [String]
     let maxLines: Int
 
+    /// デーモンは "SFSymbol名|本文" 形式で送ってくる（絵文字は使わない）。
+    /// 区切りが無い古い形式は本文のみとして扱い、汎用アイコンを添える
+    private func split(_ line: String) -> (symbol: String, text: String) {
+        guard let index = line.firstIndex(of: "|") else {
+            return ("wrench.and.screwdriver", line)
+        }
+        return (String(line[line.startIndex..<index]),
+                String(line[line.index(after: index)...]))
+    }
+
     var body: some View {
         if !logs.isEmpty {
             VStack(alignment: .leading, spacing: 1) {
                 ForEach(Array(logs.prefix(maxLines).enumerated()), id: \.offset) { index, line in
-                    Text(line)
-                        .font(.caption2.monospaced())
-                        .foregroundStyle(index == 0 ? .secondary : .tertiary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                    let parsed = split(line)
+                    HStack(spacing: 4) {
+                        Image(systemName: parsed.symbol)
+                            .font(.caption2)
+                            .frame(width: 11)
+                        Text(parsed.text)
+                            .font(.caption2.monospaced())
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
+                    .foregroundStyle(index == 0 ? .secondary : .tertiary)
                 }
             }
         }

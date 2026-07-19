@@ -18,6 +18,16 @@ struct MarqueeText: View {
     /// ウィジェット自身は時間経過を監視できないため、この判定は呼び出し元任せ
     var isSettled: Bool = false
 
+    /// Markdown のインライン記法（**強調**・`コード`・*斜体* など）を解釈する。
+    /// マーキー中はコマ送りの各フレームで同一の見た目を保つ必要があるので
+    /// 適用せず、静止表示のときだけ効かせる
+    private var styled: AttributedString {
+        (try? AttributedString(
+            markdown: text,
+            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
+            ?? AttributedString(text)
+    }
+
     private var uiFont: UIFont { .systemFont(ofSize: uiFontSize, weight: uiFontWeight) }
 
     // ★ この方式は特殊フォントの「1 秒ごと偶数/奇数の点滅＝周期 2 秒」に
@@ -39,7 +49,7 @@ struct MarqueeText: View {
                 EmptyView()
             } else if measured <= width || isSettled {
                 // 収まる、または「1周流し終わって静止段階」→ アニメ不要
-                Text(text)
+                Text(styled)
                     .font(font)
                     .foregroundStyle(color)
                     .lineLimit(1)
