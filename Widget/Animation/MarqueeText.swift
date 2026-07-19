@@ -14,6 +14,9 @@ struct MarqueeText: View {
     let uiFontWeight: UIFont.Weight
     let color: Color
     var lineHeight: CGFloat = 16
+    /// true = 1周流し終えて静止表示にする段階（Mac 側デーモンが判断して送る）。
+    /// ウィジェット自身は時間経過を監視できないため、この判定は呼び出し元任せ
+    var isSettled: Bool = false
 
     private var uiFont: UIFont { .systemFont(ofSize: uiFontSize, weight: uiFontWeight) }
 
@@ -34,8 +37,8 @@ struct MarqueeText: View {
             let measured = textWidth(text)
             if text.isEmpty {
                 EmptyView()
-            } else if measured <= width {
-                // 収まるならアニメ不要
+            } else if measured <= width || isSettled {
+                // 収まる、または「1周流し終わって静止段階」→ アニメ不要
                 Text(text)
                     .font(font)
                     .foregroundStyle(color)

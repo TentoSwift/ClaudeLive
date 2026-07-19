@@ -214,7 +214,8 @@ final class AppModel: ObservableObject {
                 sessionName: entry["name"] as? String ?? "",
                 sessionTitle: entry["title"] as? String ?? "",
                 question: "",
-                options: [])
+                options: [],
+                textSettled: false)
             // pushType .token なのでトークンが発行され、track → /register 経由で
             // Mac に渡り、以後の update はプッシュで届く
             if let activity = try? Activity.request(
@@ -420,7 +421,8 @@ final class AppModel: ObservableObject {
             sessionName: "claud-test",
             sessionTitle: "決定性のリプレイテストを追加して、CI で毎回回るようにして",
             question: "",
-            options: [])
+            options: [],
+            textSettled: false)
         do {
             let activity = try Activity.request(
                 attributes: attrs,
@@ -459,15 +461,31 @@ final class AppModel: ObservableObject {
                 state.lastResponse = entry.response
                 state.question = entry.question
                 state.options = entry.options
+                state.textSettled = false
                 await activity.update(.init(state: state, staleDate: nil))
             }
         }
+        settleAfterDelay()
     }
 
     /// マーキー（横スクロール）の見た目だけを確認するための専用テスト。
     /// Mac / APNs を一切経由しないので、push-to-start budget の枯渇や
     /// AskUserQuestion の hooks 保留とは無関係に何度でも試せる。
     /// 質問文と返答は同時に表示されない（質問優先）ので、2 パターンに分ける
+    /// マーキーが1周流れたら静止表示に切り替わる挙動を、Mac のデーモンなしで
+    /// ローカル再現する（実機のデーモンと同じ 2.6 秒後に textSettled を立てる）
+    private func settleAfterDelay() {
+        Task {
+            try? await Task.sleep(for: .seconds(2.6))
+            for activity in Activity<ClaudeActivityAttributes>.activities
+            where activity.attributes.sessionId == "test" {
+                var state = activity.content.state
+                state.textSettled = true
+                await activity.update(.init(state: state, staleDate: nil))
+            }
+        }
+    }
+
     func testMarqueeQuestion() {
         Task {
             for activity in Activity<ClaudeActivityAttributes>.activities
@@ -478,9 +496,11 @@ final class AppModel: ObservableObject {
                 state.currentTool = ""
                 state.question = "マーキーのテストです。この質問文はわざと長く作っていて、1行に収まらないはずです。流れて見えていますか？"
                 state.options = ["流れて読める", "流れているが遅い/速い", "流れていない"]
+                state.textSettled = false
                 await activity.update(.init(state: state, staleDate: nil))
             }
         }
+        settleAfterDelay()
     }
 
     func testMarqueeResponse() {
@@ -495,9 +515,11 @@ final class AppModel: ObservableObject {
                 state.options = []
                 state.lastPrompt = ""
                 state.lastResponse = "こちらは返答テキストのマーキーテストです。同じくわざと長く作った文章が横に流れるかどうかを、質問カードとは別に確認できます。"
+                state.textSettled = false
                 await activity.update(.init(state: state, staleDate: nil))
             }
         }
+        settleAfterDelay()
     }
 
     func testMarqueePrompt() {
@@ -512,9 +534,11 @@ final class AppModel: ObservableObject {
                 state.options = []
                 state.lastResponse = ""
                 state.lastPrompt = "こちらはユーザー入力のマーキーテストです。わざと長く作った文章が横に流れるかどうかを確認できます。"
+                state.textSettled = false
                 await activity.update(.init(state: state, staleDate: nil))
             }
         }
+        settleAfterDelay()
     }
 
     func endTestActivities() {

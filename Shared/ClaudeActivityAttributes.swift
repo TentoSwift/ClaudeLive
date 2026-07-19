@@ -37,6 +37,11 @@ struct ClaudeActivityAttributes: ActivityAttributes {
         var question: String
         /// 質問の選択肢ラベル（最大 4）。タップすると Mac へ回答が送られる
         var options: [String]
+        /// true = マーキーを1周流し終えて静止表示に切り替える段階。
+        /// 新しいテキストが来ると false に戻り、また1周流れる。
+        /// ウィジェット側は時間経過を自力監視できないため、この判断は
+        /// Mac 側デーモンがタイマーで行い、専用の push で切り替える
+        var textSettled: Bool
     }
 
     var sessionId: String

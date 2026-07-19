@@ -232,6 +232,10 @@ final class SessionState {
     /// 直近でフックを受信した時刻。working/compacting のまま長時間これが
     /// 更新されない場合、Mac のスリープやネットワーク断とみなす
     var lastHookAt = Date()
+    /// マーキーを1周流し終えて静止表示にする段階か。question/lastPrompt/
+    /// lastResponse が変わるたびに false に戻し、少し待ってから true にする
+    var textSettled = false
+    var settleTimer: DispatchSourceTimer?
 
     init(id: String, projectName: String, hostName: String) {
         self.id = id
@@ -714,6 +718,7 @@ final class Daemon {
         session.options = Array(options)
         session.detail = ""
         session.currentTool = ""
+        markTextChanged(session)
 
         let pending = PendingQuestion(connection: connection)
         let timer = DispatchSource.makeTimerSource(queue: queue)
@@ -742,6 +747,26 @@ final class Daemon {
             log("iPhone から回答: session \(sessionId.prefix(8))「\(Self.truncate(answer, 40))」")
             releaseQuestion(sessionId: sessionId, answer: answer, notify: true)
         }
+    }
+
+    /// マーキー対象のテキスト（question/lastPrompt/lastResponse）が変わった直後に呼ぶ。
+    /// 静止段階を解除して1周分アニメさせ、少し待ってから静止表示に切り替える
+    /// push を送る。ウィジェット側は時間経過を自力で監視できないため、
+    /// この「いつ静止に切り替えるか」の判断は Mac 側が肩代わりする
+    private let marqueeSettleDelay: TimeInterval = 2.6  // ループ長(2秒)より少し長く
+    private func markTextChanged(_ session: SessionState) {
+        session.textSettled = false
+        session.settleTimer?.cancel()
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now() + marqueeSettleDelay)
+        timer.setEventHandler { [weak self] in
+            guard let self else { return }
+            session.textSettled = true
+            session.settleTimer = nil
+            self.pushUpdate(session)
+        }
+        timer.resume()
+        session.settleTimer = timer
     }
 
     /// 保留中のフック接続に応答して解放する。
@@ -792,6 +817,7 @@ final class Daemon {
         if event == "SessionEnd" {
             releaseQuestion(sessionId: sessionId, answer: nil, notify: false)
             if let session = sessions[sessionId] {
+                session.settleTimer?.cancel()
                 pushEnd(session)
                 sessions.removeValue(forKey: sessionId)
                 tokens.activityTokens.removeValue(forKey: sessionId)
@@ -826,6 +852,7 @@ final class Daemon {
                 if session.title.isEmpty {
                     session.title = Self.truncate(prompt, 60)
                 }
+                markTextChanged(session)
             }
 
         case "PreToolUse":
@@ -848,6 +875,7 @@ final class Daemon {
             // 反映する（transcript の非同期書き込みにより 1 手遅れになることがある）
             if let text = latestAssistantText(forSessionId: session.id), text != session.lastResponse {
                 session.lastResponse = Self.truncate(text, 300)
+                markTextChanged(session)
             }
 
         case "PostToolUse":
@@ -902,6 +930,7 @@ final class Daemon {
             session.question = ""
             session.options = []
             session.lastResponse = Self.extractLastResponse(json) ?? ""
+            markTextChanged(session)
             alert = [
                 "title": "\(session.projectName): 完了",
                 "body": session.lastResponse.isEmpty
@@ -1041,6 +1070,7 @@ final class Daemon {
             "sessionTitle": session.title,
             "question": session.question,
             "options": session.options,
+            "textSettled": session.textSettled,
         ]
     }
 
@@ -1174,6 +1204,7 @@ final class Daemon {
             guard now.timeIntervalSince(session.lastHookAt) > disconnectTimeout else { continue }
             log("接続が途切れたと判断してアクティビティを終了: \(session.projectName) (\(session.id.prefix(8)))")
             releaseQuestion(sessionId: session.id, answer: nil, notify: false)
+            session.settleTimer?.cancel()
             pushEnd(session, status: "error", detail: "接続が途切れたため終了しました", dismissAfter: 60)
             sessions.removeValue(forKey: session.id)
             if tokens.activityTokens.removeValue(forKey: session.id) != nil {
@@ -1209,6 +1240,7 @@ final class Daemon {
             guard session.status != "done" else { continue }
             log("\(reason): \(session.projectName) (\(session.id.prefix(8)))")
             releaseQuestion(sessionId: session.id, answer: nil, notify: false)
+            session.settleTimer?.cancel()
             pushEnd(session, status: "error", detail: reason, dismissAfter: 30)
             if tokens.activityTokens.removeValue(forKey: session.id) != nil {
                 changed = true

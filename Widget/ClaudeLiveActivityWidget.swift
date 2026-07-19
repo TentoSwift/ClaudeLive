@@ -59,7 +59,8 @@ struct ClaudeLiveActivityWidget: Widget {
                                          question: context.state.question,
                                          options: context.state.options,
                                          tint: status.color,
-                                         compact: true)
+                                         compact: true,
+                                         isSettled: context.state.textSettled)
                         } else {
                             if !context.state.lastResponse.isEmpty {
                                 HStack(alignment: .top, spacing: 6) {
@@ -69,7 +70,8 @@ struct ClaudeLiveActivityWidget: Widget {
                                     MarqueeText(
                                         text: context.state.lastResponse,
                                         font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
-                                        color: .primary, lineHeight: 14)
+                                        color: .primary, lineHeight: 14,
+                                        isSettled: context.state.textSettled)
                                 }
                             } else if !context.state.lastPrompt.isEmpty {
                                 HStack(alignment: .top, spacing: 6) {
@@ -79,7 +81,8 @@ struct ClaudeLiveActivityWidget: Widget {
                                     MarqueeText(
                                         text: context.state.lastPrompt,
                                         font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
-                                        color: .secondary, lineHeight: 14)
+                                        color: .secondary, lineHeight: 14,
+                                        isSettled: context.state.textSettled)
                                 }
                             } else if !context.state.detail.isEmpty {
                                 Text(context.state.detail)
@@ -160,7 +163,8 @@ private struct LockScreenView: View {
                              question: context.state.question,
                              options: context.state.options,
                              tint: status.color,
-                             compact: false)
+                             compact: false,
+                             isSettled: context.state.textSettled)
             } else {
                 // ヘッダ: プロジェクト名・Mac 名・経過時間
                 HStack(spacing: 6) {
@@ -225,7 +229,8 @@ private struct LockScreenView: View {
                         MarqueeText(
                             text: context.state.lastPrompt,
                             font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
-                            color: .secondary, lineHeight: 16)
+                            color: .secondary, lineHeight: 16,
+                            isSettled: context.state.textSettled)
                     }
                 }
                 if !context.state.lastResponse.isEmpty {
@@ -236,7 +241,8 @@ private struct LockScreenView: View {
                         MarqueeText(
                             text: context.state.lastResponse,
                             font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
-                            color: .primary, lineHeight: 16)
+                            color: .primary, lineHeight: 16,
+                            isSettled: context.state.textSettled)
                     }
                 }
 
@@ -336,6 +342,7 @@ private struct QuestionView: View {
     let options: [String]
     let tint: Color
     let compact: Bool
+    var isSettled: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 5 : 8) {
@@ -347,7 +354,8 @@ private struct QuestionView: View {
                 uiFontSize: compact ? 11 : 13,
                 uiFontWeight: compact ? .regular : .semibold,
                 color: .primary,
-                lineHeight: compact ? 14 : 18)
+                lineHeight: compact ? 14 : 18,
+                isSettled: isSettled)
 
             let items = Array(options.prefix(4))
             if compact && items.count <= 3 {
