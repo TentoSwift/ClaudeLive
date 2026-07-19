@@ -220,7 +220,7 @@ private struct QuestionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 5 : 8) {
             Text(question)
-                .font(compact ? .caption2 : .subheadline.weight(.semibold))
+                .font(compact ? .caption2 : .footnote.weight(.semibold))
                 // 質問中はステータス行やヘッダーを消して縦を空けているので、
                 // Dynamic Island は 3 行・ロック画面は 6 行まで見せる
                 // ※ WidgetKit はアニメーションを実行しないためマーキー（流れるテキスト）は不可
@@ -258,15 +258,6 @@ private struct QuestionView: View {
                 } else {
                     grid
                 }
-            }
-            if !compact {
-                Button(intent: AnswerQuestionIntent(sessionId: sessionId, answer: "", pass: true)) {
-                    Label("Macで回答する", systemImage: "desktopcomputer")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 1)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
