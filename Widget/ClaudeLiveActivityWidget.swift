@@ -48,19 +48,27 @@ struct ClaudeLiveActivityWidget: Widget {
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(alignment: .leading, spacing: 3) {
-                        if !context.state.lastResponse.isEmpty {
-                            ConversationLine(icon: "sparkle", iconColor: status.color,
-                                            text: context.state.lastResponse, maxLines: 2)
-                        } else if !context.state.lastPrompt.isEmpty {
-                            ConversationLine(icon: "person.fill", iconColor: .secondary,
-                                            text: context.state.lastPrompt, maxLines: 2)
-                        } else if !context.state.detail.isEmpty {
-                            Text(context.state.detail)
-                                .font(.footnote)
-                                .lineLimit(2)
-                                .contentTransition(.opacity)
+                        if !context.state.question.isEmpty {
+                            QuestionView(sessionId: context.attributes.sessionId,
+                                         question: context.state.question,
+                                         options: context.state.options,
+                                         tint: status.color,
+                                         compact: true)
+                        } else {
+                            if !context.state.lastResponse.isEmpty {
+                                ConversationLine(icon: "sparkle", iconColor: status.color,
+                                                text: context.state.lastResponse, maxLines: 2)
+                            } else if !context.state.lastPrompt.isEmpty {
+                                ConversationLine(icon: "person.fill", iconColor: .secondary,
+                                                text: context.state.lastPrompt, maxLines: 2)
+                            } else if !context.state.detail.isEmpty {
+                                Text(context.state.detail)
+                                    .font(.footnote)
+                                    .lineLimit(2)
+                                    .contentTransition(.opacity)
+                            }
+                            LogLinesView(logs: context.state.recentLogs, maxLines: 1)
                         }
-                        LogLinesView(logs: context.state.recentLogs, maxLines: 1)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 4)
@@ -138,18 +146,27 @@ private struct LockScreenView: View {
                 Spacer(minLength: 0)
             }
 
-            // 直近のやり取り: ユーザー入力 → Claude の返答
-            if !context.state.lastPrompt.isEmpty {
-                ConversationLine(icon: "person.fill", iconColor: .secondary,
-                                text: context.state.lastPrompt, maxLines: 2)
-            }
-            if !context.state.lastResponse.isEmpty {
-                ConversationLine(icon: "sparkle", iconColor: status.color,
-                                text: context.state.lastResponse, maxLines: 3)
-            }
+            if !context.state.question.isEmpty {
+                // 質問中は選択肢ボタンを優先表示（スペース確保のため会話・ログは隠す）
+                QuestionView(sessionId: context.attributes.sessionId,
+                             question: context.state.question,
+                             options: context.state.options,
+                             tint: status.color,
+                             compact: false)
+            } else {
+                // 直近のやり取り: ユーザー入力 → Claude の返答
+                if !context.state.lastPrompt.isEmpty {
+                    ConversationLine(icon: "person.fill", iconColor: .secondary,
+                                    text: context.state.lastPrompt, maxLines: 2)
+                }
+                if !context.state.lastResponse.isEmpty {
+                    ConversationLine(icon: "sparkle", iconColor: status.color,
+                                    text: context.state.lastResponse, maxLines: 3)
+                }
 
-            // 直近のツールログ
-            LogLinesView(logs: context.state.recentLogs, maxLines: 2)
+                // 直近のツールログ
+                LogLinesView(logs: context.state.recentLogs, maxLines: 2)
+            }
 
             // フッタ: ツール実行数
             if context.state.toolCount > 0 {
@@ -168,6 +185,62 @@ private struct LockScreenView: View {
                     .padding(8)
             }
         }
+    }
+}
+
+/// Claude からの質問と選択肢ボタン。
+/// タップすると AnswerQuestionIntent（アプリ本体プロセスで実行）が
+/// Mac デーモンの /answer に回答を POST し、保留中の PreToolUse フックが
+/// decision JSON で解決されて Claude が続行する
+private struct QuestionView: View {
+    let sessionId: String
+    let question: String
+    let options: [String]
+    let tint: Color
+    let compact: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: compact ? 4 : 6) {
+            Text(question)
+                .font(compact ? .caption.bold() : .footnote.bold())
+                .lineLimit(2)
+
+            // 選択肢は 2 列で並べる（最大 4）
+            let items = Array(options.prefix(4))
+            ForEach(0..<((items.count + 1) / 2), id: \.self) { row in
+                HStack(spacing: 4) {
+                    ForEach(0..<2, id: \.self) { column in
+                        let index = row * 2 + column
+                        if index < items.count {
+                            answerButton(items[index])
+                        }
+                    }
+                }
+            }
+
+            Button(intent: AnswerQuestionIntent(sessionId: sessionId, answer: "", pass: true)) {
+                Label("Macで回答する", systemImage: "desktopcomputer")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func answerButton(_ label: String) -> some View {
+        Button(intent: AnswerQuestionIntent(sessionId: sessionId, answer: label)) {
+            Text(label)
+                .font(.caption2.bold())
+                .lineLimit(1)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, compact ? 5 : 7)
+                .background(tint.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(tint.opacity(0.5), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
     }
 }
 

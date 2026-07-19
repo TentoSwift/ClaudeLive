@@ -58,6 +58,10 @@ struct Config: Codable {
     /// "development"（Xcode から入れたビルド）or "production"（TestFlight / App Store）
     var apnsEnvironment: String
     var port: UInt16
+    /// AskUserQuestion を iPhone で回答できるよう保留する秒数。
+    /// この間 Mac 側には質問が表示されない（タイムアウトで通常表示に戻る）。
+    /// 既存 config との互換のため Optional（未設定なら 60 秒）
+    var questionHoldSeconds: Int?
 
     static let template = Config(
         teamId: "LV3H7Q68W6",
@@ -65,7 +69,10 @@ struct Config: Codable {
         p8Path: "~/.claudelive/AuthKey.p8",
         bundleId: "com.tento.ClaudeLive",
         apnsEnvironment: "development",
-        port: 53536)
+        port: 53536,
+        questionHoldSeconds: 60)
+
+    var questionHold: TimeInterval { TimeInterval(questionHoldSeconds ?? 60) }
 
     static func load() -> Config {
         try? FileManager.default.createDirectory(at: baseDir, withIntermediateDirectories: true)
@@ -432,6 +439,9 @@ final class SessionState {
     var toolCount = 0
     var lastPrompt = ""
     var lastResponse = ""
+    /// AskUserQuestion の質問文と選択肢（iPhone 回答待ちの間だけ入る）
+    var question = ""
+    var options: [String] = []
     /// UserPromptSubmit か PreToolUse を一度でも観測したか。
     /// SessionStart だけで即終了する内部的・裏側のプロセス（サブエージェント等）を
     /// 通知しないためのゲート
@@ -508,6 +518,14 @@ final class Daemon {
     private let startPushWindow: TimeInterval = 120
 
     private var watchdogTimer: DispatchSourceTimer?
+
+    /// iPhone 回答待ちで保留中の AskUserQuestion フック接続
+    private final class PendingQuestion {
+        let connection: NWConnection
+        var timer: DispatchSourceTimer?
+        init(connection: NWConnection) { self.connection = connection }
+    }
+    private var pendingQuestions: [String: PendingQuestion] = [:]
 
     init(config: Config) {
         self.config = config
@@ -630,6 +648,27 @@ final class Daemon {
             respond(connection)  // hooks を待たせないよう先に応答
             if let json = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any] {
                 handleHook(json)
+            }
+        case ("POST", "/question"):
+            // AskUserQuestion の PreToolUse フック専用。iPhone で回答できるよう
+            // 接続を保留する（応答が decision JSON になり、フックの stdout として
+            // Claude Code に渡る）
+            if let json = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any] {
+                handleQuestionHook(json, on: connection)
+            } else {
+                respond(connection, json: "{}")
+            }
+        case ("POST", "/answer"):
+            // iPhone のライブアクティビティのボタン（AnswerQuestionIntent）から
+            if let json = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any],
+               let sessionId = json["sessionId"] as? String {
+                handleAnswer(
+                    sessionId: sessionId,
+                    answer: json["answer"] as? String ?? "",
+                    pass: json["pass"] as? Bool ?? false)
+                respond(connection)
+            } else {
+                respond(connection, status: "400 Bad Request", json: #"{"ok":false}"#)
             }
         case ("POST", "/register"):
             if let json = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any] {
@@ -851,6 +890,105 @@ final class Daemon {
         }
     }
 
+    // MARK: AskUserQuestion の iPhone 回答
+
+    /// AskUserQuestion の PreToolUse フックを保留し、質問をライブアクティビティへ送る。
+    /// 対象外（複数質問・アクティビティ未表示・サブエージェント等）は即座に素通しする
+    private func handleQuestionHook(_ json: [String: Any], on connection: NWConnection) {
+        guard json["agent_id"] == nil,
+              let sessionId = json["session_id"] as? String,
+              let toolInput = json["tool_input"] as? [String: Any],
+              let questions = toolInput["questions"] as? [[String: Any]],
+              questions.count == 1,  // 複数質問はボタンで表現しきれないので Mac に任せる
+              let first = questions.first,
+              let questionText = first["question"] as? String,
+              let rawOptions = first["options"] as? [[String: Any]],
+              tokens.activityTokens[sessionId] != nil  // アクティビティが出ていなければ保留する意味がない
+        else {
+            respond(connection, json: "{}")
+            return
+        }
+        let options = rawOptions.compactMap { $0["label"] as? String }.prefix(4)
+        guard !options.isEmpty else {
+            respond(connection, json: "{}")
+            return
+        }
+
+        // 既存の保留が残っていたら素通しで解放（多重質問は起きないはずだが保険）
+        releaseQuestion(sessionId: sessionId, answer: nil, notify: false)
+
+        let session = ensureSession(sessionId, json: json)
+        session.lastHookAt = Date()
+        session.status = "question"
+        session.question = Self.truncate(questionText, 200)
+        session.options = Array(options)
+        session.detail = ""
+        session.currentTool = ""
+
+        let pending = PendingQuestion(connection: connection)
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now() + config.questionHold)
+        timer.setEventHandler { [weak self] in
+            // 時間切れ: フックを素通しして Mac 側に質問を出す
+            self?.releaseQuestion(sessionId: sessionId, answer: nil, notify: true)
+        }
+        timer.resume()
+        pending.timer = timer
+        pendingQuestions[sessionId] = pending
+
+        log("質問を iPhone へ送信: \(session.projectName)「\(Self.truncate(questionText, 40))」")
+        pushUpdate(session, alert: [
+            "title": "\(session.projectName): 質問",
+            "body": Self.truncate(questionText, 100),
+            "sound": "default",
+        ])
+    }
+
+    private func handleAnswer(sessionId: String, answer: String, pass: Bool) {
+        if pass || answer.isEmpty {
+            log("iPhone から「Macで回答」: session \(sessionId.prefix(8))")
+            releaseQuestion(sessionId: sessionId, answer: nil, notify: true)
+        } else {
+            log("iPhone から回答: session \(sessionId.prefix(8))「\(Self.truncate(answer, 40))」")
+            releaseQuestion(sessionId: sessionId, answer: answer, notify: true)
+        }
+    }
+
+    /// 保留中のフック接続に応答して解放する。
+    /// answer あり → deny + 理由（Claude が回答として受け取る）、nil → 素通し
+    private func releaseQuestion(sessionId: String, answer: String?, notify: Bool) {
+        guard let pending = pendingQuestions.removeValue(forKey: sessionId) else { return }
+        pending.timer?.cancel()
+
+        if let answer {
+            let reason = "ユーザーは iPhone のライブアクティビティから「\(answer)」を選択しました。"
+                + "これをこの質問への回答として扱い、質問を再表示せずに続行してください。"
+            let output: [String: Any] = [
+                "hookSpecificOutput": [
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "deny",
+                    "permissionDecisionReason": reason,
+                ]
+            ]
+            let data = (try? JSONSerialization.data(withJSONObject: output)) ?? Data("{}".utf8)
+            respond(pending.connection, json: String(data: data, encoding: .utf8) ?? "{}")
+        } else {
+            respond(pending.connection, json: "{}")
+        }
+
+        guard notify, let session = sessions[sessionId] else { return }
+        if let answer {
+            session.status = "working"
+            session.detail = "回答: \(Self.truncate(answer, 60))"
+        } else {
+            session.status = "waiting"
+            session.detail = "Mac で質問に回答してください"
+        }
+        session.question = ""
+        session.options = []
+        pushUpdate(session)
+    }
+
     // MARK: Claude Code hooks の処理
 
     private func handleHook(_ json: [String: Any]) {
@@ -862,6 +1000,7 @@ final class Daemon {
         guard json["agent_id"] == nil else { return }
 
         if event == "SessionEnd" {
+            releaseQuestion(sessionId: sessionId, answer: nil, notify: false)
             if let session = sessions[sessionId] {
                 pushEnd(session)
                 sessions.removeValue(forKey: sessionId)
@@ -888,15 +1027,22 @@ final class Daemon {
             session.currentTool = ""
             session.detail = ""
             session.lastResponse = ""  // 新しいターンが始まるので前の返答は消す
+            session.question = ""
+            session.options = []
             session.hasSubstantiveActivity = true
             if let prompt = json["prompt"] as? String {
                 session.lastPrompt = Self.truncate(prompt, 180)
             }
 
         case "PreToolUse":
-            session.status = "working"
             session.hasSubstantiveActivity = true
             let toolName = json["tool_name"] as? String ?? "?"
+            // AskUserQuestion は /question 側（保留フック）が状態を管理するので
+            // ここで status を上書きしない
+            if toolName == "AskUserQuestion" { return }
+            session.status = "working"
+            session.question = ""
+            session.options = []
             session.currentTool = toolName
             session.toolCount += 1
             let line = Self.toolLogLine(
@@ -906,6 +1052,12 @@ final class Daemon {
 
         case "PostToolUse":
             session.currentTool = ""
+            // Mac 側で質問に回答された（保留素通し後）ケースの後片付け
+            if (json["tool_name"] as? String) == "AskUserQuestion" {
+                session.status = "working"
+                session.question = ""
+                session.options = []
+            }
 
         case "Notification":
             let message = json["message"] as? String ?? ""
@@ -932,6 +1084,8 @@ final class Daemon {
             session.status = "done"
             session.detail = ""
             session.currentTool = ""
+            session.question = ""
+            session.options = []
             session.lastResponse = Self.extractLastResponse(json) ?? ""
             alert = [
                 "title": "\(session.projectName): 完了",
@@ -1069,11 +1223,17 @@ final class Daemon {
             "lastPrompt": session.lastPrompt,
             "lastResponse": session.lastResponse,
             "sessionName": session.name,
+            "question": session.question,
+            "options": session.options,
         ]
     }
 
     private func relevance(for session: SessionState) -> Double {
-        session.status == "permission" ? 1.0 : (session.status == "waiting" ? 0.8 : 0.5)
+        switch session.status {
+        case "permission", "question": return 1.0
+        case "waiting": return 0.8
+        default: return 0.5
+        }
     }
 
     private func pushStart(_ session: SessionState) {
@@ -1194,6 +1354,7 @@ final class Daemon {
             guard session.status == "working" || session.status == "compacting" else { continue }
             guard now.timeIntervalSince(session.lastHookAt) > disconnectTimeout else { continue }
             log("接続が途切れたと判断してアクティビティを終了: \(session.projectName) (\(session.id.prefix(8)))")
+            releaseQuestion(sessionId: session.id, answer: nil, notify: false)
             pushEnd(session, status: "error", detail: "接続が途切れたため終了しました", dismissAfter: 60)
             sessions.removeValue(forKey: session.id)
             if tokens.activityTokens.removeValue(forKey: session.id) != nil {

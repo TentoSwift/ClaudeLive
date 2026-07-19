@@ -30,6 +30,10 @@ struct ClaudeActivityAttributes: ActivityAttributes {
         var lastResponse: String
         /// セッション名（例 "claud-52"）。後から判明することがあるので ContentState 側に持つ
         var sessionName: String
+        /// Claude からの質問（AskUserQuestion）。空 = 質問なし
+        var question: String
+        /// 質問の選択肢ラベル（最大 4）。タップすると Mac へ回答が送られる
+        var options: [String]
     }
 
     var sessionId: String
@@ -42,6 +46,7 @@ enum ClaudeStatus: String {
     case working
     case permission
     case waiting
+    case question
     case done
     case error
     case compacting
@@ -55,6 +60,7 @@ enum ClaudeStatus: String {
         case .working:    return "作業中"
         case .permission: return "許可待ち"
         case .waiting:    return "入力待ち"
+        case .question:   return "質問"
         case .done:       return "完了"
         case .error:      return "エラー"
         case .compacting: return "圧縮中"
@@ -66,6 +72,7 @@ enum ClaudeStatus: String {
         case .working:    return "hammer.fill"
         case .permission: return "hand.raised.fill"
         case .waiting:    return "bubble.left.and.text.bubble.right.fill"
+        case .question:   return "questionmark.circle.fill"
         case .done:       return "checkmark.circle.fill"
         case .error:      return "exclamationmark.triangle.fill"
         case .compacting: return "arrow.down.right.and.arrow.up.left"
@@ -77,6 +84,7 @@ enum ClaudeStatus: String {
         case .working:    return Color(red: 0.85, green: 0.47, blue: 0.34) // Claude オレンジ
         case .permission: return .yellow
         case .waiting:    return .cyan
+        case .question:   return .indigo
         case .done:       return .green
         case .error:      return .red
         case .compacting: return .purple
@@ -85,6 +93,6 @@ enum ClaudeStatus: String {
 
     /// アニメーションなどで「注意を引くべき状態」か
     var needsAttention: Bool {
-        self == .permission || self == .waiting
+        self == .permission || self == .waiting || self == .question
     }
 }

@@ -269,7 +269,9 @@ final class AppModel: ObservableObject {
                 toolCount: 0,
                 lastPrompt: "",
                 lastResponse: "",
-                sessionName: entry["name"] as? String ?? "")
+                sessionName: entry["name"] as? String ?? "",
+                question: "",
+                options: [])
             // pushType .token なのでトークンが発行され、track → /register 経由で
             // Mac に渡り、以後の update はプッシュで届く
             if let activity = try? Activity.request(
@@ -390,6 +392,15 @@ final class AppModel: ObservableObject {
             connection.stateUpdateHandler = { state in
                 switch state {
                 case .ready:
+                    // 接続先の実 IP を保存しておく。ライブアクティビティの回答ボタン
+                    // （AnswerQuestionIntent）が Bonjour 解決なしで即 POST できるように
+                    if case let .hostPort(host, port)? = connection.currentPath?.remoteEndpoint {
+                        let hostText = "\(host)"
+                        if !hostText.contains(":") {  // IPv6（スコープ付き）は URL にしにくいので除外
+                            UserDefaults.standard.set(
+                                "http://\(hostText):\(port)", forKey: "lastDaemonURL")
+                        }
+                    }
                     var request = Data(
                         "\(method) \(path) HTTP/1.1\r\nHost: claudelive\r\nConnection: close\r\n".utf8)
                     if let body {
@@ -458,7 +469,9 @@ final class AppModel: ObservableObject {
             toolCount: 12,
             lastPrompt: "決定性のリプレイテストを追加して、CI で毎回回るようにして",
             lastResponse: "",
-            sessionName: "claud-test")
+            sessionName: "claud-test",
+            question: "",
+            options: [])
         do {
             let activity = try Activity.request(
                 attributes: attrs,
@@ -472,12 +485,17 @@ final class AppModel: ObservableObject {
     }
 
     func cycleTestActivity() {
-        let cycle: [(status: String, detail: String, tool: String, prompt: String, response: String)] = [
-            ("permission", "Bash の実行許可を求めています", "", "", ""),
-            ("waiting", "", "", "", ""),
+        let cycle: [(status: String, detail: String, tool: String, prompt: String,
+                     response: String, question: String, options: [String])] = [
+            ("permission", "Bash の実行許可を求めています", "", "", "", "", []),
+            ("question", "", "", "", "",
+             "リプレイテストはどの粒度で追加しますか？",
+             ["毎 tick 検証", "最終状態のみ", "両方", "Macで決める"]),
+            ("waiting", "", "", "", "", "", []),
             ("done", "", "", "",
-             "決定性のリプレイテストを追加しました。同じ seed と入力列を2つの独立した State に流し、最終チェックサムが一致することを assert しています。テストは green です。"),
-            ("working", "", "Edit", "GameState.swift の Player 構造体を整理して", ""),
+             "決定性のリプレイテストを追加しました。同じ seed と入力列を2つの独立した State に流し、最終チェックサムが一致することを assert しています。テストは green です。",
+             "", []),
+            ("working", "", "Edit", "GameState.swift の Player 構造体を整理して", "", "", []),
         ]
         testStatusIndex = (testStatusIndex + 1) % cycle.count
         let entry = cycle[testStatusIndex]
@@ -490,6 +508,8 @@ final class AppModel: ObservableObject {
                 state.currentTool = entry.tool
                 if !entry.prompt.isEmpty { state.lastPrompt = entry.prompt }
                 state.lastResponse = entry.response
+                state.question = entry.question
+                state.options = entry.options
                 await activity.update(.init(state: state, staleDate: nil))
             }
         }

@@ -17,6 +17,14 @@ COMMAND = (
     "-H 'Content-Type: application/json' --data-binary @- "
     ">/dev/null 2>&1 || true"
 )
+# AskUserQuestion 専用: デーモンが iPhone の回答を待つ間フックを保留するので
+# タイムアウトを長くし、stdout（デーモンの decision JSON）は捨てずに返す
+QUESTION_MARKER = "127.0.0.1:53536/question"
+QUESTION_COMMAND = (
+    "curl -sS -m 90 -X POST http://127.0.0.1:53536/question "
+    "-H 'Content-Type: application/json' --data-binary @- "
+    "2>/dev/null || true"
+)
 EVENTS = [
     "SessionStart",
     "UserPromptSubmit",
@@ -53,6 +61,20 @@ def main():
             entry["matcher"] = "*"
         entries.append(entry)
         added.append(event)
+
+    # AskUserQuestion を iPhone から回答するための保留フック
+    entries = hooks.setdefault("PreToolUse", [])
+    question_installed = any(
+        QUESTION_MARKER in hook.get("command", "")
+        for entry in entries
+        for hook in entry.get("hooks", [])
+    )
+    if not question_installed:
+        entries.append({
+            "matcher": "AskUserQuestion",
+            "hooks": [{"type": "command", "command": QUESTION_COMMAND, "timeout": 120}],
+        })
+        added.append("PreToolUse(AskUserQuestion)")
 
     os.makedirs(os.path.dirname(SETTINGS), exist_ok=True)
     with open(SETTINGS, "w") as f:

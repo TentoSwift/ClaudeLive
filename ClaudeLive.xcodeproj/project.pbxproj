@@ -13,6 +13,8 @@
 		CB00000000000000000000A4 /* ClaudeActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A4 /* ClaudeActivityAttributes.swift */; };
 		CB00000000000000000000A9 /* SessionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000AA /* SessionsView.swift */; };
 		CB00000000000000000000AB /* MarkdownText.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000AB /* MarkdownText.swift */; };
+		CB00000000000000000000AC /* AnswerIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000AC /* AnswerIntent.swift */; };
+		CB00000000000000000000AD /* AnswerIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000AC /* AnswerIntent.swift */; };
 		CB00000000000000000000A5 /* ClaudeActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A4 /* ClaudeActivityAttributes.swift */; };
 		CB00000000000000000000A6 /* ClaudeLiveWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A5 /* ClaudeLiveWidgetBundle.swift */; };
 		CB00000000000000000000A7 /* ClaudeLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A6 /* ClaudeLiveActivityWidget.swift */; };
@@ -55,6 +57,7 @@
 		CA00000000000000000000A9 /* ClaudeLive.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ClaudeLive.entitlements; sourceTree = "<group>"; };
 		CA00000000000000000000AA /* SessionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionsView.swift; sourceTree = "<group>"; };
 		CA00000000000000000000AB /* MarkdownText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownText.swift; sourceTree = "<group>"; };
+		CA00000000000000000000AC /* AnswerIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnswerIntent.swift; sourceTree = "<group>"; };
 		CA00000000000000000000AF /* ClaudeLive.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ClaudeLive.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CA00000000000000000000B0 /* ClaudeLiveWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = ClaudeLiveWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -78,6 +81,7 @@
 			isa = PBXGroup;
 			children = (
 				CA00000000000000000000A4 /* ClaudeActivityAttributes.swift */,
+				CA00000000000000000000AC /* AnswerIntent.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -200,6 +204,7 @@
 				CB00000000000000000000A9 /* SessionsView.swift in Sources */,
 				CB00000000000000000000AB /* MarkdownText.swift in Sources */,
 				CB00000000000000000000A4 /* ClaudeActivityAttributes.swift in Sources */,
+				CB00000000000000000000AC /* AnswerIntent.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -208,6 +213,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CB00000000000000000000A5 /* ClaudeActivityAttributes.swift in Sources */,
+				CB00000000000000000000AD /* AnswerIntent.swift in Sources */,
 				CB00000000000000000000A6 /* ClaudeLiveWidgetBundle.swift in Sources */,
 				CB00000000000000000000A7 /* ClaudeLiveActivityWidget.swift in Sources */,
 			);

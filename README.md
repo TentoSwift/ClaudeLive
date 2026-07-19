@@ -19,7 +19,14 @@ Mac で動いている **Claude Code の状態を iPhone のライブアクテ�
 - **接続断の自動検知**: `working`/`compacting` のまま 15 分フックが届かなければ（Mac のスリープ・ネットワーク断・Claude Code のクラッシュ等）、Mac 側から能動的にライブアクティビティを終了させる。長時間のビルド等を誤検知しないよう余裕を持たせている
 - アプリ内の会話表示は **Markdown レンダリング**対応（見出し・箇条書き・番号リスト・コードブロック・引用・強調・インラインコード。表は非対応で段落として表示）
 - アプリから **セッション一覧・会話の閲覧（読み取り専用）・使用量（5時間/週間制限）** を確認できる（同一 Wi-Fi 時のみ）。
-  セッションへの返信・書き込みはできない（安全のため意図的に非搭載）
+  セッションへの自由な返信・書き込みはできない（安全のため意図的に非搭載）
+- **Claude からの質問（AskUserQuestion）に iPhone から回答できる**：
+  質問が来ると選択肢ボタンがライブアクティビティに表示され、タップで回答が Mac へ届く。
+  仕組みは hooks の公式 decision 機構のみ — AskUserQuestion の PreToolUse フックをデーモンが
+  最大 `questionHoldSeconds`（既定 60 秒）保留し、iPhone のボタン（App Intent）からの回答を
+  `permissionDecision: deny` + 理由として返すと、Claude はそれを回答として続行する。
+  タイムアウトか「Macで回答する」ボタンで即座に通常の Mac 表示に戻る。
+  ⚠️ 保留中は Mac 側に質問が出ない（最大でその秒数待たされる）trade-off がある
 
 ### デーモンのエンドポイント
 
@@ -30,6 +37,8 @@ Mac で動いている **Claude Code の状態を iPhone のライブアクテ�
 | `GET /sessions` | 対話セッション一覧（`~/.claude/sessions` レジストリ + フック状態のマージ） |
 | `GET /messages?session=<id>&limit=N` | transcript JSONL から会話テキストを抽出（読み取り専用） |
 | `GET /usage` | Claude Code の使用量（5時間/週間制限）。60秒キャッシュ |
+| `POST /question` | AskUserQuestion の PreToolUse フック専用。iPhone 回答待ちで保留 |
+| `POST /answer` | iPhone の回答ボタン（App Intent）からの `{sessionId, answer, pass}` |
 | `POST /reset` | トークン・開始フラグを全クリア（表示が壊れたときの脱出口） |
 | `GET /status` | デバッグ用状態 |
 
