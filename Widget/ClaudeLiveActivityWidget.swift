@@ -232,9 +232,8 @@ private struct QuestionView: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             let items = Array(options.prefix(4))
-            if compact {
-                // Dynamic Island: 見切れ防止のため 1 行に横並び。
-                // カード自体の丸みにボタンの角が重ならないよう左右に余白を持たせる
+            if compact && items.count <= 2 {
+                // Dynamic Island・選択肢 2 個以下: 1 行に横並び（幅に余裕がある）
                 HStack(spacing: 5) {
                     ForEach(Array(items.enumerated()), id: \.offset) { _, label in
                         answerButton(label)
@@ -243,8 +242,10 @@ private struct QuestionView: View {
                 .padding(.horizontal, 6)
                 .padding(.bottom, 4)
             } else {
-                // ロック画面: 2 列グリッド。最後の 1 個は横幅いっぱい
-                ForEach(0..<((items.count + 1) / 2), id: \.self) { row in
+                // ロック画面、および DI で選択肢 3 個以上: 2 列グリッド。
+                // 1 行 4 個だと横幅が狭すぎて長い単語が折り返し、DI の高さ上限を
+                // 超えて下端が切れる事故があったため、2 列にして横幅を確保する
+                let grid = ForEach(0..<((items.count + 1) / 2), id: \.self) { row in
                     HStack(spacing: 6) {
                         ForEach(0..<2, id: \.self) { column in
                             let index = row * 2 + column
@@ -254,6 +255,13 @@ private struct QuestionView: View {
                         }
                     }
                 }
+                if compact {
+                    grid.padding(.horizontal, 6).padding(.bottom, 4)
+                } else {
+                    grid
+                }
+            }
+            if !compact {
                 Button(intent: AnswerQuestionIntent(sessionId: sessionId, answer: "", pass: true)) {
                     Label("Macで回答する", systemImage: "desktopcomputer")
                         .font(.caption)
