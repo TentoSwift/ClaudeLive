@@ -273,7 +273,9 @@ private struct QuestionView: View {
                 .minimumScaleFactor(0.55)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
+                // 1 行のラベルと 2 行のラベルが同じ行内に並んでも高さが揃うよう、
+                // 常に 2 行ぶんの高さを確保する（短いラベルは上下中央に収まる）
+                .frame(maxWidth: .infinity, minHeight: compact ? 24 : 32)
                 .padding(.vertical, compact ? 6 : 10)
                 .padding(.horizontal, compact ? 8 : 6)
                 .background(tint, in: Capsule())
