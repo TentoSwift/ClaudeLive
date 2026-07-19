@@ -148,10 +148,8 @@ private struct LockScreenView: View {
             } else {
                 // ヘッダ: プロジェクト名・Mac 名・経過時間
                 HStack(spacing: 6) {
-                    // 【検証中】コマ送りアニメが Live Activity 内で動くかの実証。
-                    // 動けば本命のテキストマーキー実装に進む。動かなければ削除する
-                    SpinnerProofView(size: 16, color: status.color)
-                        .frame(width: 16, height: 16)
+                    SpinnerProofView(size: 28, color: status.color)
+                        .frame(width: 28, height: 28)
                     Text(context.attributes.projectName)
                         .font(.caption.bold())
                         .lineLimit(1)
