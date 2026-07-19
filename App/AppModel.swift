@@ -464,6 +464,41 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// マーキー（横スクロール）の見た目だけを確認するための専用テスト。
+    /// Mac / APNs を一切経由しないので、push-to-start budget の枯渇や
+    /// AskUserQuestion の hooks 保留とは無関係に何度でも試せる。
+    /// 質問文と返答は同時に表示されない（質問優先）ので、2 パターンに分ける
+    func testMarqueeQuestion() {
+        Task {
+            for activity in Activity<ClaudeActivityAttributes>.activities
+            where activity.attributes.sessionId == "test" {
+                var state = activity.content.state
+                state.status = "question"
+                state.detail = ""
+                state.currentTool = ""
+                state.question = "マーキーのテストです。この質問文はわざと長く作っていて、1行に収まらないはずです。流れて見えていますか？"
+                state.options = ["流れて読める", "流れているが遅い/速い", "流れていない"]
+                await activity.update(.init(state: state, staleDate: nil))
+            }
+        }
+    }
+
+    func testMarqueeResponse() {
+        Task {
+            for activity in Activity<ClaudeActivityAttributes>.activities
+            where activity.attributes.sessionId == "test" {
+                var state = activity.content.state
+                state.status = "working"
+                state.detail = ""
+                state.currentTool = ""
+                state.question = ""
+                state.options = []
+                state.lastResponse = "こちらは返答テキストのマーキーテストです。同じくわざと長く作った文章が横に流れるかどうかを、質問カードとは別に確認できます。"
+                await activity.update(.init(state: state, staleDate: nil))
+            }
+        }
+    }
+
     func endTestActivities() {
         Task {
             for activity in Activity<ClaudeActivityAttributes>.activities

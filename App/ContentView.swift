@@ -137,13 +137,19 @@ struct ContentView: View {
             Button("テストの状態を切り替え") {
                 model.cycleTestActivity()
             }
+            Button("マーキーテスト（質問文）") {
+                model.testMarqueeQuestion()
+            }
+            Button("マーキーテスト（返答）") {
+                model.testMarqueeResponse()
+            }
             Button("テストを終了", role: .destructive) {
                 model.endTestActivities()
             }
         } header: {
             Text("ローカルテスト")
         } footer: {
-            Text("APNs を使わずにライブアクティビティの見た目を確認できます。")
+            Text("APNs を使わずにライブアクティビティの見た目を確認できます。マーキーテストは push-to-start budget や AskUserQuestion の hooks 保留を一切使わないので、何度でも試せます。")
         }
     }
 }
