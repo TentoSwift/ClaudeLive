@@ -22,7 +22,7 @@ struct MarqueeText: View {
     //   （変えるとコマの表示タイミングが点滅と噛み合わず静止する）。
     //   動作実証済みのスピナーと同じ値。長文だと速いのは技術的な宿命
     private let loopDuration: TimeInterval = 2.0
-    private let frameCount: Int = 10
+    private let frameCount: Int = 8  // 実証済みスピナーと同じコマ数
 
     private func textWidth(_ text: String) -> CGFloat {
         (text as NSString).size(withAttributes: [.font: uiFont]).width

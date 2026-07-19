@@ -94,17 +94,15 @@ private struct FlashingView: View {
 /// 任意の View 配列を、指定した周期でコマ送りループ再生する。
 /// 各コマは「その時間帯だけ表示される」マスクで切り替わる。
 ///
-/// マスクは動作実証済みの小サイズ（32pt 角）の点滅タイルを横に敷き詰めて面を作る。
-/// scaleEffect による拡大や、特殊フォントの巨大サイズ描画はタイマー更新が
-/// 壊れることが実機で確認されたため一切使わない（変形なしが鉄則）
+/// マスクは 1 コマにつき点滅 1 組（タイマーテキスト 2 個）だけにする。
+/// タイルを敷き詰める方式は自動更新テキストが数百個になり、WidgetKit の
+/// 上限を超えてタイマーが刻まれなくなる（＝全コマ静止する）ため使わない。
+/// 実証済みのスピナー（8 コマ × 2 個 = 16 個）と同じ部品数スケールを守る
 struct FrameAnimatingView<Content: View>: View {
     let coverWidth: CGFloat
     let coverHeight: CGFloat
     let loopDuration: TimeInterval
     let frames: [Content]
-
-    /// 点滅タイル 1 枚の辺長。スピナー（16pt）で実証済みのレンジに収める
-    private let tileSize: CGFloat = 32
 
     init(coverWidth: CGFloat, coverHeight: CGFloat, loopDuration: TimeInterval = 2,
          frames: [Content]) {
@@ -123,19 +121,16 @@ struct FrameAnimatingView<Content: View>: View {
         let per = loopDuration / TimeInterval(max(frames.count, 1))
         // timer テキストの基準は 2001-01-01 0:00。ここを起点に各コマの表示区間を割り当てる
         let base = Date(timeIntervalSinceReferenceDate: 0)
-        let columns = max(1, Int((coverWidth / tileSize).rounded(.up)))
+        // 覆いたい面の長辺に合わせた 1 枚の正方形マスクで覆う
+        // （特殊フォントの黒四角グリフはベクターなので大きくしても描画は保たれる）
+        let maskSize = max(coverWidth, coverHeight)
         ZStack {
             ForEach(Array(frames.enumerated()), id: \.offset) { index, frame in
                 let start = base.addingTimeInterval(per * TimeInterval(index))
                 let end = start.addingTimeInterval(per)
                 frame
                     .mask {
-                        HStack(spacing: 0) {
-                            ForEach(0..<columns, id: \.self) { _ in
-                                FlashingView(start: start, end: end, size: tileSize)
-                            }
-                        }
-                        .frame(width: coverWidth, height: coverHeight)
+                        FlashingView(start: start, end: end, size: maskSize)
                     }
             }
         }
