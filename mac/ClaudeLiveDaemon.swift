@@ -448,6 +448,8 @@ final class SessionState {
     /// SessionStart だけで即終了する内部的・裏側のプロセス（サブエージェント等）を
     /// 通知しないためのゲート
     var hasSubstantiveActivity = false
+    /// iPhone 側でアクティビティを消された。次の UserPromptSubmit まで再開始しない
+    var dismissedByUser = false
     var startPushSent = false
     var lastPushAt = Date.distantPast
     var updateScheduled = false
@@ -858,22 +860,28 @@ final class Daemon {
             log("push-to-start トークン登録 (\(tokens.deviceName ?? "?"))")
         }
         var newActivitySessions: [String] = []
-        var revivedSessions = false
         if let map = json["activityTokens"] as? [String: String] {
             // iPhone 側の「いま生きているアクティビティ」のスナップショットとして扱う。
-            // 消えたトークンは破棄し、そのセッションを再開始可能に戻す
+            // 消えたトークンは破棄する
             // （アクティビティを手動で消されると、古いトークン宛ての update は
             // APNs 200 のまま黙って捨てられ続けるので、Mac 側からは検知できない）
             for sessionId in tokens.activityTokens.keys where map[sessionId] == nil {
                 tokens.activityTokens.removeValue(forKey: sessionId)
                 if let session = sessions[sessionId] {
+                    // ユーザーが消したアクティビティを勝手に即再作成しない。
+                    // （以前は即 pushStart していたが、テストのたびにスワイプで消す →
+                    // 数秒後に自動復活、のループで push-to-start budget を食い潰した）
+                    // 次の UserPromptSubmit（ユーザーが再びやり取りした時）だけ再開始を許す
                     session.startPushSent = false
-                    revivedSessions = true
+                    session.dismissedByUser = true
                 }
-                log("アクティビティトークン破棄（iPhone 側で終了済み）: \(sessionId.prefix(8))")
+                log("アクティビティトークン破棄（iPhone 側で終了済み・自動再作成しない）: \(sessionId.prefix(8))")
             }
             for (sessionId, token) in map where tokens.activityTokens[sessionId] != token {
                 tokens.activityTokens[sessionId] = token
+                if let session = sessions[sessionId] {
+                    session.dismissedByUser = false  // アプリからの取り込み等で復活した
+                }
                 newActivitySessions.append(sessionId)
                 log("アクティビティトークン登録: session \(sessionId.prefix(8))")
             }
@@ -881,7 +889,7 @@ final class Daemon {
         tokens.save()
 
         // 待たされていたプッシュを流す
-        if newStartToken || revivedSessions {
+        if newStartToken {
             for session in sessions.values where !session.startPushSent {
                 pushStart(session)
             }
@@ -1033,6 +1041,7 @@ final class Daemon {
             session.question = ""
             session.options = []
             session.hasSubstantiveActivity = true
+            session.dismissedByUser = false  // ユーザーが再びやり取りした → 表示再開してよい
             if let prompt = json["prompt"] as? String {
                 session.lastPrompt = Self.truncate(prompt, 180)
                 if session.title.isEmpty {
@@ -1256,6 +1265,8 @@ final class Daemon {
         // プロンプト送信かツール実行が実際にあるまでは通知しない
         // （SessionStart 直後に終わる裏側の短命プロセスを除外する）
         guard session.hasSubstantiveActivity else { return }
+        // ユーザーが消したアクティビティは、次のプロンプト送信まで復活させない
+        guard !session.dismissedByUser else { return }
         // レジストリで「対話セッション」と確認できたものだけ通知する。
         // サブエージェントや headless 実行はここで確実に落ちる
         guard let entry = loadSessionRegistry()[session.id], entry.kind == "interactive" else {
