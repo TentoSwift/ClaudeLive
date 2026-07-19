@@ -239,7 +239,7 @@ private struct StatusIconView: View {
 
     var body: some View {
         Group {
-            if (status == .working || status == .compacting) && animateWhenWorking {
+            if status == .working && animateWhenWorking {
                 SpinnerProofView(size: size, color: status.color)
             } else if let name = customSymbolName {
                 Image(name)
@@ -252,7 +252,7 @@ private struct StatusIconView: View {
                     .resizable()
                     .scaledToFit()
                     .foregroundStyle(status.color)
-                    .symbolEffect(.pulse, isActive: status.needsAttention)
+                    .symbolEffect(.pulse, isActive: status.needsAttention || status == .compacting)
             }
         }
         .frame(width: size, height: size)
