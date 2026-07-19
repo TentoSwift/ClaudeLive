@@ -17,12 +17,12 @@ struct MarqueeText: View {
 
     private var uiFont: UIFont { .systemFont(ofSize: uiFontSize, weight: uiFontWeight) }
 
-    // ★ ループ長は物理的に「2 秒」（秒の 1 の位の点滅）か「20 秒」（10 の位）の
-    //   どちらかしか作れない。マーキーは読みやすさ優先で 20 秒モードを使う。
-    //   コマ数は自動更新タイマーテキストの上限（多すぎると全静止）と
-    //   滑らかさのバランスで決める（16 コマ = タイマーテキスト 32 個/マーキー）
-    private let loopDuration: TimeInterval = 20.0
-    private let frameCount: Int = 16
+    // ★ この方式は特殊フォントの「1 秒ごと偶数/奇数の点滅＝周期 2 秒」に
+    //   完全に依存しているため、ループ長は 2 秒固定でなければ動かない
+    //   （変えるとコマの表示タイミングが点滅と噛み合わず静止する）。
+    //   動作実証済みのスピナーと同じ値。長文だと速いのは技術的な宿命
+    private let loopDuration: TimeInterval = 2.0
+    private let frameCount: Int = 8  // 実証済みスピナーと同じコマ数
 
     private func textWidth(_ text: String) -> CGFloat {
         (text as NSString).size(withAttributes: [.font: uiFont]).width
@@ -42,33 +42,24 @@ struct MarqueeText: View {
                     .lineLimit(1)
                     .frame(width: width, alignment: .leading)
             } else {
-                // テキストを 2 連結し、1 ループでちょうど 1 コピー分だけ進める。
-                // ループ末尾と先頭で見た目が一致するので、リセットの飛びが見えない
-                // シームレスなティッカーになる
-                let gap: CGFloat = 48
-                let copyLength = measured + gap
+                // 右端の外から入り、左端の外まで完全に出て一巡（ジャンプカットで再開）
+                let gap: CGFloat = 32
+                let startX = width
+                let endX = -(measured + gap)
                 FrameAnimatingView(
                     coverWidth: width,
                     coverHeight: lineHeight,
                     loopDuration: loopDuration,
-                    slow: true,
                     frames: (0..<frameCount).map { i -> AnyView in
-                        let x = -copyLength * CGFloat(i) / CGFloat(frameCount)
+                        let t = CGFloat(i) / CGFloat(frameCount)
+                        let x = startX + (endX - startX) * t
                         return AnyView(
-                            HStack(spacing: gap) {
-                                Text(text)
-                                    .font(font)
-                                    .foregroundStyle(color)
-                                    .lineLimit(1)
-                                    .fixedSize()
-                                Text(text)
-                                    .font(font)
-                                    .foregroundStyle(color)
-                                    .lineLimit(1)
-                                    .fixedSize()
-                            }
-                            .fixedSize()
-                            .offset(x: x)
+                            Text(text)
+                                .font(font)
+                                .foregroundStyle(color)
+                                .lineLimit(1)
+                                .fixedSize()
+                                .offset(x: x)
                         )
                     })
                 .frame(width: width, height: lineHeight, alignment: .leading)
