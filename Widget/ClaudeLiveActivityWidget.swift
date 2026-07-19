@@ -97,9 +97,7 @@ struct ClaudeLiveActivityWidget: Widget {
                 Image(systemName: "sparkle")
                     .foregroundStyle(status.color)
             } compactTrailing: {
-                Image(systemName: status.icon)
-                    .foregroundStyle(status.color)
-                    .symbolEffect(.pulse, isActive: status.needsAttention)
+                StatusIconView(status: status, size: 20)
             } minimal: {
                 Image(systemName: status.icon)
                     .foregroundStyle(status.color)
