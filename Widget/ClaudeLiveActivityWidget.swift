@@ -106,38 +106,44 @@ private struct LockScreenView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            // ヘッダ: プロジェクト名・Mac 名・経過時間
-            HStack(spacing: 6) {
-                Image(systemName: "sparkle")
-                    .font(.caption)
-                    .foregroundStyle(status.color)
-                Text(context.attributes.projectName)
-                    .font(.caption.bold())
-                    .lineLimit(1)
-                Text(context.state.sessionName.isEmpty
-                     ? context.attributes.hostName
-                     : context.state.sessionName)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                Spacer()
-                ElapsedTimerText(startedAt: context.state.startedAt)
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-            }
+            if !context.state.question.isEmpty {
+                // 質問中は質問文と選択肢ボタンだけを表示する
+                // （ヘッダー・経過時間・状態行・会話・ツール数はすべて省く）
+                QuestionView(sessionId: context.attributes.sessionId,
+                             question: context.state.question,
+                             options: context.state.options,
+                             tint: status.color,
+                             compact: false)
+            } else {
+                // ヘッダ: プロジェクト名・Mac 名・経過時間
+                HStack(spacing: 6) {
+                    Image(systemName: "sparkle")
+                        .font(.caption)
+                        .foregroundStyle(status.color)
+                    Text(context.attributes.projectName)
+                        .font(.caption.bold())
+                        .lineLimit(1)
+                    Text(context.state.sessionName.isEmpty
+                         ? context.attributes.hostName
+                         : context.state.sessionName)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    Spacer()
+                    ElapsedTimerText(startedAt: context.state.startedAt)
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
 
-            // セッションのタイトル（最初の入力から生成）。質問中は選択肢に譲って隠す
-            if !context.state.sessionTitle.isEmpty, status != .question {
-                Text(context.state.sessionTitle)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
+                // セッションのタイトル（最初の入力から生成）
+                if !context.state.sessionTitle.isEmpty {
+                    Text(context.state.sessionTitle)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
 
-            // メイン: 状態 + 実行中ツール
-            // 質問中はこの行（アイコン＋「質問」ラベル）は質問文と重複するので省き、
-            // 質問文の行数にスペースを譲る
-            if context.state.question.isEmpty {
+                // メイン: 状態 + 実行中ツール
                 HStack(spacing: 8) {
                     Image(systemName: status.icon)
                         .font(.title3)
@@ -165,16 +171,7 @@ private struct LockScreenView: View {
                     }
                     Spacer(minLength: 0)
                 }
-            }
 
-            if !context.state.question.isEmpty {
-                // 質問中は選択肢ボタンを優先表示（スペース確保のため会話・ログは隠す）
-                QuestionView(sessionId: context.attributes.sessionId,
-                             question: context.state.question,
-                             options: context.state.options,
-                             tint: status.color,
-                             compact: false)
-            } else {
                 // 直近のやり取り: ユーザー入力 → Claude の返答
                 if !context.state.lastPrompt.isEmpty {
                     ConversationLine(icon: "person.fill", iconColor: .secondary,
@@ -187,13 +184,13 @@ private struct LockScreenView: View {
 
                 // 直近のツールログ
                 LogLinesView(logs: context.state.recentLogs, maxLines: 2)
-            }
 
-            // フッタ: ツール実行数
-            if context.state.toolCount > 0 {
-                Text("ツール実行 \(context.state.toolCount) 回")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                // フッタ: ツール実行数
+                if context.state.toolCount > 0 {
+                    Text("ツール実行 \(context.state.toolCount) 回")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
             }
         }
         .padding(12)
@@ -232,8 +229,9 @@ private struct QuestionView: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             let items = Array(options.prefix(4))
-            if compact && items.count <= 2 {
-                // Dynamic Island・選択肢 2 個以下: 1 行に横並び（幅に余裕がある）
+            if compact && items.count <= 3 {
+                // Dynamic Island・選択肢 3 個以下: 1 行に横並び。
+                // 3 個までは横幅に余裕があり折り返さない（4 個だけが問題になる）
                 HStack(spacing: 5) {
                     ForEach(Array(items.enumerated()), id: \.offset) { _, label in
                         answerButton(label)
@@ -242,7 +240,7 @@ private struct QuestionView: View {
                 .padding(.horizontal, 6)
                 .padding(.bottom, 4)
             } else {
-                // ロック画面、および DI で選択肢 3 個以上: 2 列グリッド。
+                // ロック画面、および DI で選択肢 4 個: 2 列グリッド。
                 // 1 行 4 個だと横幅が狭すぎて長い単語が折り返し、DI の高さ上限を
                 // 超えて下端が切れる事故があったため、2 列にして横幅を確保する
                 let grid = ForEach(0..<((items.count + 1) / 2), id: \.self) { row in
