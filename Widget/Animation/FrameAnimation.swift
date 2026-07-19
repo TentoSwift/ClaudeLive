@@ -93,27 +93,49 @@ private struct FlashingView: View {
 
 /// 任意の View 配列を、指定した周期でコマ送りループ再生する。
 /// 各コマは「その時間帯だけ表示される」マスクで切り替わる。
+///
+/// マスクは常に小さく安全なサイズ（renderSize）でレンダリングし、
+/// scaleEffect で必要な大きさ（coverWidth × coverHeight）まで引き伸ばす。
+/// 特殊フォントを直接大きなサイズでレンダリングすると点滅が正しく起きない
+/// ことがある（検証済みのアイコン用スピナーは小サイズでのみ動作確認済み）ため、
+/// マスクの実サイズは常に小さく保つ
 struct FrameAnimatingView<Content: View>: View {
-    let size: CGFloat
+    let coverWidth: CGFloat
+    let coverHeight: CGFloat
     let loopDuration: TimeInterval
     let frames: [Content]
 
-    init(size: CGFloat, loopDuration: TimeInterval = 2, frames: [Content]) {
-        self.size = size
+    /// マスクを実際にレンダリングするサイズ（点滅が確実に機能する小さい値に固定）
+    private let renderSize: CGFloat = 24
+
+    init(coverWidth: CGFloat, coverHeight: CGFloat, loopDuration: TimeInterval = 2,
+         frames: [Content]) {
+        self.coverWidth = coverWidth
+        self.coverHeight = coverHeight
         self.loopDuration = loopDuration
         self.frames = frames
+    }
+
+    /// 正方形1枚で足りる用途（アイコンのコマ送りなど）向けの簡易イニシャライザ
+    init(size: CGFloat, loopDuration: TimeInterval = 2, frames: [Content]) {
+        self.init(coverWidth: size, coverHeight: size, loopDuration: loopDuration, frames: frames)
     }
 
     var body: some View {
         let per = loopDuration / TimeInterval(max(frames.count, 1))
         // timer テキストの基準は 2001-01-01 0:00。ここを起点に各コマの表示区間を割り当てる
         let base = Date(timeIntervalSinceReferenceDate: 0)
+        let scaleX = coverWidth / renderSize
+        let scaleY = coverHeight / renderSize
         ZStack {
             ForEach(Array(frames.enumerated()), id: \.offset) { index, frame in
                 let start = base.addingTimeInterval(per * TimeInterval(index))
                 let end = start.addingTimeInterval(per)
                 frame
-                    .mask { FlashingView(start: start, end: end, size: size) }
+                    .mask {
+                        FlashingView(start: start, end: end, size: renderSize)
+                            .scaleEffect(x: scaleX, y: scaleY, anchor: .center)
+                    }
             }
         }
     }

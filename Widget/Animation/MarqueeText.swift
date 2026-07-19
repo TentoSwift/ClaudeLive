@@ -50,7 +50,8 @@ struct MarqueeText: View {
                 let startX = width
                 let endX = -(measured + gap)
                 FrameAnimatingView(
-                    size: max(width, lineHeight),
+                    coverWidth: width,
+                    coverHeight: lineHeight,
                     loopDuration: loopDuration,
                     frames: (0..<frameCount).map { i -> AnyView in
                         let t = CGFloat(i) / CGFloat(frameCount)
