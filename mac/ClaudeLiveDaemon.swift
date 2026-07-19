@@ -864,21 +864,31 @@ final class Daemon {
             if message.localizedCaseInsensitiveContains("permission") {
                 session.status = "permission"
                 session.detail = message
+                session.currentTool = ""
                 alert = [
                     "title": "\(session.projectName): 許可待ち",
                     "body": message,
                     "sound": "default",
                 ]
             } else {
-                session.status = "waiting"
-                session.detail = message.isEmpty ? "入力を待っています" : message
-                alert = [
+                // 入力待ちはライブアクティビティに残さない。通知だけ送って終了する
+                // （次に実際のやり取り＝UserPromptSubmit があるまで再開しない）
+                session.currentTool = ""
+                let detail = message.isEmpty ? "入力を待っています" : message
+                let waitAlert: [String: Any] = [
                     "title": "\(session.projectName): 入力待ち",
-                    "body": session.detail,
+                    "body": detail,
                     "sound": "default",
                 ]
+                pushEnd(session, status: "waiting", detail: detail, dismissAfter: 30, alert: waitAlert)
+                tokens.activityTokens.removeValue(forKey: sessionId)
+                tokens.save()
+                session.startPushSent = false
+                session.dismissedByUser = true
+                session.status = "waiting"
+                session.detail = detail
+                return
             }
-            session.currentTool = ""
 
         case "Stop":
             session.status = "done"
@@ -1115,20 +1125,21 @@ final class Daemon {
     }
 
     private func pushEnd(_ session: SessionState, status: String = "done",
-                         detail: String = "セッション終了", dismissAfter: Int = 180) {
+                         detail: String = "セッション終了", dismissAfter: Int = 180,
+                         alert: [String: Any]? = nil) {
         guard let token = tokens.activityTokens[session.id] else { return }
         var state = contentState(for: session)
         state["status"] = status
         state["detail"] = detail
         state["currentTool"] = ""
-        let payload: [String: Any] = [
-            "aps": [
-                "timestamp": Int(Date().timeIntervalSince1970),
-                "event": "end",
-                "content-state": state,
-                "dismissal-date": Int(Date().timeIntervalSince1970) + dismissAfter,
-            ] as [String: Any]
+        var aps: [String: Any] = [
+            "timestamp": Int(Date().timeIntervalSince1970),
+            "event": "end",
+            "content-state": state,
+            "dismissal-date": Int(Date().timeIntervalSince1970) + dismissAfter,
         ]
+        if let alert { aps["alert"] = alert }
+        let payload: [String: Any] = ["aps": aps]
         apns.send(deviceToken: token, payload: payload,
                   label: "end \(session.projectName)") { _ in }
         log("セッション終了 (\(status)): \(session.projectName) (\(session.id.prefix(8)))")
