@@ -41,17 +41,15 @@ enum FrameAnimation {
     private final class BundleToken {}
 }
 
-/// Claude ブランドのモーフィングアイコン（星→花→放射→歯車…）をコマ送りする。
-/// 元画像は透過 PNG（Widget/Animation/spinner-frame*.png）で、既に色が
-/// ついているので tint はかけず、そのまま表示する
+/// Claude ブランドのモーフィングアイコン（実際の Claude アプリの画面収録から
+/// 8 コマを抽出）をコマ送りする。元画像は透過 PNG
+/// （Widget/Animation/spinner-frame*.png）で、既に色がついているので
+/// tint はかけず、そのまま表示する
 struct SpinnerProofView: View {
     let size: CGFloat
     let color: Color  // 画像読み込み失敗時のフォールバック表示にのみ使う
 
-    private static let frameNames = [
-        "spinner-frame1", "spinner-frame2", "spinner-frame3",
-        "spinner-frame4", "spinner-frame5",
-    ]
+    private static let frameNames = (1...8).map { "spinner-frame\($0)" }
 
     var body: some View {
         FrameAnimatingView(

@@ -26,6 +26,9 @@
 		CB00000000000000000000C2 /* spinner-frame3.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C2 /* spinner-frame3.png */; };
 		CB00000000000000000000C3 /* spinner-frame4.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C3 /* spinner-frame4.png */; };
 		CB00000000000000000000C4 /* spinner-frame5.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C4 /* spinner-frame5.png */; };
+		CB00000000000000000000C5 /* spinner-frame6.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C5 /* spinner-frame6.png */; };
+		CB00000000000000000000C6 /* spinner-frame7.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C6 /* spinner-frame7.png */; };
+		CB00000000000000000000C7 /* spinner-frame8.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C7 /* spinner-frame8.png */; };
 		CB00000000000000000000A8 /* ClaudeLiveWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000B0 /* ClaudeLiveWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -68,6 +71,9 @@
 		CA00000000000000000000C2 /* spinner-frame3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "spinner-frame3.png"; sourceTree = "<group>"; };
 		CA00000000000000000000C3 /* spinner-frame4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "spinner-frame4.png"; sourceTree = "<group>"; };
 		CA00000000000000000000C4 /* spinner-frame5.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "spinner-frame5.png"; sourceTree = "<group>"; };
+		CA00000000000000000000C5 /* spinner-frame6.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "spinner-frame6.png"; sourceTree = "<group>"; };
+		CA00000000000000000000C6 /* spinner-frame7.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "spinner-frame7.png"; sourceTree = "<group>"; };
+		CA00000000000000000000C7 /* spinner-frame8.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "spinner-frame8.png"; sourceTree = "<group>"; };
 		CA00000000000000000000A7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		CA00000000000000000000A8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		CA00000000000000000000A9 /* ClaudeLive.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ClaudeLive.entitlements; sourceTree = "<group>"; };
@@ -124,6 +130,9 @@
 				CA00000000000000000000C2 /* spinner-frame3.png */,
 				CA00000000000000000000C3 /* spinner-frame4.png */,
 				CA00000000000000000000C4 /* spinner-frame5.png */,
+				CA00000000000000000000C5 /* spinner-frame6.png */,
+				CA00000000000000000000C6 /* spinner-frame7.png */,
+				CA00000000000000000000C7 /* spinner-frame8.png */,
 			);
 			path = Animation;
 			sourceTree = "<group>";
@@ -267,6 +276,9 @@
 				CB00000000000000000000C2 /* spinner-frame3.png in Resources */,
 				CB00000000000000000000C3 /* spinner-frame4.png in Resources */,
 				CB00000000000000000000C4 /* spinner-frame5.png in Resources */,
+				CB00000000000000000000C5 /* spinner-frame6.png in Resources */,
+				CB00000000000000000000C6 /* spinner-frame7.png in Resources */,
+				CB00000000000000000000C7 /* spinner-frame8.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
