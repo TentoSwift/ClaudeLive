@@ -8,7 +8,6 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             Form {
-                UsageSection()
                 statusSection
                 SessionsSection()
                 serverSection
@@ -26,7 +25,6 @@ struct ContentView: View {
             }
             .task {
                 await model.loadRemoteSessions()
-                await model.loadUsage()
             }
         }
     }

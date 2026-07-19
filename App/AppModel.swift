@@ -42,41 +42,9 @@ final class AppModel: ObservableObject {
         var timestamp: String
     }
 
-    struct UsageLimit: Identifiable {
-        let kind: String          // session / weekly_all / weekly_scoped
-        let percent: Double
-        let severity: String
-        let resetsAt: Date?
-        let scopeName: String?    // weekly_scoped のモデル名（例: "Fable"）
-        let isActive: Bool
-
-        var id: String { kind + (scopeName ?? "") }
-
-        var title: String {
-            switch kind {
-            case "session":       return "5時間制限"
-            case "weekly_all":    return "週間制限（すべてのモデル）"
-            case "weekly_scoped": return "週間制限（\(scopeName ?? "モデル別")）"
-            default:              return kind
-            }
-        }
-
-        var sortOrder: Int {
-            switch kind {
-            case "session": return 0
-            case "weekly_all": return 1
-            case "weekly_scoped": return 2
-            default: return 9
-            }
-        }
-    }
-
     @Published var pushToStartToken: String?
     @Published var activities: [ActivityInfo] = []
     @Published var remoteSessions: [RemoteSession] = []
-    @Published var usageLimits: [UsageLimit] = []
-    @Published var usageFetchedAt: Date?
-    @Published var usageError: String?
     @Published var discoveredServers: [String] = []
     @Published var lastRegistration = "未登録"
     @Published var lastError: String?
@@ -153,10 +121,9 @@ final class AppModel: ObservableObject {
         refreshList()
         adoptSessions()
         Task { await loadRemoteSessions() }
-        Task { await loadUsage() }
     }
 
-    // MARK: - セッション一覧・会話（閲覧専用）・使用量
+    // MARK: - セッション一覧・会話（閲覧専用）
 
     /// GET を発見済み Bonjour エンドポイント → 手動指定の順に試して body を返す
     private func fetchData(path: String) async -> Data? {
@@ -206,33 +173,6 @@ final class AppModel: ObservableObject {
                 text: entry["text"] as? String ?? "",
                 timestamp: entry["timestamp"] as? String ?? "")
         }
-    }
-
-    func loadUsage() async {
-        guard let data = await fetchData(path: "/usage"),
-              let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
-            usageError = "使用量を取得できませんでした（Mac に接続できているか確認）"
-            return
-        }
-        guard object["ok"] as? Bool == true,
-              let entries = object["limits"] as? [[String: Any]] else {
-            usageError = object["error"] as? String ?? "使用量を取得できませんでした"
-            return
-        }
-        let iso = ISO8601DateFormatter()
-        usageLimits = entries.compactMap { entry in
-            guard let kind = entry["kind"] as? String,
-                  let percent = entry["percent"] as? Double else { return nil }
-            return UsageLimit(
-                kind: kind,
-                percent: percent,
-                severity: entry["severity"] as? String ?? "normal",
-                resetsAt: (entry["resetsAt"] as? String).flatMap(iso.date(from:)),
-                scopeName: entry["scopeName"] as? String,
-                isActive: entry["isActive"] as? Bool ?? false)
-        }
-        usageError = nil
-        usageFetchedAt = (object["fetchedAt"] as? String).flatMap(iso.date(from:)) ?? Date()
     }
 
     // MARK: - Mac 側セッションの取り込み

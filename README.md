@@ -19,7 +19,7 @@ Mac で動いている **Claude Code の状態を iPhone のライブアクテ�
 - **接続断の自動検知**: `working`/`compacting` のまま 15 分フックが届かなければ（ネットワーク断・Claude Code のクラッシュ等）、Mac 側から能動的にライブアクティビティを終了させる。長時間のビルド等を誤検知しないよう余裕を持たせている
 - **スリープ・シャットダウンの即時検知**: 上記の 15 分待ちとは別に、`NSWorkspace` の `willSleepNotification`/`willPowerOffNotification` を監視し、**Mac がスリープ／シャットダウンする瞬間**に全セッションのライブアクティビティを即座に終了させる（`done` 以外の状態が対象）
 - アプリ内の会話表示は **Markdown レンダリング**対応（見出し・箇条書き・番号リスト・コードブロック・引用・強調・インラインコード。表は非対応で段落として表示）
-- アプリから **セッション一覧・会話の閲覧（読み取り専用）・使用量（5時間/週間制限）** を確認できる（同一 Wi-Fi 時のみ）。
+- アプリから **セッション一覧・会話の閲覧（読み取り専用）** を確認できる（同一 Wi-Fi 時のみ）。
   セッションへの自由な返信・書き込みはできない（安全のため意図的に非搭載）
 - **Claude からの質問（AskUserQuestion）に iPhone から回答できる**：
   質問が来ると選択肢ボタンがライブアクティビティに表示され、タップで回答が Mac へ届く。
@@ -37,7 +37,6 @@ Mac で動いている **Claude Code の状態を iPhone のライブアクテ�
 | `POST /register` | iPhone からのトークン登録（生存アクティビティのスナップショット） |
 | `GET /sessions` | 対話セッション一覧（`~/.claude/sessions` レジストリ + フック状態のマージ） |
 | `GET /messages?session=<id>&limit=N` | transcript JSONL から会話テキストを抽出（読み取り専用） |
-| `GET /usage` | Claude Code の使用量（5時間/週間制限）。60秒キャッシュ |
 | `POST /question` | AskUserQuestion の PreToolUse フック専用。iPhone 回答待ちで保留 |
 | `POST /answer` | iPhone の回答ボタン（App Intent）からの `{sessionId, answer, pass}` |
 | `POST /reset` | トークン・開始フラグを全クリア（表示が壊れたときの脱出口） |
@@ -62,10 +61,6 @@ Mac で動いている **Claude Code の状態を iPhone のライブアクテ�
 - バンドル ID **`com.tento.ClaudeLive`** / **`com.tento.ClaudeLive.Widget`** → 自分のものに
 - `mac/com.tento.claudelive.plist` の launchd ラベルはそのままでも動くが、変えるなら
   `install.sh` 内の参照も合わせる
-
-> 使用量表示機能は、この Mac にインストール済みの Claude Code が Keychain に保存する
-> OAuth 認証情報を読み取って Anthropic の usage API を叩きます。あくまで**自分の
-> 認証情報を自分のためにローカルで使う**用途です。
 
 ## セットアップ
 
