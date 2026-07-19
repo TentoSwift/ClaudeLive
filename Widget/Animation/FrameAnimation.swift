@@ -124,13 +124,22 @@ struct FrameAnimatingView<Content: View>: View {
         // 覆いたい面の長辺に合わせた 1 枚の正方形マスクで覆う
         // （特殊フォントの黒四角グリフはベクターなので大きくしても描画は保たれる）
         let maskSize = max(coverWidth, coverHeight)
+        // 黒四角グリフは右寄せ 1 文字ぶんの幅しかないため、横長の帯（マーキー）では
+        // 右端しか覆えない。横に大きく引き伸ばして全幅を確実に覆う
+        // （はみ出し過剰は無害。マスクが対象より大きい分には問題ない）
+        let needsWide = coverWidth > coverHeight * 2
         ZStack {
             ForEach(Array(frames.enumerated()), id: \.offset) { index, frame in
                 let start = base.addingTimeInterval(per * TimeInterval(index))
                 let end = start.addingTimeInterval(per)
                 frame
                     .mask {
-                        FlashingView(start: start, end: end, size: maskSize)
+                        if needsWide {
+                            FlashingView(start: start, end: end, size: maskSize)
+                                .scaleEffect(x: 6, y: 1.5, anchor: .center)
+                        } else {
+                            FlashingView(start: start, end: end, size: maskSize)
+                        }
                     }
             }
         }
