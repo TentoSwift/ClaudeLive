@@ -239,7 +239,7 @@ private struct StatusIconView: View {
 
     var body: some View {
         Group {
-            if status == .working && animateWhenWorking {
+            if (status == .working || status == .compacting) && animateWhenWorking {
                 SpinnerProofView(size: size, color: status.color)
             } else if let name = customSymbolName {
                 Image(name)
