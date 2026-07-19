@@ -91,6 +91,54 @@ private struct FlashingView: View {
     }
 }
 
+/// 秒の「10 の位」だけを切り出した点滅。10 の位は 0-5 を繰り返し、偶奇が
+/// 10 秒ごとに入れ替わる（秒 00-09=0=黒, 10-19=1=透明, 20-29=2=黒, …）ので
+/// 周期 20 秒になる（＝BlinkingView の 10 倍ゆっくり）。
+///
+/// 切り出しは動作実証済みの BlinkingView と同じ構造。違いは最後だけ：
+/// BlinkingView は「右端 1 文字（1 の位）」を取るが、こちらは
+/// 「右端 2 文字を取り、その左側 1 文字（＝10 の位）」を取る。
+/// このフォントは全グリフ等幅 1em（CoreText 実測済み）なので位置が確定する
+private struct TensBlinkingView: View {
+    let date: Date
+    let size: CGFloat
+
+    var body: some View {
+        Text(date, style: .timer)
+            .font(.custom(FrameAnimation.fontName, size: size))
+            .lineLimit(1)
+            .multilineTextAlignment(.trailing)
+            .truncationMode(.head)
+            .dynamicTypeSize(.large)
+            .frame(width: 4 * size, height: size, alignment: .trailing)
+            .fixedSize()
+            .frame(width: 2 * size, height: size, alignment: .trailing)  // 末尾 2 文字（SS）
+            .clipped()
+            .frame(width: size, height: size, alignment: .leading)       // その左 = 10 の位
+            .clipped()
+    }
+}
+
+/// 20 秒周期の中で start〜end の区間だけ黒になるマスク（ゆっくりマーキー用）。
+/// backStart のオフセットは点滅の黒期間幅 B に合わせる：
+/// FlashingView は B=1 秒で -0.99、こちらは B=10 秒なので -9.99
+private struct SlowFlashingView: View {
+    let frontStart: Date
+    let backStart: Date
+    let size: CGFloat
+
+    init(start: Date, end: Date, size: CGFloat) {
+        self.frontStart = start
+        self.backStart = end.addingTimeInterval(-9.99)
+        self.size = size
+    }
+
+    var body: some View {
+        TensBlinkingView(date: frontStart, size: size)
+            .mask { TensBlinkingView(date: backStart, size: size) }
+    }
+}
+
 /// 任意の View 配列を、指定した周期でコマ送りループ再生する。
 /// 各コマは「その時間帯だけ表示される」マスクで切り替わる。
 ///
@@ -102,13 +150,17 @@ struct FrameAnimatingView<Content: View>: View {
     let coverWidth: CGFloat
     let coverHeight: CGFloat
     let loopDuration: TimeInterval
+    /// true = 秒の 10 の位を使う 20 秒周期（ゆっくり）。false = 1 の位を使う 2 秒周期。
+    /// この 2 つ以外の周期はフォント点滅の仕組み上つくれない
+    let slow: Bool
     let frames: [Content]
 
     init(coverWidth: CGFloat, coverHeight: CGFloat, loopDuration: TimeInterval = 2,
-         frames: [Content]) {
+         slow: Bool = false, frames: [Content]) {
         self.coverWidth = coverWidth
         self.coverHeight = coverHeight
         self.loopDuration = loopDuration
+        self.slow = slow
         self.frames = frames
     }
 
@@ -134,12 +186,14 @@ struct FrameAnimatingView<Content: View>: View {
                 let end = start.addingTimeInterval(per)
                 frame
                     .mask {
-                        if needsWide {
-                            FlashingView(start: start, end: end, size: maskSize)
-                                .scaleEffect(x: 6, y: 1.5, anchor: .center)
-                        } else {
-                            FlashingView(start: start, end: end, size: maskSize)
+                        Group {
+                            if slow {
+                                SlowFlashingView(start: start, end: end, size: maskSize)
+                            } else {
+                                FlashingView(start: start, end: end, size: maskSize)
+                            }
                         }
+                        .scaleEffect(x: needsWide ? 6 : 1, y: needsWide ? 1.5 : 1, anchor: .center)
                     }
             }
         }
