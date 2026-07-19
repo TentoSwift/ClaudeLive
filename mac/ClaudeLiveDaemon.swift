@@ -217,6 +217,8 @@ final class SessionState {
     var toolCount = 0
     var lastPrompt = ""
     var lastResponse = ""
+    /// 直近のアシスタント発言が使ったモデル名（transcript の message.model 由来）
+    var model = ""
     /// AskUserQuestion の質問文と選択肢（iPhone 回答待ちの間だけ入る）
     var question = ""
     var options: [String] = []
@@ -589,8 +591,14 @@ final class Daemon {
     /// transcript は非同期書き込みのため、最新の1手前の発言になることがある
     /// （公式ドキュメントにも明記されている既知の遅延）
     private func latestAssistantText(forSessionId sessionId: String) -> String? {
+        latestAssistantTurn(forSessionId: sessionId).text
+    }
+
+    /// transcript 末尾から直近のアシスタント発言のテキストと使用モデル名を拾う。
+    /// モデル名は message.model にそのまま入っている（例 "claude-fable-5"）
+    private func latestAssistantTurn(forSessionId sessionId: String) -> (text: String?, model: String?) {
         guard let path = transcriptPath(for: sessionId),
-              let handle = FileHandle(forReadingAtPath: path) else { return nil }
+              let handle = FileHandle(forReadingAtPath: path) else { return (nil, nil) }
         defer { try? handle.close() }
         // 直近の発言だけが目的なので末尾 64KB で十分
         let maxBytes: UInt64 = 64 * 1024
@@ -601,18 +609,20 @@ final class Daemon {
         var lines = data.split(separator: UInt8(ascii: "\n"))
         if offset > 0, !lines.isEmpty { lines.removeFirst() }
 
+        var latestModel: String?
         for line in lines.reversed() {
             guard let obj = (try? JSONSerialization.jsonObject(with: Data(line))) as? [String: Any],
                   obj["type"] as? String == "assistant",
                   obj["isSidechain"] as? Bool != true,
                   let message = obj["message"] as? [String: Any],
                   let content = message["content"] as? [[String: Any]] else { continue }
+            if latestModel == nil { latestModel = message["model"] as? String }
             let text = content.compactMap { item in
                 (item["type"] as? String) == "text" ? item["text"] as? String : nil
             }.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
-            if !text.isEmpty { return text }
+            if !text.isEmpty { return (text, latestModel) }
         }
-        return nil
+        return (nil, latestModel)
     }
 
     private func transcriptPath(for sessionId: String) -> String? {
@@ -873,7 +883,9 @@ final class Daemon {
 
             // ツール呼び出し前に書いた説明文があれば、途中経過としてライブアクティビティにも
             // 反映する（transcript の非同期書き込みにより 1 手遅れになることがある）
-            if let text = latestAssistantText(forSessionId: session.id), text != session.lastResponse {
+            let turn = latestAssistantTurn(forSessionId: session.id)
+            if let model = turn.model, model != session.model { session.model = model }
+            if let text = turn.text, text != session.lastResponse {
                 session.lastResponse = Self.truncate(text, 300)
                 markTextChanged(session)
             }
@@ -930,6 +942,9 @@ final class Daemon {
             session.question = ""
             session.options = []
             session.lastResponse = Self.extractLastResponse(json) ?? ""
+            if let model = latestAssistantTurn(forSessionId: session.id).model, !model.isEmpty {
+                session.model = model
+            }
             markTextChanged(session)
             alert = [
                 "title": "\(session.projectName): 完了",
@@ -1074,6 +1089,7 @@ final class Daemon {
             "question": session.question,
             "options": session.options,
             "textSettled": session.textSettled,
+            "model": session.model,
         ]
     }
 

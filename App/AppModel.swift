@@ -215,7 +215,8 @@ final class AppModel: ObservableObject {
                 sessionTitle: entry["title"] as? String ?? "",
                 question: "",
                 options: [],
-                textSettled: false)
+                textSettled: false,
+                model: "")
             // pushType .token なのでトークンが発行され、track → /register 経由で
             // Mac に渡り、以後の update はプッシュで届く
             if let activity = try? Activity.request(
@@ -422,7 +423,8 @@ final class AppModel: ObservableObject {
             sessionTitle: "決定性のリプレイテストを追加して、CI で毎回回るようにして",
             question: "",
             options: [],
-            textSettled: false)
+            textSettled: false,
+            model: "")
         do {
             let activity = try Activity.request(
                 attributes: attrs,

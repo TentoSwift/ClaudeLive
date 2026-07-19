@@ -19,11 +19,19 @@ struct ClaudeLiveActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.trailing) {
                     // 質問中は経過時間よりも質問カードの横幅を優先する
                     if status != .question {
-                        ElapsedTimerText(startedAt: context.state.startedAt)
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: 60)
-                            .padding(.trailing, 4)
+                        HStack(spacing: 4) {
+                            if !context.state.model.isEmpty {
+                                Text(shortModelName(context.state.model))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                            ElapsedTimerText(startedAt: context.state.startedAt)
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: 100)
+                        .padding(.trailing, 4)
                     }
                 }
                 DynamicIslandExpandedRegion(.center) {
@@ -272,6 +280,12 @@ private struct LockScreenView: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                     Spacer()
+                    if !context.state.model.isEmpty {
+                        Text(shortModelName(context.state.model))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                     ElapsedTimerText(startedAt: context.state.startedAt)
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)

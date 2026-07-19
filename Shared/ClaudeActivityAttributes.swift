@@ -42,11 +42,28 @@ struct ClaudeActivityAttributes: ActivityAttributes {
         /// ウィジェット側は時間経過を自力監視できないため、この判断は
         /// Mac 側デーモンがタイマーで行い、専用の push で切り替える
         var textSettled: Bool
+        /// 直近のアシスタント発言が使ったモデル名（例 "claude-fable-5"）。空 = 不明
+        var model: String
     }
 
     var sessionId: String
     var projectName: String
     var hostName: String
+}
+
+/// モデル ID を短い表示名にする（例 "claude-fable-5" → "Fable 5"）。
+/// 未知の ID はそのまま返す
+func shortModelName(_ raw: String) -> String {
+    let known: [String: String] = [
+        "claude-fable-5": "Fable 5",
+        "claude-sonnet-5": "Sonnet 5",
+        "claude-opus-4-8": "Opus 4.8",
+        "claude-opus-4-7": "Opus 4.7",
+        "claude-haiku-4-5-20251001": "Haiku 4.5",
+    ]
+    if let name = known[raw] { return name }
+    // 未知の ID は "claude-" を落として大文字化する程度に留める
+    return raw.hasPrefix("claude-") ? String(raw.dropFirst("claude-".count)) : raw
 }
 
 extension Color {
