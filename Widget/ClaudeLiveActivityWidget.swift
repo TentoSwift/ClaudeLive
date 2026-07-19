@@ -63,8 +63,9 @@ struct ClaudeLiveActivityWidget: Widget {
                                          isSettled: context.state.textSettled)
                         } else {
                             if !context.state.lastResponse.isEmpty {
-                                HStack(alignment: .top, spacing: 6) {
-                                    ClaudeMarkIcon(size: 11, color: status.color)
+                                // マーキーは 1 行なのでアイコンは中央揃え（.top だと浮く）
+                                HStack(alignment: .center, spacing: 6) {
+                                    ClaudeMarkIcon(size: 13, color: status.color)
                                     MarqueeText(
                                         text: context.state.lastResponse,
                                         font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
@@ -72,10 +73,8 @@ struct ClaudeLiveActivityWidget: Widget {
                                         isSettled: context.state.textSettled)
                                 }
                             } else if !context.state.lastPrompt.isEmpty {
-                                HStack(alignment: .top, spacing: 6) {
-                                    Image(systemName: "person.fill")
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
+                                HStack(alignment: .center, spacing: 6) {
+                                    SmallSymbolIcon(name: "person.fill", size: 13, color: .secondary)
                                     MarqueeText(
                                         text: context.state.lastPrompt,
                                         font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
@@ -134,24 +133,54 @@ private struct ClaudeMarkIcon: View {
     }
 }
 
-/// 状態アイコン。作業中（.working）だけ Claude ブランドのモーフィングアニメ
-/// （SpinnerProofView）にし、それ以外は通常の SF Symbols アイコンにする
+/// SF Symbols を実寸指定で描く小アイコン。
+/// `.font()` 指定だとシンボルごとに見た目の大きさがまちまちになるため、
+/// ClaudeMarkIcon（PNG）と縦横のサイズ基準を揃える目的で使う
+private struct SmallSymbolIcon: View {
+    let name: String
+    let size: CGFloat
+    var color: Color = .secondary
+
+    var body: some View {
+        Image(systemName: name)
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .foregroundStyle(color)
+    }
+}
+
+/// 状態アイコン。
+/// - 作業中（.working）: Claude ブランドのモーフィングアニメ
+/// - 完了（.done）: Claude マーク + チェックのカスタムシンボル（Claude カラー）
+/// - それ以外: 通常の SF Symbols アイコン
+///
+/// 見た目の大きさが揃うよう、SF Symbols とカスタムシンボルはどちらも
+/// 同じ実寸（size）を基準に描画する
 private struct StatusIconView: View {
     let status: ClaudeStatus
     let size: CGFloat
     var animateWhenWorking: Bool = true
 
     var body: some View {
-        if status == .working && animateWhenWorking {
-            SpinnerProofView(size: size, color: status.color)
-                .frame(width: size, height: size)
-        } else {
-            Image(systemName: status.icon)
-                .font(.system(size: size * 0.72))
-                .foregroundStyle(status.color)
-                .symbolEffect(.pulse, isActive: status.needsAttention)
-                .frame(width: size, height: size)
+        Group {
+            if status == .working && animateWhenWorking {
+                SpinnerProofView(size: size, color: status.color)
+            } else if status == .done {
+                Image("ClaudeBadgeCheckmark")
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .foregroundStyle(Color.claudeBrand)
+            } else {
+                Image(systemName: status.icon)
+                    .resizable()
+                    .scaledToFit()
+                    .foregroundStyle(status.color)
+                    .symbolEffect(.pulse, isActive: status.needsAttention)
+            }
         }
+        .frame(width: size, height: size)
     }
 }
 
@@ -238,10 +267,9 @@ private struct LockScreenView: View {
 
                 // 直近のやり取り: ユーザー入力 → Claude の返答
                 if !context.state.lastPrompt.isEmpty {
-                    HStack(alignment: .top, spacing: 6) {
-                        Image(systemName: "person.fill")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                    // マーキーは 1 行なのでアイコンは中央揃え（.top だと浮く）
+                    HStack(alignment: .center, spacing: 6) {
+                        SmallSymbolIcon(name: "person.fill", size: 14, color: .secondary)
                         MarqueeText(
                             text: context.state.lastPrompt,
                             font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
@@ -250,8 +278,8 @@ private struct LockScreenView: View {
                     }
                 }
                 if !context.state.lastResponse.isEmpty {
-                    HStack(alignment: .top, spacing: 6) {
-                        ClaudeMarkIcon(size: 13, color: status.color)
+                    HStack(alignment: .center, spacing: 6) {
+                        ClaudeMarkIcon(size: 14, color: status.color)
                         MarqueeText(
                             text: context.state.lastResponse,
                             font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
@@ -463,10 +491,9 @@ private struct LogLinesView: View {
             VStack(alignment: .leading, spacing: 1) {
                 ForEach(Array(logs.prefix(maxLines).enumerated()), id: \.offset) { index, line in
                     let parsed = split(line)
-                    HStack(spacing: 4) {
-                        Image(systemName: parsed.symbol)
-                            .font(.caption2)
-                            .frame(width: 11)
+                    HStack(alignment: .center, spacing: 5) {
+                        SmallSymbolIcon(name: parsed.symbol, size: 10,
+                                        color: index == 0 ? .secondary : .secondary.opacity(0.6))
                         Text(parsed.text)
                             .font(.caption2.monospaced())
                             .lineLimit(1)
