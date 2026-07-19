@@ -27,21 +27,29 @@ struct ClaudeLiveActivityWidget: Widget {
                         .padding(.trailing, 4)
                 }
                 DynamicIslandExpandedRegion(.center) {
-                    VStack(spacing: 2) {
-                        Text(context.state.sessionName.isEmpty
-                             ? context.attributes.projectName
-                             : "\(context.attributes.projectName) · \(context.state.sessionName)")
+                    if status == .question {
+                        // 質問中はプロジェクト名・セッション名を省いて、
+                        // 「質問」ラベルと下の質問カードにスペースを譲る
+                        Text(status.label)
                             .font(.caption.bold())
-                            .lineLimit(1)
-                        HStack(spacing: 4) {
-                            Text(status.label)
-                                .font(.caption2)
-                                .foregroundStyle(status.color)
-                            if !context.state.currentTool.isEmpty {
-                                Text(context.state.currentTool)
-                                    .font(.caption2.monospaced())
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
+                            .foregroundStyle(status.color)
+                    } else {
+                        VStack(spacing: 2) {
+                            Text(context.state.sessionName.isEmpty
+                                 ? context.attributes.projectName
+                                 : "\(context.attributes.projectName) · \(context.state.sessionName)")
+                                .font(.caption.bold())
+                                .lineLimit(1)
+                            HStack(spacing: 4) {
+                                Text(status.label)
+                                    .font(.caption2)
+                                    .foregroundStyle(status.color)
+                                if !context.state.currentTool.isEmpty {
+                                    Text(context.state.currentTool)
+                                        .font(.caption2.monospaced())
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
                             }
                         }
                     }
