@@ -580,6 +580,37 @@ final class Daemon {
         return String(data: data, encoding: .utf8) ?? "{}"
     }
 
+    /// PreToolUse のたびに transcript 末尾から直近のアシスタントのテキストを拾い、
+    /// ツール実行の合間に書いた説明文をライブアクティビティにも反映する。
+    /// transcript は非同期書き込みのため、最新の1手前の発言になることがある
+    /// （公式ドキュメントにも明記されている既知の遅延）
+    private func latestAssistantText(forSessionId sessionId: String) -> String? {
+        guard let path = transcriptPath(for: sessionId),
+              let handle = FileHandle(forReadingAtPath: path) else { return nil }
+        defer { try? handle.close() }
+        // 直近の発言だけが目的なので末尾 64KB で十分
+        let maxBytes: UInt64 = 64 * 1024
+        let size = (try? handle.seekToEnd()) ?? 0
+        let offset = size > maxBytes ? size - maxBytes : 0
+        try? handle.seek(toOffset: offset)
+        let data = (try? handle.readToEnd()) ?? Data()
+        var lines = data.split(separator: UInt8(ascii: "\n"))
+        if offset > 0, !lines.isEmpty { lines.removeFirst() }
+
+        for line in lines.reversed() {
+            guard let obj = (try? JSONSerialization.jsonObject(with: Data(line))) as? [String: Any],
+                  obj["type"] as? String == "assistant",
+                  obj["isSidechain"] as? Bool != true,
+                  let message = obj["message"] as? [String: Any],
+                  let content = message["content"] as? [[String: Any]] else { continue }
+            let text = content.compactMap { item in
+                (item["type"] as? String) == "text" ? item["text"] as? String : nil
+            }.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+            if !text.isEmpty { return text }
+        }
+        return nil
+    }
+
     private func transcriptPath(for sessionId: String) -> String? {
         if let session = sessions[sessionId], !session.transcriptPath.isEmpty {
             return session.transcriptPath
@@ -812,6 +843,12 @@ final class Daemon {
                 name: toolName, input: json["tool_input"] as? [String: Any] ?? [:])
             session.logs.insert(line, at: 0)
             if session.logs.count > 6 { session.logs.removeLast() }
+
+            // ツール呼び出し前に書いた説明文があれば、途中経過としてライブアクティビティにも
+            // 反映する（transcript の非同期書き込みにより 1 手遅れになることがある）
+            if let text = latestAssistantText(forSessionId: session.id), text != session.lastResponse {
+                session.lastResponse = Self.truncate(text, 300)
+            }
 
         case "PostToolUse":
             session.currentTool = ""
