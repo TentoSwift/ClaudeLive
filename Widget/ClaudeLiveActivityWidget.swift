@@ -200,30 +200,42 @@ private struct QuestionView: View {
     let compact: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: compact ? 4 : 6) {
+        VStack(alignment: .leading, spacing: compact ? 5 : 8) {
             Text(question)
-                .font(compact ? .caption.bold() : .footnote.bold())
-                .lineLimit(2)
+                .font(compact ? .caption2 : .subheadline.weight(.semibold))
+                // Dynamic Island は縦が狭く、あふれるとボタンが見切れるので質問は 1 行に抑える
+                // （全文はロック画面で 4 行表示）
+                .lineLimit(compact ? 1 : 4)
+                .fixedSize(horizontal: false, vertical: true)
 
-            // 選択肢は 2 列で並べる（最大 4）
             let items = Array(options.prefix(4))
-            ForEach(0..<((items.count + 1) / 2), id: \.self) { row in
-                HStack(spacing: 4) {
-                    ForEach(0..<2, id: \.self) { column in
-                        let index = row * 2 + column
-                        if index < items.count {
-                            answerButton(items[index])
+            if compact {
+                // Dynamic Island: 見切れ防止のため 1 行に横並び
+                HStack(spacing: 5) {
+                    ForEach(Array(items.enumerated()), id: \.offset) { _, label in
+                        answerButton(label)
+                    }
+                }
+            } else {
+                // ロック画面: 2 列グリッド。最後の 1 個は横幅いっぱい
+                ForEach(0..<((items.count + 1) / 2), id: \.self) { row in
+                    HStack(spacing: 6) {
+                        ForEach(0..<2, id: \.self) { column in
+                            let index = row * 2 + column
+                            if index < items.count {
+                                answerButton(items[index])
+                            }
                         }
                     }
                 }
+                Button(intent: AnswerQuestionIntent(sessionId: sessionId, answer: "", pass: true)) {
+                    Label("Macで回答する", systemImage: "desktopcomputer")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 1)
             }
-
-            Button(intent: AnswerQuestionIntent(sessionId: sessionId, answer: "", pass: true)) {
-                Label("Macで回答する", systemImage: "desktopcomputer")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -231,14 +243,14 @@ private struct QuestionView: View {
     private func answerButton(_ label: String) -> some View {
         Button(intent: AnswerQuestionIntent(sessionId: sessionId, answer: label)) {
             Text(label)
-                .font(.caption2.bold())
+                .font(compact ? .caption2.bold() : .subheadline.bold())
                 .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, compact ? 5 : 7)
-                .background(tint.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .strokeBorder(tint.opacity(0.5), lineWidth: 1))
+                .padding(.vertical, compact ? 6 : 10)
+                .padding(.horizontal, 4)
+                .background(tint, in: RoundedRectangle(cornerRadius: 9))
         }
         .buttonStyle(.plain)
     }
