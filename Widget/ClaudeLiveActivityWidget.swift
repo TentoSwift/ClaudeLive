@@ -13,10 +13,7 @@ struct ClaudeLiveActivityWidget: Widget {
             let status = ClaudeStatus(context.state.status)
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Image(systemName: status.icon)
-                        .font(.title2)
-                        .foregroundStyle(status.color)
-                        .symbolEffect(.pulse, isActive: status == .working)
+                    StatusIconView(status: status, size: 24)
                         .padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
@@ -118,6 +115,27 @@ struct ClaudeLiveActivityWidget: Widget {
 }
 
 /// ロック画面・バナーの表示
+/// 状態アイコン。作業中（.working）だけ Claude ブランドのモーフィングアニメ
+/// （SpinnerProofView）にし、それ以外は通常の SF Symbols アイコンにする
+private struct StatusIconView: View {
+    let status: ClaudeStatus
+    let size: CGFloat
+    var animateWhenWorking: Bool = true
+
+    var body: some View {
+        if status == .working && animateWhenWorking {
+            SpinnerProofView(size: size, color: status.color)
+                .frame(width: size, height: size)
+        } else {
+            Image(systemName: status.icon)
+                .font(.system(size: size * 0.72))
+                .foregroundStyle(status.color)
+                .symbolEffect(.pulse, isActive: status.needsAttention)
+                .frame(width: size, height: size)
+        }
+    }
+}
+
 private struct LockScreenView: View {
     let context: ActivityViewContext<ClaudeActivityAttributes>
 
@@ -148,8 +166,9 @@ private struct LockScreenView: View {
             } else {
                 // ヘッダ: プロジェクト名・Mac 名・経過時間
                 HStack(spacing: 6) {
-                    SpinnerProofView(size: 28, color: status.color)
-                        .frame(width: 28, height: 28)
+                    Image(systemName: "sparkle")
+                        .font(.caption)
+                        .foregroundStyle(status.color)
                     Text(context.attributes.projectName)
                         .font(.caption.bold())
                         .lineLimit(1)
@@ -175,10 +194,7 @@ private struct LockScreenView: View {
 
                 // メイン: 状態 + 実行中ツール
                 HStack(spacing: 8) {
-                    Image(systemName: status.icon)
-                        .font(.title3)
-                        .foregroundStyle(status.color)
-                        .symbolEffect(.pulse, isActive: status == .working || status.needsAttention)
+                    StatusIconView(status: status, size: 26)
                     VStack(alignment: .leading, spacing: 1) {
                         HStack(spacing: 6) {
                             Text(status.label)
@@ -266,8 +282,9 @@ private struct WatchSmallView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 4) {
-                Image(systemName: status.icon)
-                    .foregroundStyle(tint)
+                // 常時表示(AOD)中はアニメを止めて静止アイコンに（輝度を落とす必要があり、
+                // このアイコン画像は固定色のため tint を効かせられないため）
+                StatusIconView(status: status, size: 15, animateWhenWorking: !isLuminanceReduced)
                 Text(context.state.sessionName.isEmpty
                      ? context.attributes.projectName
                      : context.state.sessionName)
