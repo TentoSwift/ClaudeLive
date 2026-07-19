@@ -94,19 +94,17 @@ private struct FlashingView: View {
 /// 任意の View 配列を、指定した周期でコマ送りループ再生する。
 /// 各コマは「その時間帯だけ表示される」マスクで切り替わる。
 ///
-/// マスクは常に小さく安全なサイズ（renderSize）でレンダリングし、
-/// scaleEffect で必要な大きさ（coverWidth × coverHeight）まで引き伸ばす。
-/// 特殊フォントを直接大きなサイズでレンダリングすると点滅が正しく起きない
-/// ことがある（検証済みのアイコン用スピナーは小サイズでのみ動作確認済み）ため、
-/// マスクの実サイズは常に小さく保つ
+/// マスクは動作実証済みの小サイズ（32pt 角）の点滅タイルを横に敷き詰めて面を作る。
+/// scaleEffect による拡大や、特殊フォントの巨大サイズ描画はタイマー更新が
+/// 壊れることが実機で確認されたため一切使わない（変形なしが鉄則）
 struct FrameAnimatingView<Content: View>: View {
     let coverWidth: CGFloat
     let coverHeight: CGFloat
     let loopDuration: TimeInterval
     let frames: [Content]
 
-    /// マスクを実際にレンダリングするサイズ（点滅が確実に機能する小さい値に固定）
-    private let renderSize: CGFloat = 24
+    /// 点滅タイル 1 枚の辺長。スピナー（16pt）で実証済みのレンジに収める
+    private let tileSize: CGFloat = 32
 
     init(coverWidth: CGFloat, coverHeight: CGFloat, loopDuration: TimeInterval = 2,
          frames: [Content]) {
@@ -125,16 +123,19 @@ struct FrameAnimatingView<Content: View>: View {
         let per = loopDuration / TimeInterval(max(frames.count, 1))
         // timer テキストの基準は 2001-01-01 0:00。ここを起点に各コマの表示区間を割り当てる
         let base = Date(timeIntervalSinceReferenceDate: 0)
-        let scaleX = coverWidth / renderSize
-        let scaleY = coverHeight / renderSize
+        let columns = max(1, Int((coverWidth / tileSize).rounded(.up)))
         ZStack {
             ForEach(Array(frames.enumerated()), id: \.offset) { index, frame in
                 let start = base.addingTimeInterval(per * TimeInterval(index))
                 let end = start.addingTimeInterval(per)
                 frame
                     .mask {
-                        FlashingView(start: start, end: end, size: renderSize)
-                            .scaleEffect(x: scaleX, y: scaleY, anchor: .center)
+                        HStack(spacing: 0) {
+                            ForEach(0..<columns, id: \.self) { _ in
+                                FlashingView(start: start, end: end, size: tileSize)
+                            }
+                        }
+                        .frame(width: coverWidth, height: coverHeight)
                     }
             }
         }

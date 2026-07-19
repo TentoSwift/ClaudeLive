@@ -18,13 +18,14 @@ struct MarqueeText: View {
     private var uiFont: UIFont { .systemFont(ofSize: uiFontSize, weight: uiFontWeight) }
 
     // 文字数が多いほどループを長くして、読める速さ（目安: 秒間 9 文字）を保つ。
-    // コマ数はレイヤーが増えすぎないよう上限 24 で頭打ちにする
-    // （長文ほど 1 コマの表示時間が延びてカクつきが増えるが、実用上の妥協点）
+    // コマ数はレイヤーが増えすぎないよう上限 12 で頭打ちにする
+    // （マスクをタイル敷き詰めにした分、1コマあたりの部品数が増えたため、
+    // コマ数を欲張ると WidgetKit の複雑度制限に当たるリスクがある）
     private var loopDuration: TimeInterval {
         max(4, Double(text.count) / 9.0)
     }
     private var frameCount: Int {
-        min(24, max(8, Int((loopDuration * 2.2).rounded())))
+        min(12, max(8, Int((loopDuration * 1.5).rounded())))
     }
 
     private func textWidth(_ text: String) -> CGFloat {
