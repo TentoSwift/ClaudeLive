@@ -96,6 +96,15 @@ struct ClaudeLiveActivityWidget: Widget {
                                             color: .primary, lineHeight: 14,
                                             isSettled: context.state.textSettled)
                                     }
+                                } else if !context.state.lastPrompt.isEmpty {
+                                    HStack(alignment: .center, spacing: 6) {
+                                        PromptIcon(size: 24, color: .secondary)
+                                        MarqueeText(
+                                            text: context.state.lastPrompt,
+                                            font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
+                                            color: .secondary, lineHeight: 14,
+                                            isSettled: context.state.textSettled)
+                                    }
                                 } else if !context.state.detail.isEmpty {
                                     Text(context.state.detail)
                                         .font(.footnote)
@@ -160,6 +169,22 @@ private struct SmallSymbolIcon: View {
 
     var body: some View {
         Image(systemName: name)
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .foregroundStyle(color)
+    }
+}
+
+/// プロンプト（ユーザー入力）行のアイコン。カスタム SF Symbol
+/// （person.bubble.right.fill のカスタム版）を使う
+private struct PromptIcon: View {
+    let size: CGFloat
+    var color: Color = .secondary
+
+    var body: some View {
+        Image("ClaudePersonBubble")
+            .renderingMode(.template)
             .resizable()
             .scaledToFit()
             .frame(width: size, height: size)
@@ -332,7 +357,18 @@ private struct LockScreenView: View {
                             .lineLimit(10)
                     }
                 } else {
-                    // 直近のやり取り: Claude の返答（ユーザー入力はもう表示しない）
+                    // 直近のやり取り: ユーザー入力 → Claude の返答
+                    if !context.state.lastPrompt.isEmpty {
+                        // マーキーは 1 行なのでアイコンは中央揃え（.top だと浮く）
+                        HStack(alignment: .center, spacing: 6) {
+                            PromptIcon(size: 26, color: .secondary)
+                            MarqueeText(
+                                text: context.state.lastPrompt,
+                                font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
+                                color: .secondary, lineHeight: 16,
+                                isSettled: context.state.textSettled)
+                        }
+                    }
                     if !context.state.lastResponse.isEmpty {
                         HStack(alignment: .center, spacing: 6) {
                             ReplyIcon(size: 26, color: Color.claudeBrand, status: status)
@@ -421,12 +457,16 @@ private struct WatchSmallView: View {
                         .lineLimit(1)
                 }
 
-                // 状態の一言だけでなく、Claude が実際に何を言ったかを
-                // 一番情報量の多い内容として表示する（返答 > detail の優先順。
-                // ユーザー入力はもう表示しない）
+                // 状態の一言だけでなく、Claude が実際に何を言った/何を頼まれたかを
+                // 一番情報量の多い内容として表示する（返答 > 入力 > detail の優先順）
                 if !context.state.lastResponse.isEmpty {
                     Text(styled(context.state.lastResponse))
                         .font(.caption2)
+                        .lineLimit(3)
+                } else if !context.state.lastPrompt.isEmpty {
+                    Text(styled(context.state.lastPrompt))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                         .lineLimit(3)
                 } else if !context.state.detail.isEmpty {
                     Text(context.state.detail)
