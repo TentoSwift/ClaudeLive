@@ -134,32 +134,36 @@ private struct LockScreenView: View {
             }
 
             // メイン: 状態 + 実行中ツール
-            HStack(spacing: 8) {
-                Image(systemName: status.icon)
-                    .font(.title3)
-                    .foregroundStyle(status.color)
-                    .symbolEffect(.pulse, isActive: status == .working || status.needsAttention)
-                VStack(alignment: .leading, spacing: 1) {
-                    HStack(spacing: 6) {
-                        Text(status.label)
-                            .font(.headline)
-                            .foregroundStyle(status.needsAttention ? status.color : .primary)
-                        if !context.state.currentTool.isEmpty {
-                            Text(context.state.currentTool)
-                                .font(.subheadline.monospaced())
+            // 質問中はこの行（アイコン＋「質問」ラベル）は質問文と重複するので省き、
+            // 質問文の行数にスペースを譲る
+            if context.state.question.isEmpty {
+                HStack(spacing: 8) {
+                    Image(systemName: status.icon)
+                        .font(.title3)
+                        .foregroundStyle(status.color)
+                        .symbolEffect(.pulse, isActive: status == .working || status.needsAttention)
+                    VStack(alignment: .leading, spacing: 1) {
+                        HStack(spacing: 6) {
+                            Text(status.label)
+                                .font(.headline)
+                                .foregroundStyle(status.needsAttention ? status.color : .primary)
+                            if !context.state.currentTool.isEmpty {
+                                Text(context.state.currentTool)
+                                    .font(.subheadline.monospaced())
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                        if !context.state.detail.isEmpty {
+                            Text(context.state.detail)
+                                .font(.footnote)
                                 .foregroundStyle(.secondary)
-                                .lineLimit(1)
+                                .lineLimit(2)
+                                .contentTransition(.opacity)
                         }
                     }
-                    if !context.state.detail.isEmpty {
-                        Text(context.state.detail)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
-                            .contentTransition(.opacity)
-                    }
+                    Spacer(minLength: 0)
                 }
-                Spacer(minLength: 0)
             }
 
             if !context.state.question.isEmpty {
@@ -219,10 +223,11 @@ private struct QuestionView: View {
         VStack(alignment: .leading, spacing: compact ? 5 : 8) {
             Text(question)
                 .font(compact ? .caption2 : .subheadline.weight(.semibold))
-                // 質問中はヘッダー（プロジェクト名等）を消して縦を空けているので、
-                // Dynamic Island でも 3 行まで見せる（全文はロック画面で 4 行表示）
+                // 質問中はステータス行やヘッダーを消して縦を空けているので、
+                // Dynamic Island は 3 行・ロック画面は 6 行まで見せる
                 // ※ WidgetKit はアニメーションを実行しないためマーキー（流れるテキスト）は不可
-                .lineLimit(compact ? 3 : 4)
+                //   （_clockHandRotationEffect は現行 SDK で宣言が削除済みで使えない）
+                .lineLimit(compact ? 3 : 6)
                 .fixedSize(horizontal: false, vertical: true)
 
             let items = Array(options.prefix(4))
