@@ -112,20 +112,25 @@ struct ClaudeLiveActivityWidget: Widget {
     }
 }
 
-/// Claude のマーク（Assets.xcassets のカスタムシンボル）。
-/// SF Symbols ではないので .font() ではサイズが決まらず、
-/// resizable + 明示サイズで描画する必要がある
+/// Claude のマーク。[[claude-usage-bar-app]] と同じ ClaudeSpark.png を使う。
+/// 元画像に Claude カラーが付いているので tint はかけずそのまま表示し、
+/// 読み込みに失敗した場合だけ SF Symbols にフォールバックする
 private struct ClaudeMarkIcon: View {
     let size: CGFloat
     var color: Color = .primary
 
     var body: some View {
-        Image("ClaudeMark")
-            .renderingMode(.template)
-            .resizable()
-            .scaledToFit()
-            .frame(width: size, height: size)
-            .foregroundStyle(color)
+        if let image = FrameAnimation.bundledImage("ClaudeSpark") {
+            image
+                .resizable()
+                .scaledToFit()
+                .frame(width: size, height: size)
+        } else {
+            Image(systemName: "sparkle")
+                .font(.system(size: size))
+                .foregroundStyle(color)
+                .frame(width: size, height: size)
+        }
     }
 }
 
