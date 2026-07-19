@@ -74,7 +74,7 @@ struct ClaudeLiveActivityWidget: Widget {
                                 }
                             } else if !context.state.lastPrompt.isEmpty {
                                 HStack(alignment: .center, spacing: 6) {
-                                    SmallSymbolIcon(name: "person.fill", size: 13, color: .secondary)
+                                    PromptIcon(size: 13, color: .secondary)
                                     MarqueeText(
                                         text: context.state.lastPrompt,
                                         font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
@@ -143,6 +143,22 @@ private struct SmallSymbolIcon: View {
 
     var body: some View {
         Image(systemName: name)
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .foregroundStyle(color)
+    }
+}
+
+/// プロンプト（ユーザー入力）行のアイコン。カスタム SF Symbol
+/// （person.bubble.right.fill のカスタム版）を使う
+private struct PromptIcon: View {
+    let size: CGFloat
+    var color: Color = .secondary
+
+    var body: some View {
+        Image("ClaudePersonBubble")
+            .renderingMode(.template)
             .resizable()
             .scaledToFit()
             .frame(width: size, height: size)
@@ -278,7 +294,7 @@ private struct LockScreenView: View {
                 if !context.state.lastPrompt.isEmpty {
                     // マーキーは 1 行なのでアイコンは中央揃え（.top だと浮く）
                     HStack(alignment: .center, spacing: 6) {
-                        SmallSymbolIcon(name: "person.fill", size: 14, color: .secondary)
+                        PromptIcon(size: 14, color: .secondary)
                         MarqueeText(
                             text: context.state.lastPrompt,
                             font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
