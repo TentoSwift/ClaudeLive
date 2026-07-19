@@ -65,7 +65,7 @@ struct ClaudeLiveActivityWidget: Widget {
                             if !context.state.lastResponse.isEmpty {
                                 // マーキーは 1 行なのでアイコンは中央揃え（.top だと浮く）
                                 HStack(alignment: .center, spacing: 6) {
-                                    ClaudeMarkIcon(size: 13, color: status.color)
+                                    ReplyIcon(size: 13, color: status.color)
                                     MarqueeText(
                                         text: context.state.lastResponse,
                                         font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
@@ -158,6 +158,22 @@ private struct PromptIcon: View {
 
     var body: some View {
         Image("ClaudePersonBubble")
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .foregroundStyle(color)
+    }
+}
+
+/// Claude の返答行のアイコン。カスタム SF Symbol
+/// （bubble.left.fill のカスタム版）を使う
+private struct ReplyIcon: View {
+    let size: CGFloat
+    var color: Color = .primary
+
+    var body: some View {
+        Image("ClaudeBubbleReply")
             .renderingMode(.template)
             .resizable()
             .scaledToFit()
@@ -304,7 +320,7 @@ private struct LockScreenView: View {
                 }
                 if !context.state.lastResponse.isEmpty {
                     HStack(alignment: .center, spacing: 6) {
-                        ClaudeMarkIcon(size: 14, color: status.color)
+                        ReplyIcon(size: 14, color: status.color)
                         MarqueeText(
                             text: context.state.lastResponse,
                             font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
