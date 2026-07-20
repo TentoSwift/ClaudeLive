@@ -70,6 +70,8 @@
 		CB000000000000000006A3 /* WatchContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000006A3 /* WatchContentView.swift */; };
 		CB000000000000000006A4 /* ClaudeLiveWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = CA000000000000000006A0 /* ClaudeLiveWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		CB000000000000000006A5 /* WatchLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000006A5 /* WatchLink.swift */; };
+		CB00000000000000000007A0 /* OpenAppIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000007A0 /* OpenAppIntent.swift */; };
+		CB00000000000000000007A1 /* OpenAppIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000007A0 /* OpenAppIntent.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -158,6 +160,7 @@
 		CA000000000000000006A3 /* WatchContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchContentView.swift; sourceTree = "<group>"; };
 		CA000000000000000006A4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		CA000000000000000006A5 /* WatchLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchLink.swift; sourceTree = "<group>"; };
+		CA00000000000000000007A0 /* OpenAppIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAppIntent.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -182,6 +185,7 @@
 			children = (
 				CA00000000000000000000A4 /* ClaudeActivityAttributes.swift */,
 				CA00000000000000000000AC /* AnswerIntent.swift */,
+				CA00000000000000000007A0 /* OpenAppIntent.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -427,6 +431,7 @@
 				CB00000000000000000000AB /* MarkdownText.swift in Sources */,
 				CB00000000000000000000A4 /* ClaudeActivityAttributes.swift in Sources */,
 				CB00000000000000000000AC /* AnswerIntent.swift in Sources */,
+				CB00000000000000000007A0 /* OpenAppIntent.swift in Sources */,
 				CB00000000000000000000E0 /* ClaudeLiveActivityWidget.swift in Sources */,
 				CB00000000000000000000E1 /* FrameAnimation.swift in Sources */,
 				CB00000000000000000000E2 /* MarqueeText.swift in Sources */,
@@ -441,6 +446,7 @@
 			files = (
 				CB00000000000000000000A5 /* ClaudeActivityAttributes.swift in Sources */,
 				CB00000000000000000000AD /* AnswerIntent.swift in Sources */,
+				CB00000000000000000007A1 /* OpenAppIntent.swift in Sources */,
 				CB00000000000000000000A6 /* ClaudeLiveWidgetBundle.swift in Sources */,
 				CB00000000000000000000A7 /* ClaudeLiveActivityWidget.swift in Sources */,
 				CB00000000000000000000B1 /* FrameAnimation.swift in Sources */,

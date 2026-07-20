@@ -596,11 +596,13 @@ private struct WatchSmallView: View {
     }
 
     var body: some View {
-        // Link / .widgetURL どちらもタップに反応しなかったため、カスタム
-        // URL ルーティングには頼らず、watchOS 標準の「Smart Stack タップ→
-        // コンパニオンアプリ起動」という既定の挙動に任せる形に戻す
-        // （セッション個別の deep link はいったん諦める）
-        content
+        // Link / .widgetURL はどちらも実機で反応しなかったため、WidgetKit が
+        // アプリを開くために公式に用意している openAppWhenRun 付きの
+        // AppIntent をボタンとして使う方式を試す
+        Button(intent: OpenClaudeLiveIntent()) {
+            content
+        }
+        .buttonStyle(.plain)
     }
 
     private var content: some View {
