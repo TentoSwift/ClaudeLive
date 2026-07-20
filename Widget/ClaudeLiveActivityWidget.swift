@@ -2,6 +2,20 @@ import ActivityKit
 import SwiftUI
 import WidgetKit
 
+/// ツール名に対応する SF Symbol 名。
+/// デーモン側のツールログ（"SFSymbol名|本文"）と同じ対応表にしてある
+func toolSymbolName(_ tool: String) -> String {
+    switch tool {
+    case "Bash":                        return "terminal"
+    case "Read":                        return "doc.text"
+    case "Edit", "Write", "NotebookEdit": return "pencil"
+    case "Grep", "Glob":                return "magnifyingglass"
+    case "Task", "Agent":               return "sparkles"
+    case "WebFetch", "WebSearch":       return "globe"
+    default:                            return "wrench.and.screwdriver"
+    }
+}
+
 /// インライン Markdown（**強調**・`コード` など）を解釈する
 func styledMarkdown(_ text: String) -> AttributedString {
     (try? AttributedString(
@@ -148,9 +162,18 @@ struct ClaudeLiveActivityWidget: Widget {
                 CompactStatusIcon(status: status, size: 20,
                                   startedAt: context.state.startedAt)
             } compactTrailing: {
-                // タップで Claude モバイルアプリを直接開く
+                // 実行中のツールを表すアイコン。ツールが動いていないときは
+                // Claude マーク。いずれもタップで Claude モバイルアプリを開く
                 Link(destination: URL(string: "claude://")!) {
-                    ClaudeMarkIcon(size: 20, color: status.color)
+                    if context.state.currentTool.isEmpty {
+                        ClaudeMarkIcon(size: 20, color: status.color)
+                    } else {
+                        Image(systemName: toolSymbolName(context.state.currentTool))
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 17, height: 17)
+                            .foregroundStyle(status.color)
+                    }
                 }
             } minimal: {
                 StatusIconView(status: status, size: 18, animateWhenWorking: false)

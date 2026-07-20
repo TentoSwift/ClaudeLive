@@ -598,6 +598,33 @@ final class Daemon {
         latestAssistantTurn(forSessionId: sessionId).text
     }
 
+    /// transcript 末尾から直近のアシスタント発言のモデル名だけを拾う。
+    /// テキストと違いターン境界（turnStartOffset）は無視する:
+    /// /model で切り替えた直後はまだ新ターンの発言が書かれていないことがあり、
+    /// ターン内に限定すると「モデル不明」のまま古い表示が残ってしまうため
+    private func latestModel(forSessionId sessionId: String) -> String? {
+        guard let path = transcriptPath(for: sessionId),
+              let handle = FileHandle(forReadingAtPath: path) else { return nil }
+        defer { try? handle.close() }
+        let maxBytes: UInt64 = 64 * 1024
+        let size = (try? handle.seekToEnd()) ?? 0
+        let offset = size > maxBytes ? size - maxBytes : 0
+        try? handle.seek(toOffset: offset)
+        let data = (try? handle.readToEnd()) ?? Data()
+        var lines = data.split(separator: UInt8(ascii: "\n"))
+        if offset > 0, !lines.isEmpty { lines.removeFirst() }
+
+        for line in lines.reversed() {
+            guard let obj = (try? JSONSerialization.jsonObject(with: Data(line))) as? [String: Any],
+                  obj["type"] as? String == "assistant",
+                  obj["isSidechain"] as? Bool != true,
+                  let message = obj["message"] as? [String: Any],
+                  let model = message["model"] as? String, !model.isEmpty else { continue }
+            return model
+        }
+        return nil
+    }
+
     /// transcript 末尾から直近のアシスタント発言のテキストと使用モデル名を拾う。
     /// モデル名は message.model にそのまま入っている（例 "claude-fable-5"）
     private func latestAssistantTurn(forSessionId sessionId: String) -> (text: String?, model: String?) {
@@ -848,6 +875,11 @@ final class Daemon {
         if let transcript = json["transcript_path"] as? String {
             session.transcriptPath = transcript
         }
+        // どのフックでもモデル名を拾い直す。PreToolUse / Stop だけだと
+        // /model で切り替えても次のツール実行まで表示が古いままになる
+        if let model = latestModel(forSessionId: session.id) {
+            session.model = model
+        }
         var alert: [String: Any]? = nil
 
         switch event {
@@ -898,7 +930,6 @@ final class Daemon {
             // ツール呼び出し前に書いた説明文があれば、途中経過としてライブアクティビティにも
             // 反映する（transcript の非同期書き込みにより 1 手遅れになることがある）
             let turn = latestAssistantTurn(forSessionId: session.id)
-            if let model = turn.model, model != session.model { session.model = model }
             if let text = turn.text, text != session.lastResponse {
                 session.lastResponse = Self.truncate(text, 300)
                 markTextChanged(session)
@@ -956,9 +987,6 @@ final class Daemon {
             session.question = ""
             session.options = []
             session.lastResponse = Self.extractLastResponse(json) ?? ""
-            if let model = latestAssistantTurn(forSessionId: session.id).model, !model.isEmpty {
-                session.model = model
-            }
             markTextChanged(session)
             alert = [
                 "title": "\(session.projectName): 完了",
