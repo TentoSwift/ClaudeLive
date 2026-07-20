@@ -145,7 +145,7 @@ struct ClaudeLiveActivityWidget: Widget {
                     .ignoresSafeArea(.container, edges: .bottom)
                 }
             } compactLeading: {
-                StatusIconView(status: status, size: 20, compact: true)
+                CompactStatusIcon(status: status, size: 20)
             } compactTrailing: {
                 // タップで Claude モバイルアプリを直接開く
                 Link(destination: URL(string: "claude://")!) {
@@ -250,13 +250,51 @@ struct ReplyIcon: View {
 ///
 /// 見た目の大きさが揃うよう、SF Symbols とカスタムシンボルはどちらも
 /// 同じ実寸（size）を基準に描画する
+/// Dynamic Island のコンパクト領域専用の状態アイコン。
+/// フォントマスク方式のコマ送り（SpinnerProofView）はコンパクト領域では
+/// マスクのタイミングが噛み合わず塗り潰し矩形が出てしまうため、ここでは
+/// カスタムシンボル + symbolEffect というネイティブの手段でアニメーションさせる
+struct CompactStatusIcon: View {
+    let status: ClaudeStatus
+    let size: CGFloat
+
+    private var symbolName: String {
+        switch status {
+        case .working:  return "ClaudeMark"
+        case .done:     return "ClaudeBadgeCheckmark"
+        case .question: return "ClaudeBadgeQuestionmark"
+        default:        return ""
+        }
+    }
+
+    var body: some View {
+        Group {
+            if symbolName.isEmpty {
+                Image(systemName: status.icon)
+                    .resizable()
+                    .scaledToFit()
+                    .foregroundStyle(status.color)
+                    .symbolEffect(.pulse, options: .repeating, isActive: status.needsAttention)
+            } else {
+                Image(symbolName)
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .foregroundStyle(Color.claudeBrand)
+                    .symbolEffect(.variableColor.iterative, options: .repeating,
+                                  isActive: status == .working)
+                    .symbolEffect(.pulse, options: .repeating,
+                                  isActive: status == .question)
+            }
+        }
+        .frame(width: size, height: size)
+    }
+}
+
 struct StatusIconView: View {
     let status: ClaudeStatus
     let size: CGFloat
     var animateWhenWorking: Bool = true
-    /// Dynamic Island のコンパクト領域用。自動更新される要素の許容数が
-    /// 展開表示より厳しいらしく、8 コマだと静止してしまうためコマ数を減らす
-    var compact: Bool = false
 
     /// Claude マークにバッジを付けたカスタムシンボル（Assets.xcassets）
     private var customSymbolName: String? {
@@ -270,8 +308,7 @@ struct StatusIconView: View {
     var body: some View {
         Group {
             if status == .working && animateWhenWorking {
-                SpinnerProofView(size: size, color: status.color,
-                                 frameCount: compact ? 4 : 8)
+                SpinnerProofView(size: size, color: status.color)
             } else if status == .working {
                 // アニメーションを使わない場所（DI minimal・watch AOD 中）は
                 // 金槌マークではなく Claude マークの静止版で表す
