@@ -596,11 +596,11 @@ private struct WatchSmallView: View {
     }
 
     var body: some View {
-        // .widgetURL だけでは watchOS Smart Stack のタップでアプリが開かない
-        // ケースがあったため、他の箇所（Claude マーク等）と同じ Link 方式に統一する
-        Link(destination: URL(string: "claudelive://session/\(context.attributes.sessionId)")!) {
-            content
-        }
+        // Link / .widgetURL どちらもタップに反応しなかったため、カスタム
+        // URL ルーティングには頼らず、watchOS 標準の「Smart Stack タップ→
+        // コンパニオンアプリ起動」という既定の挙動に任せる形に戻す
+        // （セッション個別の deep link はいったん諦める）
+        content
     }
 
     private var content: some View {
