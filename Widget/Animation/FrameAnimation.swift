@@ -22,17 +22,18 @@ enum FrameAnimation {
     /// マスク合成を一切使わずにコマ送りを実現する（DI コンパクト領域用）
     static let framesFontName = "ClaudeFrames-Regular"
 
+    /// コンパクト用 8 スロット方式のフォント（ClaudeLoop00〜07）。
+    /// スロット s = 4·par + k（par=秒の偶奇, k=0..3 で 0.25 秒刻みのオフセット）。
+    /// 継ぎ目なく厳密に 2 秒周期でループする（10 桁 mod 5 方式は周期の端で
+    /// コマが重複し休符が生じたため、偶奇だけを使う方式に作り直した）
+    static let loopFontNames = (0..<8).map { String(format: "ClaudeLoop%02d-Regular", $0) }
+
     /// 特殊フォントを実行時に登録する。ウィジェット拡張のバンドルから探す。
     /// 複数回呼ばれても害はない（登録済みなら false が返るだけ）
-    /// コンパクト用 20 スロット方式のフォント（ClaudeSeq00〜19）。
-    /// スロット s = 4ρ+k: オフセット k/4 秒のタイマーで、担当の数字
-    /// （d ≡ ρ mod 5）のときだけ黒背景付きコマ画像、他の数字は透明
-    static let seqFontNames = (0..<20).map { String(format: "ClaudeSeq%02d-Regular", $0) }
-
     @discardableResult
     static func registerFont() -> Bool {
         register(framesFontName, ext: "ttf")
-        for name in seqFontNames { register(name, ext: "ttf") }
+        for name in loopFontNames { register(name, ext: "ttf") }
         return register(fontName, ext: "otf")
     }
 
@@ -231,23 +232,24 @@ struct CompactSpinnerView: View {
     let size: CGFloat
 
     /// コンパクト領域では .mask も blendMode も効かない（実機で確認）。
-    /// そこで一切の合成を使わない「時間展開 20 レイヤー」方式で、
-    /// ロック画面と同じ 8 コマのモーフィングを 4fps で再生する:
+    /// そこで一切の合成を使わない「時間展開 8 レイヤー」方式で、
+    /// ロック画面と同じ 8 コマのモーフィングを厳密に 2 秒周期でループする:
     ///
-    ///  - 5 秒周期を 0.25 秒 × 20 スロットに分割し、スロットごとに 1 レイヤー。
-    ///    レイヤー s（= 4ρ+k）は k/4 秒ずらしたタイマーで、秒の1の位が
-    ///    ρ (mod 5) のときだけ「黒背景付きのコマ画像」を、他は透明を表示する
-    ///  - コマ画像は黒背景付きなので、最前面（z = スロット番号）の
-    ///    アクティブレイヤーが下のレイヤーを完全に覆う。DI の背景も純黒なので
-    ///    黒背景は見えない。単調拡大の制約なしに任意のコマが使える
-    ///  - 見える動き: ロック画面と同じ 2 秒 8 コマの周期 × 2 周 → 先頭コマで
-    ///    約 1.25 秒静止 → 繰り返し（静止は z 折り返しに伴う設計上の休符）
+    ///  - コマ画像は黒背景付き（DI の背景も純黒なので見えない）にすることで、
+    ///    最前面（z = スロット番号）のアクティブレイヤーが下を完全に覆う。
+    ///    これによりマスク不要で任意のコマ（回転含む）がそのまま使える
+    ///  - スロット s = 4·par + k（par = 秒の偶奇、k = 0..3 で 0.25 秒刻みの
+    ///    オフセット）。各レイヤー専用のフォントは、担当の偶奇のときだけ
+    ///    黒背景付きコマを、逆の偶奇では透明グリフを表示する
+    ///  - 10 桁 mod 5 方式（旧版）は 5 秒周期の端で同じコマが重複し休符が
+    ///    生まれてしまったため、偶奇だけを使う方式に作り直した。継ぎ目なく
+    ///    厳密に 2 秒周期でループする
     var body: some View {
         let base = Date(timeIntervalSinceReferenceDate: 0)
         ZStack {
-            ForEach(0..<20, id: \.self) { s in
+            ForEach(0..<8, id: \.self) { s in
                 Text(base.addingTimeInterval(TimeInterval(s % 4) * 0.25), style: .timer)
-                    .font(.custom(FrameAnimation.seqFontNames[s], size: size))
+                    .font(.custom(FrameAnimation.loopFontNames[s], size: size))
                     .lineLimit(1)
                     .multilineTextAlignment(.trailing)
                     .truncationMode(.head)
