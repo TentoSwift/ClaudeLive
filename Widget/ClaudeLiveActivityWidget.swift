@@ -274,7 +274,9 @@ struct CompactStatusIcon: View {
             if status == .working {
                 // ロック画面と同じ元動画由来のコマ送り。ただしコンパクト領域では
                 // .mask 合成が効かないため、数字グリフ＝コマ画像の自作フォント方式
-                DigitFrameSpinnerView(size: size, startedAt: startedAt)
+                // 滑らか版（2秒8コマ・型抜き合成）。もしコンパクト領域で
+                // blendMode も効かず矩形が見えたら DigitFrameSpinnerView(1fps) に戻す
+                CompactSpinnerView(size: size)
             } else if symbolName.isEmpty {
                 Image(systemName: status.icon)
                     .resizable()

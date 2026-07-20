@@ -211,3 +211,48 @@ struct DigitFrameSpinnerView: View {
             .frame(width: size, height: size)
     }
 }
+
+/// DI コンパクト領域用・滑らか版のコマ送り（2秒8コマ、ロック画面と同等）。
+///
+/// コンパクト領域では .mask 合成が効かない（マスク元の矩形がそのまま見える）が、
+/// blendMode(.destinationOut) による型抜きは別の合成経路なので試す価値がある。
+/// 原理は FrameAnimatingView と同じ「点滅テキスト2枚で表示時間窓を作る」だが、
+/// マスクではなく「窓の外の時間帯だけコマを型抜きして消す」方向で実現する:
+///  - 点滅A: コマの表示窓 [start, start+per) の"前"の1秒間だけ黒 → その間コマを消す
+///  - 点滅B: 表示窓の"後"の1秒間だけ黒 → その間コマを消す
+///  - 両方が透明な時間帯（= 表示窓）だけコマが残る
+struct CompactSpinnerView: View {
+    let size: CGFloat
+
+    private static let frameNames = (1...8).map { "spinner-frame\($0)" }
+
+    var body: some View {
+        let per: TimeInterval = 2.0 / 8.0
+        let base = Date(timeIntervalSinceReferenceDate: 0)
+        ZStack {
+            ForEach(0..<8, id: \.self) { index in
+                let start = per * TimeInterval(index)
+                let end = start + per
+                Group {
+                    if let image = FrameAnimation.bundledImage(Self.frameNames[index]) {
+                        image
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: size, height: size)
+                    }
+                }
+                // [start-1, start) の間だけ黒 → コマを型抜きして消す
+                .overlay(
+                    BlinkingView(date: base.addingTimeInterval(start - 1), size: size)
+                        .blendMode(.destinationOut))
+                // [end, end+1) の間だけ黒 → コマを型抜きして消す
+                .overlay(
+                    BlinkingView(date: base.addingTimeInterval(end), size: size)
+                        .blendMode(.destinationOut))
+                // 型抜きの効果をこのコマ内に閉じ込める（外の黒背景まで抜かない）
+                .compositingGroup()
+            }
+        }
+        .frame(width: size, height: size)
+    }
+}
