@@ -335,7 +335,15 @@ struct CompactStatusIcon: View {
             if status == .working && animated {
                 CompactSpinnerView(size: size)
             } else if status == .working {
-                ClaudeMarkIcon(size: size, color: status.color)
+                // フォントマスク方式（CompactSpinnerView）は不安定だったため、
+                // 作業中はずっと symbolEffect（公式のネイティブ手段）で
+                // 淡く明滅させ続ける。カスタムシンボルなので tint が効く
+                Image("ClaudeMark")
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .foregroundStyle(status.color)
+                    .symbolEffect(.variableColor.iterative, options: .repeating, isActive: true)
             } else if symbolName.isEmpty {
                 Image(systemName: status.icon)
                     .resizable()
