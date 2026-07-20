@@ -596,13 +596,12 @@ private struct WatchSmallView: View {
     }
 
     var body: some View {
-        // Link / .widgetURL はどちらも実機で反応しなかったため、WidgetKit が
-        // アプリを開くために公式に用意している openAppWhenRun 付きの
-        // AppIntent をボタンとして使う方式を試す
-        Button(intent: OpenClaudeLiveIntent()) {
-            content
-        }
-        .buttonStyle(.plain)
+        // Link・.widgetURL・openAppWhenRun 付き AppIntent をすべて試したが、
+        // いずれも実機で期待通り動かなかった（前者2つは無反応、Intent 版は
+        // ウィジェット拡張機能が属する iOS 側のアプリを開いてしまい、
+        // Watch アプリを開けなかった）。誤動作より無反応の方がましなので、
+        // タップを乗っ取らない素のコンテンツに戻す
+        content
     }
 
     private var content: some View {
