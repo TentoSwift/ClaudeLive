@@ -335,6 +335,8 @@ final class Daemon {
     private final class PendingQuestion {
         let connection: NWConnection
         var timer: DispatchSourceTimer?
+        /// Mac 側に出す選択ダイアログ（osascript）。他の経路で回答されたら kill する
+        var dialog: Process?
         init(connection: NWConnection) { self.connection = connection }
     }
     private var pendingQuestions: [String: PendingQuestion] = [:]
@@ -827,6 +829,55 @@ final class Daemon {
             "body": Self.truncate(questionText, 100),
             "sound": "default",
         ])
+
+        // Mac 側にも選択肢ダイアログを出す（保留中は Claude Desktop に質問が
+        // 出ないため、その代わり）。選べば iPhone のボタンと同じ扱いで回答、
+        // キャンセルすれば素通しして Claude Desktop 側の質問 UI に任せる
+        showQuestionDialog(sessionId: sessionId, pending: pending,
+                           question: questionText, options: Array(options))
+    }
+
+    /// osascript の「choose from list」で質問ダイアログを表示する。
+    /// iPhone 側で先に回答されたら releaseQuestion が dialog を terminate する
+    private func showQuestionDialog(sessionId: String, pending: PendingQuestion,
+                                    question: String, options: [String]) {
+        func esc(_ text: String) -> String {
+            text.replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"", with: "\\\"")
+        }
+        let list = options.map { "\"\(esc($0))\"" }.joined(separator: ", ")
+        let script = """
+        choose from list {\(list)} with title "ClaudeLive" with prompt "\(esc(question))" \
+        default items {\"\(esc(options[0]))\"}
+        """
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = ["-e", script]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+        process.terminationHandler = { [weak self] _ in
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            let output = String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            self?.queue.async {
+                guard let self, self.pendingQuestions[sessionId] === pending else { return }
+                if output.isEmpty || output == "false" {
+                    // キャンセル → 素通しして Claude Desktop の質問 UI に任せる
+                    log("Mac ダイアログでキャンセル → 素通し: \(sessionId.prefix(8))")
+                    self.releaseQuestion(sessionId: sessionId, answer: nil, notify: true)
+                } else {
+                    log("Mac ダイアログから回答: 「\(Self.truncate(output, 40))」")
+                    self.releaseQuestion(sessionId: sessionId, answer: output, notify: true)
+                }
+            }
+        }
+        do {
+            try process.run()
+            pending.dialog = process
+        } catch {
+            log("質問ダイアログ表示失敗: \(error.localizedDescription)")
+        }
     }
 
     private func handleAnswer(sessionId: String, answer: String, pass: Bool) {
@@ -890,9 +941,14 @@ final class Daemon {
     private func releaseQuestion(sessionId: String, answer: String?, notify: Bool) {
         guard let pending = pendingQuestions.removeValue(forKey: sessionId) else { return }
         pending.timer?.cancel()
+        // Mac 側のダイアログが出ていれば閉じる（terminationHandler は
+        // pendingQuestions から消えた後なので二重解放にはならない）
+        if let dialog = pending.dialog, dialog.isRunning {
+            dialog.terminate()
+        }
 
         if let answer {
-            let reason = "ユーザーは iPhone のライブアクティビティから「\(answer)」を選択しました。"
+            let reason = "ユーザーは選択肢から「\(answer)」を選択しました。"
                 + "これをこの質問への回答として扱い、質問を再表示せずに続行してください。"
             let output: [String: Any] = [
                 "hookSpecificOutput": [
