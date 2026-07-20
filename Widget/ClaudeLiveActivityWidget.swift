@@ -216,7 +216,18 @@ struct ClaudeLiveActivityWidget: Widget {
                     .frame(width: 20, height: 20)
                 }
             } minimal: {
-                StatusIconView(status: status, size: 18, animateWhenWorking: false)
+                // 他のライブアクティビティと同居して1つしか出せないとき。
+                // ツール実行中はそのツールのアイコン、それ以外は状態アイコン
+                // （完了なら Claude の完了マーク）
+                if !context.state.currentTool.isEmpty {
+                    Image(systemName: toolSymbolName(context.state.currentTool))
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 18, height: 18)
+                        .foregroundStyle(status.color)
+                } else {
+                    StatusIconView(status: status, size: 18, animateWhenWorking: false)
+                }
             }
             .keylineTint(status.color)
         }
