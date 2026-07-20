@@ -40,9 +40,9 @@ struct ClaudeLiveActivityWidget: Widget {
                     }
                 }
                 DynamicIslandExpandedRegion(.center) {
-                    if status == .question || expandResponse {
-                        // 質問中、または完了時の長い返答表示中はプロジェクト名・セッション名・
-                        // 状態ラベルも省き、内容の表示に最大限スペースを譲る
+                    if status == .question || status == .done {
+                        // 質問中、または完了時はプロジェクト名・セッション名・状態ラベルも省き、
+                        // 内容の表示に最大限スペースを譲る
                         EmptyView()
                     } else {
                         VStack(spacing: 2) {
