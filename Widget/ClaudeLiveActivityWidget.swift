@@ -152,8 +152,7 @@ struct ClaudeLiveActivityWidget: Widget {
             } compactTrailing: {
                 StatusIconView(status: status, size: 20)
             } minimal: {
-                Image(systemName: status.icon)
-                    .foregroundStyle(status.color)
+                StatusIconView(status: status, size: 18, animateWhenWorking: false)
             }
             .keylineTint(status.color)
         }
