@@ -24,9 +24,14 @@ enum FrameAnimation {
 
     /// 特殊フォントを実行時に登録する。ウィジェット拡張のバンドルから探す。
     /// 複数回呼ばれても害はない（登録済みなら false が返るだけ）
+    /// 4fps 版コンパクトアニメーションのレイヤーフォント（A〜D の4枚重ね）
+    static let layerFontNames = ["ClaudeFramesA-Regular", "ClaudeFramesB-Regular",
+                                 "ClaudeFramesC-Regular", "ClaudeFramesD-Regular"]
+
     @discardableResult
     static func registerFont() -> Bool {
         register(framesFontName, ext: "ttf")
+        for name in layerFontNames { register(name, ext: "ttf") }
         return register(fontName, ext: "otf")
     }
 
@@ -224,33 +229,31 @@ struct DigitFrameSpinnerView: View {
 struct CompactSpinnerView: View {
     let size: CGFloat
 
-    private static let frameNames = (1...8).map { "spinner-frame\($0)" }
-
+    /// コンパクト領域では .mask も blendMode も効かない（実機で確認）。
+    /// そこで一切の合成を使わない「4枚重ねタイマー」方式にする:
+    ///
+    ///  - タイマーテキストを 0.25 秒ずつずらして 4 枚重ねる。
+    ///    各レイヤーは秒の1の位の偶奇（＝1秒ごとに交互）で 2 種類のグリフを出す
+    ///  - グリフのコマ画像は「単調に大きくなる開花」の系列
+    ///    （透明 → 45% → 68% → 86% → 100%、レイヤーDのみ偶数桁が点）。
+    ///    古いレイヤーの小さいコマは新しい大きいコマの内側に完全に隠れるため、
+    ///    ただの重ね描きだけでコマ送りに見える
+    ///  - 見える動き: 点(0.25s) → 45% → 68% → 86%（各0.25s）→ 満開(1s) のループ
     var body: some View {
-        let per: TimeInterval = 2.0 / 8.0
         let base = Date(timeIntervalSinceReferenceDate: 0)
         ZStack {
-            ForEach(0..<8, id: \.self) { index in
-                let start = per * TimeInterval(index)
-                let end = start + per
-                Group {
-                    if let image = FrameAnimation.bundledImage(Self.frameNames[index]) {
-                        image
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: size, height: size)
-                    }
-                }
-                // [start-1, start) の間だけ黒 → コマを型抜きして消す
-                .overlay(
-                    BlinkingView(date: base.addingTimeInterval(start - 1), size: size)
-                        .blendMode(.destinationOut))
-                // [end, end+1) の間だけ黒 → コマを型抜きして消す
-                .overlay(
-                    BlinkingView(date: base.addingTimeInterval(end), size: size)
-                        .blendMode(.destinationOut))
-                // 型抜きの効果をこのコマ内に閉じ込める（外の黒背景まで抜かない）
-                .compositingGroup()
+            ForEach(0..<4, id: \.self) { k in
+                Text(base.addingTimeInterval(TimeInterval(k) * 0.25), style: .timer)
+                    .font(.custom(FrameAnimation.layerFontNames[k], size: size))
+                    .lineLimit(1)
+                    .multilineTextAlignment(.trailing)
+                    .truncationMode(.head)
+                    .dynamicTypeSize(.large)
+                    // 桁数が増えても収まる幅を確保してから末尾1グリフだけ切り出す
+                    .frame(width: 12 * size, height: size, alignment: .trailing)
+                    .fixedSize()
+                    .frame(width: size, alignment: .trailing)
+                    .clipped()
             }
         }
         .frame(width: size, height: size)
