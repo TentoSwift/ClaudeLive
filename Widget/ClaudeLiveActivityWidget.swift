@@ -3,7 +3,7 @@ import SwiftUI
 import WidgetKit
 
 /// インライン Markdown（**強調**・`コード` など）を解釈する
-private func styledMarkdown(_ text: String) -> AttributedString {
+func styledMarkdown(_ text: String) -> AttributedString {
     (try? AttributedString(
         markdown: text,
         options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
@@ -154,7 +154,7 @@ struct ClaudeLiveActivityWidget: Widget {
 /// Claude のマーク。[[claude-usage-bar-app]] と同じ ClaudeSpark.png を使う。
 /// 元画像に Claude カラーが付いているので tint はかけずそのまま表示し、
 /// 読み込みに失敗した場合だけ SF Symbols にフォールバックする
-private struct ClaudeMarkIcon: View {
+struct ClaudeMarkIcon: View {
     let size: CGFloat
     var color: Color = .primary
 
@@ -176,7 +176,7 @@ private struct ClaudeMarkIcon: View {
 /// SF Symbols を実寸指定で描く小アイコン。
 /// `.font()` 指定だとシンボルごとに見た目の大きさがまちまちになるため、
 /// ClaudeMarkIcon（PNG）と縦横のサイズ基準を揃える目的で使う
-private struct SmallSymbolIcon: View {
+struct SmallSymbolIcon: View {
     let name: String
     let size: CGFloat
     var color: Color = .secondary
@@ -192,7 +192,7 @@ private struct SmallSymbolIcon: View {
 
 /// プロンプト（ユーザー入力）行のアイコン。カスタム SF Symbol
 /// （person.bubble.right.fill のカスタム版）を使う
-private struct PromptIcon: View {
+struct PromptIcon: View {
     let size: CGFloat
     var color: Color = .secondary
 
@@ -208,7 +208,7 @@ private struct PromptIcon: View {
 
 /// Claude の返答行のアイコン。カスタム SF Symbol
 /// （bubble.left.fill のカスタム版）を使う
-private struct ReplyIcon: View {
+struct ReplyIcon: View {
     let size: CGFloat
     var color: Color = .primary
     var status: ClaudeStatus? = nil
@@ -234,7 +234,7 @@ private struct ReplyIcon: View {
 ///
 /// 見た目の大きさが揃うよう、SF Symbols とカスタムシンボルはどちらも
 /// 同じ実寸（size）を基準に描画する
-private struct StatusIconView: View {
+struct StatusIconView: View {
     let status: ClaudeStatus
     let size: CGFloat
     var animateWhenWorking: Bool = true
@@ -491,7 +491,7 @@ private struct WatchSmallView: View {
 /// タップすると AnswerQuestionIntent（アプリ本体プロセスで実行）が
 /// Mac デーモンの /answer に回答を POST し、保留中の PreToolUse フックが
 /// decision JSON で解決されて Claude が続行する
-private struct QuestionView: View {
+struct QuestionView: View {
     let sessionId: String
     let question: String
     let options: [String]
@@ -569,7 +569,7 @@ private struct QuestionView: View {
 }
 
 /// 直近ツールログの共通表示
-private struct LogLinesView: View {
+struct LogLinesView: View {
     let logs: [String]
     let maxLines: Int
 
@@ -604,7 +604,7 @@ private struct LogLinesView: View {
 }
 
 /// 経過時間タイマー（システム側で毎秒更新されるのでプッシュ不要）
-private struct ElapsedTimerText: View {
+struct ElapsedTimerText: View {
     let startedAt: Date
 
     var body: some View {

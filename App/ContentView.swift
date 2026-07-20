@@ -8,6 +8,7 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             Form {
+                mirrorSection
                 statusSection
                 SessionsSection()
                 serverSection
@@ -25,6 +26,17 @@ struct ContentView: View {
             }
             .task {
                 await model.loadRemoteSessions()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var mirrorSection: some View {
+        if let attributes = model.mirrorAttributes, let state = model.mirrorState {
+            Section("ライブアクティビティ") {
+                LiveActivityMirrorView(attributes: attributes, state: state)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
             }
         }
     }

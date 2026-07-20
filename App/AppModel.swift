@@ -44,6 +44,10 @@ final class AppModel: ObservableObject {
 
     @Published var pushToStartToken: String?
     @Published var activities: [ActivityInfo] = []
+    /// ライブアクティビティの見た目をアプリ内でそのまま再現するプレビュー用。
+    /// 複数アクティビティがあっても直近に観測した1つだけを表示する
+    @Published var mirrorAttributes: ClaudeActivityAttributes?
+    @Published var mirrorState: ClaudeActivityAttributes.ContentState?
     @Published var remoteSessions: [RemoteSession] = []
     @Published var discoveredServers: [String] = []
     @Published var lastRegistration = "未登録"
@@ -85,8 +89,30 @@ final class AppModel: ObservableObject {
 
     private func track(_ activity: Activity<ClaudeActivityAttributes>) {
         refreshList()
+        mirrorAttributes = activity.attributes
+        mirrorState = activity.content.state
         guard !observedActivityIds.contains(activity.id) else { return }
         observedActivityIds.insert(activity.id)
+
+        // アプリ内プレビュー用に、このアクティビティの状態変化をそのまま反映する
+        Task {
+            for await content in activity.contentUpdates {
+                await MainActor.run {
+                    self.mirrorAttributes = activity.attributes
+                    self.mirrorState = content.state
+                }
+            }
+        }
+        Task {
+            for await state in activity.activityStateUpdates where state == .dismissed || state == .ended {
+                await MainActor.run {
+                    if self.mirrorAttributes?.sessionId == activity.attributes.sessionId {
+                        self.mirrorAttributes = nil
+                        self.mirrorState = nil
+                    }
+                }
+            }
+        }
 
         // per-activity トークン。これを Mac に届けないと更新プッシュが送れない
         Task {

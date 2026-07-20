@@ -32,6 +32,21 @@
 		CB00000000000000000000C8 /* ClaudeSpark.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C8 /* ClaudeSpark.png */; };
 		CB00000000000000000000C9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C9 /* Assets.xcassets */; };
 		CB00000000000000000000A8 /* ClaudeLiveWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000B0 /* ClaudeLiveWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		CB00000000000000000000E0 /* ClaudeLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A6 /* ClaudeLiveActivityWidget.swift */; };
+		CB00000000000000000000E1 /* FrameAnimation.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000B1 /* FrameAnimation.swift */; };
+		CB00000000000000000000E2 /* MarqueeText.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000B3 /* MarqueeText.swift */; };
+		CB00000000000000000000E3 /* FillRect-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000B2 /* FillRect-Regular.otf */; };
+		CB00000000000000000000E4 /* spinner-frame1.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C0 /* spinner-frame1.png */; };
+		CB00000000000000000000E5 /* spinner-frame2.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C1 /* spinner-frame2.png */; };
+		CB00000000000000000000E6 /* spinner-frame3.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C2 /* spinner-frame3.png */; };
+		CB00000000000000000000E7 /* spinner-frame4.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C3 /* spinner-frame4.png */; };
+		CB00000000000000000000E8 /* spinner-frame5.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C4 /* spinner-frame5.png */; };
+		CB00000000000000000000E9 /* spinner-frame6.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C5 /* spinner-frame6.png */; };
+		CB00000000000000000000EA /* spinner-frame7.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C6 /* spinner-frame7.png */; };
+		CB00000000000000000000EB /* spinner-frame8.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C7 /* spinner-frame8.png */; };
+		CB00000000000000000000EC /* ClaudeSpark.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C8 /* ClaudeSpark.png */; };
+		CB00000000000000000000ED /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C9 /* Assets.xcassets */; };
+		CB00000000000000000000EE /* LiveActivityMirrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000EE /* LiveActivityMirrorView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -78,6 +93,7 @@
 		CA00000000000000000000C7 /* spinner-frame8.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "spinner-frame8.png"; sourceTree = "<group>"; };
 		CA00000000000000000000C8 /* ClaudeSpark.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "ClaudeSpark.png"; sourceTree = "<group>"; };
 		CA00000000000000000000C9 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		CA00000000000000000000EE /* LiveActivityMirrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityMirrorView.swift; sourceTree = "<group>"; };
 		CA00000000000000000000A7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		CA00000000000000000000A8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		CA00000000000000000000A9 /* ClaudeLive.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ClaudeLive.entitlements; sourceTree = "<group>"; };
@@ -97,6 +113,7 @@
 				CA00000000000000000000A3 /* AppModel.swift */,
 				CA00000000000000000000AA /* SessionsView.swift */,
 				CA00000000000000000000AB /* MarkdownText.swift */,
+				CA00000000000000000000EE /* LiveActivityMirrorView.swift */,
 				CA00000000000000000000A7 /* Info.plist */,
 				CA00000000000000000000A9 /* ClaudeLive.entitlements */,
 			);
@@ -170,6 +187,7 @@
 			buildConfigurationList = D000000000000000000000A2 /* Build configuration list for PBXNativeTarget "ClaudeLive" */;
 			buildPhases = (
 				CE00000000000000000000A1 /* Sources */,
+				CE00000000000000000000A4 /* Resources */,
 				CE00000000000000000000A3 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
@@ -253,6 +271,10 @@
 				CB00000000000000000000AB /* MarkdownText.swift in Sources */,
 				CB00000000000000000000A4 /* ClaudeActivityAttributes.swift in Sources */,
 				CB00000000000000000000AC /* AnswerIntent.swift in Sources */,
+				CB00000000000000000000E0 /* ClaudeLiveActivityWidget.swift in Sources */,
+				CB00000000000000000000E1 /* FrameAnimation.swift in Sources */,
+				CB00000000000000000000E2 /* MarqueeText.swift in Sources */,
+				CB00000000000000000000EE /* LiveActivityMirrorView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -287,6 +309,24 @@
 				CB00000000000000000000C7 /* spinner-frame8.png in Resources */,
 				CB00000000000000000000C8 /* ClaudeSpark.png in Resources */,
 				CB00000000000000000000C9 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CE00000000000000000000A4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CB00000000000000000000E3 /* FillRect-Regular.otf in Resources */,
+				CB00000000000000000000E4 /* spinner-frame1.png in Resources */,
+				CB00000000000000000000E5 /* spinner-frame2.png in Resources */,
+				CB00000000000000000000E6 /* spinner-frame3.png in Resources */,
+				CB00000000000000000000E7 /* spinner-frame4.png in Resources */,
+				CB00000000000000000000E8 /* spinner-frame5.png in Resources */,
+				CB00000000000000000000E9 /* spinner-frame6.png in Resources */,
+				CB00000000000000000000EA /* spinner-frame7.png in Resources */,
+				CB00000000000000000000EB /* spinner-frame8.png in Resources */,
+				CB00000000000000000000EC /* ClaudeSpark.png in Resources */,
+				CB00000000000000000000ED /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -427,7 +467,6 @@
 		CF00000000000000000000A3 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/ClaudeLive.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = App/Info.plist;
@@ -444,7 +483,6 @@
 		CF00000000000000000000A4 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/ClaudeLive.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = App/Info.plist;

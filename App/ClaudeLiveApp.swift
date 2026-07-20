@@ -7,6 +7,12 @@ struct ClaudeLiveApp: App {
     @StateObject private var model = AppModel.shared
     @Environment(\.scenePhase) private var scenePhase
 
+    init() {
+        // ライブアクティビティのプレビュー表示（アプリ内）で同じアニメーションを
+        // 使うため、フォントマスク方式の特殊フォントをここでも登録しておく
+        FrameAnimation.registerFont()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
