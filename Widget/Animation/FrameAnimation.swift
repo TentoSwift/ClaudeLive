@@ -48,14 +48,22 @@ enum FrameAnimation {
 struct SpinnerProofView: View {
     let size: CGFloat
     let color: Color  // 画像読み込み失敗時のフォールバック表示にのみ使う
+    /// 使うコマ数。8 が本来の滑らかさだが、Dynamic Island のコンパクト領域は
+    /// 自動更新要素の許容数が厳しいらしく、減らさないと静止することがある。
+    /// 8 コマから等間隔に間引く（4 なら 1,3,5,7 コマ目）
+    var frameCount: Int = 8
 
-    private static let frameNames = (1...8).map { "spinner-frame\($0)" }
+    private var frameNames: [String] {
+        let total = 8
+        let step = max(total / max(frameCount, 1), 1)
+        return stride(from: 1, through: total, by: step).map { "spinner-frame\($0)" }
+    }
 
     var body: some View {
         FrameAnimatingView(
             size: size,
             loopDuration: 2,
-            frames: Self.frameNames.map { name in
+            frames: frameNames.map { name in
                 Group {
                     if let image = FrameAnimation.bundledImage(name) {
                         image
