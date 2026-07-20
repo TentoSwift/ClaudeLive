@@ -24,6 +24,8 @@
 	<true/>
 	<key>WKCompanionAppBundleIdentifier</key>
 	<string>com.tento.ClaudeLive</string>
+	<key>WKSupportsLiveActivityLaunchAttributeTypes</key>
+	<array/>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
