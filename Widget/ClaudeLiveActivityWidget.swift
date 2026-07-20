@@ -301,19 +301,12 @@ private struct LockScreenView: View {
                              compact: false,
                              isSettled: context.state.textSettled)
             } else {
-                // ヘッダ: 状態アイコン（作業中はアニメーション）・状態ラベル・
-                // Mac 名・経過時間
+                // ヘッダ: 状態アイコン（作業中はアニメーション）・状態ラベル・経過時間
                 HStack(spacing: 6) {
                     StatusIconView(status: status, size: 26)
                     Text(status.label)
                         .font(.headline)
                         .foregroundStyle(status.needsAttention ? status.color : .primary)
-                    Text(context.state.sessionName.isEmpty
-                         ? context.attributes.hostName
-                         : context.state.sessionName)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
                     Spacer()
                     if !context.state.model.isEmpty {
                         Text(shortModelName(context.state.model))
