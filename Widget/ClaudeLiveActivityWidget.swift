@@ -1,5 +1,6 @@
 import ActivityKit
 import SwiftUI
+import UIKit
 import WidgetKit
 
 /// ツール名に対応する SF Symbol 名。
@@ -14,6 +15,17 @@ func toolSymbolName(_ tool: String) -> String {
     case "WebFetch", "WebSearch":       return "globe"
     default:                            return "wrench.and.screwdriver"
     }
+}
+
+/// 完了時、直近に使ったツールのチェックマーク付きカスタムシンボル名。
+/// Assets.xcassets に "Claude<ツール名>Checkmark" という名前の .symbolset を
+/// 追加すれば自動的に使われる（例: ClaudeBashCheckmark）。
+/// まだ用意していないツールは nil を返し、呼び出し側は共通の
+/// ClaudeBadgeCheckmark にフォールバックする
+func toolCheckmarkSymbolName(_ tool: String) -> String? {
+    guard !tool.isEmpty else { return nil }
+    let name = "Claude\(tool)Checkmark"
+    return UIImage(named: name) != nil ? name : nil
 }
 
 /// インライン Markdown（**強調**・`コード` など）を解釈する
@@ -167,16 +179,26 @@ struct ClaudeLiveActivityWidget: Widget {
                 // Claude マークではなく状態アイコン（完了バッジ等）。
                 // いずれもタップで Claude モバイルアプリを開く
                 Link(destination: URL(string: "claude://")!) {
-                    if context.state.currentTool.isEmpty {
-                        // マスク方式のコマ送り（作業中）はコンパクト領域では
-                        // 塗り潰し矩形が出てしまうため、ここでは無効化する
-                        StatusIconView(status: status, size: 20, animateWhenWorking: false)
-                    } else {
+                    if !context.state.currentTool.isEmpty {
                         Image(systemName: toolSymbolName(context.state.currentTool))
                             .resizable()
                             .scaledToFit()
                             .frame(width: 17, height: 17)
                             .foregroundStyle(status.color)
+                    } else if status == .done,
+                              let name = toolCheckmarkSymbolName(context.state.lastTool) {
+                        // 完了時は直近使ったツールのチェックマーク付きアイコン
+                        // （用意されていれば）。無ければ共通のバッジに任せる
+                        Image(name)
+                            .renderingMode(.template)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 20, height: 20)
+                            .foregroundStyle(Color.claudeBrand)
+                    } else {
+                        // マスク方式のコマ送り（作業中）はコンパクト領域では
+                        // 塗り潰し矩形が出てしまうため、ここでは無効化する
+                        StatusIconView(status: status, size: 20, animateWhenWorking: false)
                     }
                 }
             } minimal: {

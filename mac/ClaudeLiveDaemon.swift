@@ -232,6 +232,9 @@ final class SessionState {
     var status = "waiting"
     var detail = "セッション開始"
     var currentTool = ""
+    /// 直近に使ったツール名。currentTool と違い PostToolUse で空にしない。
+    /// 完了時、最後に使ったツールのチェックマーク付きアイコンを出すのに使う
+    var lastTool = ""
     var logs: [String] = []
     var toolCount = 0
     var lastPrompt = ""
@@ -917,6 +920,7 @@ final class Daemon {
         case "UserPromptSubmit":
             session.status = "working"
             session.currentTool = ""
+            session.lastTool = ""  // 新しいターンなので前ターンのツール表示は引き継がない
             session.detail = ""
             session.lastResponse = ""  // 新しいターンが始まるので前の返答は消す
             session.question = ""
@@ -948,6 +952,7 @@ final class Daemon {
             session.question = ""
             session.options = []
             session.currentTool = toolName
+            session.lastTool = toolName
             session.toolCount += 1
             let line = Self.toolLogLine(
                 name: toolName, input: json["tool_input"] as? [String: Any] ?? [:])
@@ -1160,6 +1165,7 @@ final class Daemon {
             "textSettled": session.textSettled,
             "model": session.model,
             "compactAnimated": tokens.compactAnimated,
+            "lastTool": session.lastTool,
         ]
     }
 

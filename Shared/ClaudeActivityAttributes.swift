@@ -48,6 +48,9 @@ struct ClaudeActivityAttributes: ActivityAttributes {
         /// 過去にライブアクティビティが強制終了される不具合を起こしたため、
         /// アプリの設定画面から任意にオン/オフして安定性を検証できるようにした
         var compactAnimated: Bool
+        /// 直近に使ったツール名（例 "Bash"）。currentTool と違い完了後も残る。
+        /// 完了時、そのツールのチェックマーク付きカスタムアイコンを出すのに使う
+        var lastTool: String
     }
 
     var sessionId: String
