@@ -23,18 +23,10 @@ func toolSymbolName(_ tool: String) -> String {
 /// まだ用意していないツールは nil を返し、呼び出し側は共通の
 /// ClaudeBadgeCheckmark にフォールバックする
 func toolCheckmarkSymbolName(_ tool: String) -> String? {
-    // toolSymbolName と同じグループ分けで、似たツールは1つのシンボルを共有する
-    let group: String
-    switch tool {
-    case "Bash":                          group = "Bash"
-    case "Read":                          group = "Read"
-    case "Edit", "Write", "NotebookEdit": group = "Edit"
-    case "Grep", "Glob":                  group = "Grep"
-    case "Task", "Agent":                 group = "Task"
-    case "WebFetch", "WebSearch":         group = "WebFetch"
-    default:                              return nil
-    }
-    let name = "Claude\(group)Checkmark"
+    // 今のところ Bash（ターミナル）だけに絞る。他ツールのチェックマーク付き
+    // アイコンは用意してあるが、見た目が揃うまでは共通バッジにフォールバックする
+    guard tool == "Bash" else { return nil }
+    let name = "ClaudeBashCheckmark"
     return UIImage(named: name) != nil ? name : nil
 }
 
@@ -207,7 +199,7 @@ struct ClaudeLiveActivityWidget: Widget {
                                 .resizable()
                                 .scaledToFit()
                                 .foregroundStyle(Color.claudeBrand)
-                                .frame(height: 20 * 1.2)
+                                .frame(height: 20 * 1.4)
                         } else {
                             Color.clear
                         }
