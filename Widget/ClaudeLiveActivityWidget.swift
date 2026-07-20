@@ -513,7 +513,9 @@ struct QuestionView: View {
                 uiFontWeight: compact ? .regular : .semibold,
                 color: .primary,
                 lineHeight: compact ? 14 : 18,
-                isSettled: isSettled)
+                // 質問文は回答されるまで表示され続けるので、1周で静止させず
+                // ずっと流し続ける（isSettled を無視する）
+                isSettled: false)
 
             let items = Array(options.prefix(4))
             if compact && items.count <= 3 {
