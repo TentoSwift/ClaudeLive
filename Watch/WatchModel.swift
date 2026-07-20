@@ -34,6 +34,8 @@ final class WatchModel: NSObject, ObservableObject {
     @Published var sessions: [Session] = []
     @Published var daemonURL: String = UserDefaults.standard.string(forKey: "daemonURL") ?? ""
     @Published var lastError: String?
+    /// 直近の取得結果の診断表示（例 "OK 523B 12:34:56" / "解析失敗"）
+    @Published var lastFetchInfo: String = "未取得"
     /// ライブアクティビティのタップで指定されたセッション（起動時に自動で開く）
     @Published var focusSessionId: String?
 
@@ -56,8 +58,13 @@ final class WatchModel: NSObject, ObservableObject {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
         do {
-            let (data, _) = try await URLSession.shared.data(for: request)
-            await MainActor.run { self.lastError = nil }
+            let (data, response) = try await URLSession.shared.data(for: request)
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+            let stamp = Date().formatted(date: .omitted, time: .standard)
+            await MainActor.run {
+                self.lastError = nil
+                self.lastFetchInfo = "HTTP \(statusCode) \(data.count)B \(stamp)"
+            }
             return data
         } catch {
             await MainActor.run { self.lastError = error.localizedDescription }
@@ -66,9 +73,12 @@ final class WatchModel: NSObject, ObservableObject {
     }
 
     func refresh() async {
-        guard let data = await request(path: "/sessions"),
-              let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-              let entries = object["sessions"] as? [[String: Any]] else { return }
+        guard let data = await request(path: "/sessions") else { return }
+        guard let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let entries = object["sessions"] as? [[String: Any]] else {
+            lastFetchInfo += " 解析失敗: " + (String(data: data.prefix(60), encoding: .utf8) ?? "?")
+            return
+        }
         sessions = entries.compactMap { entry in
             guard let id = entry["sessionId"] as? String else { return nil }
             return Session(

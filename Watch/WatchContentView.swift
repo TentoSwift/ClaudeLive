@@ -40,6 +40,9 @@ struct WatchContentView: View {
                         .font(.system(size: 11).monospaced())
                         .foregroundStyle(.tertiary)
                 }
+                Text(model.lastFetchInfo)
+                    .font(.system(size: 11).monospaced())
+                    .foregroundStyle(.tertiary)
             }
             .navigationTitle("ClaudeLive")
             .navigationDestination(for: String.self) { sessionId in
