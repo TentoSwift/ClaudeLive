@@ -21,7 +21,7 @@ struct ClaudeLiveActivityWidget: Widget {
         } dynamicIsland: { context in
             let status = ClaudeStatus(context.state.status)
             // 完了時、返答が長くて場所を取るなら他の情報（プロジェクト名・状態ラベル等）は省く
-            let expandResponse = status == .done && context.state.lastResponse.count >= 10
+            let expandResponse = status == .done && context.state.lastResponse.count >= 100
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     StatusIconView(status: status, size: 24)
@@ -342,7 +342,7 @@ private struct LockScreenView: View {
 
                 // 完了時、返答が長くて場所を取るならツールログ・実行回数は省いて
                 // 返答を複数行で優先表示する（マーキーは1行しか流せないため）
-                let expandResponse = status == .done && context.state.lastResponse.count >= 10
+                let expandResponse = status == .done && context.state.lastResponse.count >= 100
                 if expandResponse {
                     if !context.state.lastPrompt.isEmpty {
                         HStack(alignment: .center, spacing: 6) {

@@ -59,7 +59,7 @@ struct LiveActivityMirrorView: View {
                     }
                 }
 
-                let expandResponse = status == .done && state.lastResponse.count >= 10
+                let expandResponse = status == .done && state.lastResponse.count >= 100
                 if expandResponse {
                     if !state.lastPrompt.isEmpty {
                         HStack(alignment: .center, spacing: 6) {
