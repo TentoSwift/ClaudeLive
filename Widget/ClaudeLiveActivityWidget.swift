@@ -89,7 +89,7 @@ struct ClaudeLiveActivityWidget: Widget {
                                     }
                                 }
                                 HStack(alignment: .top, spacing: 6) {
-                                    ReplyIcon(size: 20, color: Color.claudeBrand, status: status, changeTrigger: context.state.lastResponse)
+                                    ReplyIcon(size: 24, color: Color.claudeBrand, status: status, changeTrigger: context.state.lastResponse)
                                     Text(styledMarkdown(context.state.lastResponse))
                                         .font(.footnote)
                                         .foregroundStyle(.primary)
@@ -111,7 +111,7 @@ struct ClaudeLiveActivityWidget: Widget {
                                     if status == .done && context.state.lastResponse.count >= 16 {
                                         // 完了時、16文字以上の返答はマーキーにせず2行まで折り返す
                                         HStack(alignment: .top, spacing: 6) {
-                                            ReplyIcon(size: 20, color: Color.claudeBrand, status: status, changeTrigger: context.state.lastResponse)
+                                            ReplyIcon(size: 24, color: Color.claudeBrand, status: status, changeTrigger: context.state.lastResponse)
                                             Text(styledMarkdown(context.state.lastResponse))
                                                 .font(.footnote)
                                                 .foregroundStyle(.primary)
@@ -372,7 +372,7 @@ private struct LockScreenView: View {
                         }
                     }
                     HStack(alignment: .top, spacing: 6) {
-                        ReplyIcon(size: 22, color: Color.claudeBrand, status: status, changeTrigger: context.state.lastResponse)
+                        ReplyIcon(size: 26, color: Color.claudeBrand, status: status, changeTrigger: context.state.lastResponse)
                         Text(styledMarkdown(context.state.lastResponse))
                             .font(.footnote)
                             .foregroundStyle(.primary)
@@ -395,7 +395,7 @@ private struct LockScreenView: View {
                         if status == .done && context.state.lastResponse.count >= 16 {
                             // 完了時、16文字以上の返答はマーキーにせず2行まで折り返す
                             HStack(alignment: .top, spacing: 6) {
-                                ReplyIcon(size: 22, color: Color.claudeBrand, status: status, changeTrigger: context.state.lastResponse)
+                                ReplyIcon(size: 26, color: Color.claudeBrand, status: status, changeTrigger: context.state.lastResponse)
                                 Text(styledMarkdown(context.state.lastResponse))
                                     .font(.footnote)
                                     .foregroundStyle(.primary)

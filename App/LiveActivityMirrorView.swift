@@ -72,7 +72,7 @@ struct LiveActivityMirrorView: View {
                         }
                     }
                     HStack(alignment: .top, spacing: 6) {
-                        ReplyIcon(size: 22, color: Color.claudeBrand, status: status, changeTrigger: state.lastResponse)
+                        ReplyIcon(size: 26, color: Color.claudeBrand, status: status, changeTrigger: state.lastResponse)
                         Text(styledMarkdown(state.lastResponse))
                             .font(.footnote)
                             .foregroundStyle(.primary)
@@ -93,7 +93,7 @@ struct LiveActivityMirrorView: View {
                         if status == .done && state.lastResponse.count >= 16 {
                             // 完了時、16文字以上の返答はマーキーにせず2行まで折り返す
                             HStack(alignment: .top, spacing: 6) {
-                                ReplyIcon(size: 22, color: Color.claudeBrand, status: status, changeTrigger: state.lastResponse)
+                                ReplyIcon(size: 26, color: Color.claudeBrand, status: status, changeTrigger: state.lastResponse)
                                 Text(styledMarkdown(state.lastResponse))
                                     .font(.footnote)
                                     .foregroundStyle(.primary)
