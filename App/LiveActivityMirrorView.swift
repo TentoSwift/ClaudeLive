@@ -47,6 +47,7 @@ struct LiveActivityMirrorView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 if !state.detail.isEmpty {
                     HStack(spacing: 8) {

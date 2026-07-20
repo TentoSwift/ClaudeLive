@@ -343,6 +343,7 @@ private struct LockScreenView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 // 詳細
                 if !context.state.detail.isEmpty {
