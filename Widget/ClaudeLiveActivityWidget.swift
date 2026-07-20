@@ -601,6 +601,27 @@ private struct WatchSmallView: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 Spacer(minLength: 0)
+                // 実行中ツール、または直近ツールのチェックマーク付きアイコン。
+                // DI コンパクトの右端と同じ考え方で 1 行目の右端に置く
+                Group {
+                    if !context.state.currentTool.isEmpty {
+                        Image(systemName: toolSymbolName(context.state.currentTool))
+                            .resizable()
+                            .scaledToFit()
+                            .foregroundStyle(tint)
+                    } else if let name = toolCheckmarkSymbolName(context.state.lastTool) {
+                        Image(name)
+                            .renderingMode(.template)
+                            .resizable()
+                            .scaledToFit()
+                            .foregroundStyle(tint)
+                            // ターミナル（Bash）だけ大きめに見せる
+                            .frame(height: context.state.lastTool == "Bash" ? 16 * 1.4 : 16)
+                    } else {
+                        Color.clear
+                    }
+                }
+                .frame(width: 16, height: 16)
             }
 
             if !context.state.question.isEmpty {
