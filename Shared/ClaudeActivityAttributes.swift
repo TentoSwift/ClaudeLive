@@ -44,6 +44,10 @@ struct ClaudeActivityAttributes: ActivityAttributes {
         var textSettled: Bool
         /// 直近のアシスタント発言が使ったモデル名（例 "claude-fable-5"）。空 = 不明
         var model: String
+        /// true = DI コンパクトの作業中アイコンをコマ送りアニメーションにする。
+        /// 過去にライブアクティビティが強制終了される不具合を起こしたため、
+        /// アプリの設定画面から任意にオン/オフして安定性を検証できるようにした
+        var compactAnimated: Bool
     }
 
     var sessionId: String

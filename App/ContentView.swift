@@ -12,6 +12,7 @@ struct ContentView: View {
                 statusSection
                 SessionsSection()
                 serverSection
+                experimentalSection
                 tokenSection
                 activitiesSection
                 testSection
@@ -82,6 +83,16 @@ struct ContentView: View {
             Text("Mac との接続")
         } footer: {
             Text("同じ Wi-Fi 上の Mac（claudelive-daemon）を Bonjour で自動発見し、プッシュ用トークンを登録します。見つからないときは Mac の IP アドレスを手動指定してください。")
+        }
+    }
+
+    private var experimentalSection: some View {
+        Section {
+            Toggle("DI コンパクトのコマ送りアニメーション", isOn: $model.compactAnimated)
+        } header: {
+            Text("実験的機能")
+        } footer: {
+            Text("過去にこのアニメーションがライブアクティビティの強制終了を引き起こした不具合があるため、検証用にオン/オフできるようにしています。オフが既定・安定です。切り替えると Mac に即座に伝わり、表示中のライブアクティビティにも反映されます。")
         }
     }
 

@@ -160,7 +160,8 @@ struct ClaudeLiveActivityWidget: Widget {
                 }
             } compactLeading: {
                 CompactStatusIcon(status: status, size: 20,
-                                  startedAt: context.state.startedAt)
+                                  startedAt: context.state.startedAt,
+                                  animated: context.state.compactAnimated)
             } compactTrailing: {
                 // 実行中のツールを表すアイコン。ツールが動いていないときは
                 // Claude マーク。いずれもタップで Claude モバイルアプリを開く
@@ -283,6 +284,10 @@ struct CompactStatusIcon: View {
     let size: CGFloat
     /// DigitFrameSpinnerView のタイマー起点（ライブアクティビティの startedAt）
     let startedAt: Date
+    /// true でコマ送り版（CompactSpinnerView）を使う。過去にこれが原因で
+    /// ライブアクティビティが強制終了される不具合を起こしたため、既定は false
+    /// （静止版）にし、アプリの設定画面から検証用にオン/オフできるようにした
+    var animated: Bool = false
 
     private var symbolName: String {
         switch status {
@@ -294,11 +299,9 @@ struct CompactStatusIcon: View {
 
     var body: some View {
         Group {
-            if status == .working {
-                // ★ コマ送り版（CompactSpinnerView、8フォント使用）はライブ
-                //   アクティビティが数秒おきに強制終了される不具合を引き起こした
-                //   ため撤回。原因はおそらくウィジェット拡張の負荷過多によるクラッシュ。
-                //   静止版の Claude マークに戻す（安定性を優先）
+            if status == .working && animated {
+                CompactSpinnerView(size: size)
+            } else if status == .working {
                 ClaudeMarkIcon(size: size, color: status.color)
             } else if symbolName.isEmpty {
                 Image(systemName: status.icon)

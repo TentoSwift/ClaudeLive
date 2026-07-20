@@ -181,6 +181,25 @@ struct TokenStore: Codable {
     var pushToStartToken: String?
     var activityTokens: [String: String] = [:]  // sessionId -> token
     var deviceName: String?
+    /// DI コンパクトの作業中アイコンをコマ送りアニメーションにするか。
+    /// アプリの設定画面からのトグルがここに反映される（既定 false = 静止）
+    var compactAnimated: Bool = false
+
+    init() {}
+
+    // 手書きの init(from:) が必要な理由: 自動合成の Decodable はプロパティの
+    // デフォルト値を無視し、キーが1つでも足りないと decode 全体が失敗して
+    // TokenStore() にフォールバックしてしまう（compactAnimated 追加時に、
+    // 既存の tokens.json に無いキーのせいで登録済みトークンが消えた実例あり）。
+    // decodeIfPresent で個別にフォールバックさせ、旧バージョンの JSON とも
+    // 前方互換にする
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        pushToStartToken = try c.decodeIfPresent(String.self, forKey: .pushToStartToken)
+        activityTokens = try c.decodeIfPresent([String: String].self, forKey: .activityTokens) ?? [:]
+        deviceName = try c.decodeIfPresent(String.self, forKey: .deviceName)
+        compactAnimated = try c.decodeIfPresent(Bool.self, forKey: .compactAnimated) ?? false
+    }
 
     static func load() -> TokenStore {
         if let data = try? Data(contentsOf: tokensPath),
@@ -680,6 +699,14 @@ final class Daemon {
         if let device = json["device"] as? String {
             tokens.deviceName = device
         }
+        if let compactAnimated = json["compactAnimated"] as? Bool,
+           compactAnimated != tokens.compactAnimated {
+            tokens.compactAnimated = compactAnimated
+            tokens.save()
+            log("コンパクトアニメーション設定: \(compactAnimated ? "オン" : "オフ")")
+            // 表示中のライブアクティビティにもすぐ反映する
+            for session in sessions.values { pushUpdate(session) }
+        }
         var newStartToken = false
         if let token = json["pushToStartToken"] as? String, token != tokens.pushToStartToken {
             tokens.pushToStartToken = token
@@ -1132,6 +1159,7 @@ final class Daemon {
             "options": session.options,
             "textSettled": session.textSettled,
             "model": session.model,
+            "compactAnimated": tokens.compactAnimated,
         ]
     }
 

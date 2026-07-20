@@ -44,6 +44,15 @@ final class AppModel: ObservableObject {
 
     @Published var pushToStartToken: String?
     @Published var activities: [ActivityInfo] = []
+    /// DI コンパクトの作業中アイコンをコマ送りアニメーションにするか。
+    /// 過去にこれが原因でライブアクティビティが強制終了される不具合を
+    /// 起こしたため、検証用に設定画面からオン/オフできるようにした
+    @Published var compactAnimated: Bool = UserDefaults.standard.bool(forKey: "compactAnimated") {
+        didSet {
+            UserDefaults.standard.set(compactAnimated, forKey: "compactAnimated")
+            registerToServer()
+        }
+    }
     /// ライブアクティビティの見た目をアプリ内でそのまま再現するプレビュー用。
     /// 複数アクティビティがあっても直近に観測した1つだけを表示する
     @Published var mirrorAttributes: ClaudeActivityAttributes?
@@ -242,7 +251,8 @@ final class AppModel: ObservableObject {
                 question: "",
                 options: [],
                 textSettled: false,
-                model: "")
+                model: "",
+                compactAnimated: compactAnimated)
             // pushType .token なのでトークンが発行され、track → /register 経由で
             // Mac に渡り、以後の update はプッシュで届く
             if let activity = try? Activity.request(
@@ -305,6 +315,7 @@ final class AppModel: ObservableObject {
 
     private func performRegistration() async {
         var payload: [String: Any] = ["device": UIDevice.current.name]
+        payload["compactAnimated"] = compactAnimated
         if let token = pushToStartToken { payload["pushToStartToken"] = token }
         // 「いま生きているアクティビティ」のスナップショットとして常に送る（空でも）。
         // Mac 側はここに無いセッションのトークンを破棄して再開始可能に戻す
@@ -450,7 +461,8 @@ final class AppModel: ObservableObject {
             question: "",
             options: [],
             textSettled: false,
-            model: "")
+            model: "",
+            compactAnimated: compactAnimated)
         do {
             let activity = try Activity.request(
                 attributes: attrs,
