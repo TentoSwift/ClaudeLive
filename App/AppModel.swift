@@ -385,7 +385,9 @@ final class AppModel: ObservableObject {
                     // 接続先の実 IP を保存しておく。ライブアクティビティの回答ボタン
                     // （AnswerQuestionIntent）が Bonjour 解決なしで即 POST できるように
                     if case let .hostPort(host, port)? = connection.currentPath?.remoteEndpoint {
-                        let hostText = "\(host)"
+                        // NWEndpoint.Host の文字列化は IPv4 でも "%en0" のような
+                        // スコープ ID が付くことがある。URL に使えないので落とす
+                        let hostText = "\(host)".components(separatedBy: "%").first ?? "\(host)"
                         if !hostText.contains(":") {  // IPv6（スコープ付き）は URL にしにくいので除外
                             UserDefaults.standard.set(
                                 "http://\(hostText):\(port)", forKey: "lastDaemonURL")

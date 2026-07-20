@@ -153,7 +153,13 @@ extension WatchModel: WCSessionDelegate {
     }
 
     private func apply(_ context: [String: Any]) {
-        if let url = context["daemonURL"] as? String, !url.isEmpty, url != daemonURL {
+        guard var url = context["daemonURL"] as? String, !url.isEmpty else { return }
+        // 過去に "%en0" のようなスコープ ID 付きで同期された値を修復する
+        if url.contains("%"), let range = url.range(of: "%"),
+           let colon = url[range.upperBound...].firstIndex(of: ":") {
+            url = String(url[..<range.lowerBound]) + String(url[colon...])
+        }
+        if url != daemonURL {
             daemonURL = url
             UserDefaults.standard.set(url, forKey: "daemonURL")
             Task { await refresh() }
