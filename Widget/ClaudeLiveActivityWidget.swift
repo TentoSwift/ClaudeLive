@@ -145,7 +145,8 @@ struct ClaudeLiveActivityWidget: Widget {
                     .ignoresSafeArea(.container, edges: .bottom)
                 }
             } compactLeading: {
-                CompactStatusIcon(status: status, size: 20)
+                CompactStatusIcon(status: status, size: 20,
+                                  startedAt: context.state.startedAt)
             } compactTrailing: {
                 // タップで Claude モバイルアプリを直接開く
                 Link(destination: URL(string: "claude://")!) {
@@ -257,10 +258,11 @@ struct ReplyIcon: View {
 struct CompactStatusIcon: View {
     let status: ClaudeStatus
     let size: CGFloat
+    /// DigitFrameSpinnerView のタイマー起点（ライブアクティビティの startedAt）
+    let startedAt: Date
 
     private var symbolName: String {
         switch status {
-        case .working:  return "ClaudeMark"
         case .done:     return "ClaudeBadgeCheckmark"
         case .question: return "ClaudeBadgeQuestionmark"
         default:        return ""
@@ -269,7 +271,11 @@ struct CompactStatusIcon: View {
 
     var body: some View {
         Group {
-            if symbolName.isEmpty {
+            if status == .working {
+                // ロック画面と同じ元動画由来のコマ送り。ただしコンパクト領域では
+                // .mask 合成が効かないため、数字グリフ＝コマ画像の自作フォント方式
+                DigitFrameSpinnerView(size: size, startedAt: startedAt)
+            } else if symbolName.isEmpty {
                 Image(systemName: status.icon)
                     .resizable()
                     .scaledToFit()
@@ -281,8 +287,6 @@ struct CompactStatusIcon: View {
                     .resizable()
                     .scaledToFit()
                     .foregroundStyle(Color.claudeBrand)
-                    .symbolEffect(.variableColor.iterative, options: .repeating,
-                                  isActive: status == .working)
                     .symbolEffect(.pulse, options: .repeating,
                                   isActive: status == .question)
             }

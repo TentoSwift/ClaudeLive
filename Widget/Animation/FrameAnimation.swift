@@ -17,14 +17,24 @@ import UIKit
 
 enum FrameAnimation {
     static let fontName = "FillRect-Regular"
+    /// 数字グリフがアニメーションのコマ画像になっている自作 sbix カラーフォント。
+    /// タイマーテキストの秒の1の位が毎秒 0→9 と変わることを利用し、
+    /// マスク合成を一切使わずにコマ送りを実現する（DI コンパクト領域用）
+    static let framesFontName = "ClaudeFrames-Regular"
 
     /// 特殊フォントを実行時に登録する。ウィジェット拡張のバンドルから探す。
     /// 複数回呼ばれても害はない（登録済みなら false が返るだけ）
     @discardableResult
     static func registerFont() -> Bool {
+        register(framesFontName, ext: "ttf")
+        return register(fontName, ext: "otf")
+    }
+
+    @discardableResult
+    private static func register(_ name: String, ext: String) -> Bool {
         guard let url = Bundle(for: BundleToken.self)
-            .url(forResource: fontName, withExtension: "otf")
-            ?? Bundle.main.url(forResource: fontName, withExtension: "otf") else {
+            .url(forResource: name, withExtension: ext)
+            ?? Bundle.main.url(forResource: name, withExtension: ext) else {
             return false
         }
         return CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
@@ -166,5 +176,38 @@ struct FrameAnimatingView<Content: View>: View {
                     }
             }
         }
+    }
+}
+
+/// Dynamic Island のコンパクト領域用のコマ送りアニメーション。
+///
+/// フォントマスク方式（FrameAnimatingView）はコンパクト領域では .mask の
+/// 合成が効かず、マスク用の塗り潰し矩形がそのまま見えてしまう（実機で確認）。
+/// そこでマスクを使わない別方式にする:
+///  - 数字 0〜9 のグリフがアニメーションの各コマ画像になっている自作
+///    sbix カラーフォント（ClaudeFrames-Regular.ttf）をタイマーテキストに当てる
+///  - タイマーの秒の1の位は毎秒 0→9 と巡回するので、末尾1文字だけを
+///    切り出して表示すれば 1fps・10コマのループアニメーションになる
+///  - コンパクト領域でもタイマーテキスト自体は動くことが実証済み
+///    （グレーの四角＝FillRect フォントの矩形グリフが動いて見えていた）
+struct DigitFrameSpinnerView: View {
+    let size: CGFloat
+    /// タイマーの起点。ライブアクティビティの startedAt など安定した値を渡す
+    let startedAt: Date
+
+    var body: some View {
+        Text(startedAt, style: .timer)
+            .font(.custom(FrameAnimation.framesFontName, size: size))
+            .lineLimit(1)
+            .multilineTextAlignment(.trailing)
+            .truncationMode(.head)
+            .dynamicTypeSize(.large)
+            // 経過時間の桁数が増えても収まるよう十分な幅を確保してから、
+            // 末尾1グリフ（＝秒の1の位）だけを切り出す
+            .frame(width: 12 * size, height: size, alignment: .trailing)
+            .fixedSize()
+            .frame(width: size, alignment: .trailing)
+            .clipped()
+            .frame(width: size, height: size)
     }
 }

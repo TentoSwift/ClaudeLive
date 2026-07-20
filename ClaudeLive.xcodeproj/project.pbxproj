@@ -47,6 +47,8 @@
 		CB00000000000000000000EC /* ClaudeSpark.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C8 /* ClaudeSpark.png */; };
 		CB00000000000000000000ED /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C9 /* Assets.xcassets */; };
 		CB00000000000000000000EE /* LiveActivityMirrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000EE /* LiveActivityMirrorView.swift */; };
+		CB00000000000000000000F0 /* ClaudeFrames-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000F0 /* ClaudeFrames-Regular.ttf */; };
+		CB00000000000000000000F1 /* ClaudeFrames-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000F0 /* ClaudeFrames-Regular.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -94,6 +96,7 @@
 		CA00000000000000000000C8 /* ClaudeSpark.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "ClaudeSpark.png"; sourceTree = "<group>"; };
 		CA00000000000000000000C9 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		CA00000000000000000000EE /* LiveActivityMirrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityMirrorView.swift; sourceTree = "<group>"; };
+		CA00000000000000000000F0 /* ClaudeFrames-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "ClaudeFrames-Regular.ttf"; sourceTree = "<group>"; };
 		CA00000000000000000000A7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		CA00000000000000000000A8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		CA00000000000000000000A9 /* ClaudeLive.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ClaudeLive.entitlements; sourceTree = "<group>"; };
@@ -147,6 +150,7 @@
 				CA00000000000000000000B1 /* FrameAnimation.swift */,
 				CA00000000000000000000B3 /* MarqueeText.swift */,
 				CA00000000000000000000B2 /* FillRect-Regular.otf */,
+				CA00000000000000000000F0 /* ClaudeFrames-Regular.ttf */,
 				CA00000000000000000000C0 /* spinner-frame1.png */,
 				CA00000000000000000000C1 /* spinner-frame2.png */,
 				CA00000000000000000000C2 /* spinner-frame3.png */,
@@ -299,6 +303,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CB00000000000000000000B2 /* FillRect-Regular.otf in Resources */,
+				CB00000000000000000000F0 /* ClaudeFrames-Regular.ttf in Resources */,
 				CB00000000000000000000C0 /* spinner-frame1.png in Resources */,
 				CB00000000000000000000C1 /* spinner-frame2.png in Resources */,
 				CB00000000000000000000C2 /* spinner-frame3.png in Resources */,
@@ -317,6 +322,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CB00000000000000000000E3 /* FillRect-Regular.otf in Resources */,
+				CB00000000000000000000F1 /* ClaudeFrames-Regular.ttf in Resources */,
 				CB00000000000000000000E4 /* spinner-frame1.png in Resources */,
 				CB00000000000000000000E5 /* spinner-frame2.png in Resources */,
 				CB00000000000000000000E6 /* spinner-frame3.png in Resources */,
