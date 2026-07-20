@@ -325,14 +325,6 @@ private struct LockScreenView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                // セッションのタイトル（最初の入力から生成）
-                if !context.state.sessionTitle.isEmpty {
-                    Text(context.state.sessionTitle)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-
                 // メイン: 状態 + 実行中ツール
                 HStack(spacing: 8) {
                     StatusIconView(status: status, size: 26)
