@@ -307,6 +307,12 @@ private struct LockScreenView: View {
                     Text(status.label)
                         .font(.headline)
                         .foregroundStyle(status.needsAttention ? status.color : .primary)
+                    if !context.state.currentTool.isEmpty {
+                        Text(context.state.currentTool)
+                            .font(.subheadline.monospaced())
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                     Spacer()
                     HStack(spacing: 3) {
                         if !context.state.model.isEmpty {
@@ -321,25 +327,15 @@ private struct LockScreenView: View {
                     }
                 }
 
-                // 実行中ツール・詳細
-                if !context.state.currentTool.isEmpty || !context.state.detail.isEmpty {
+                // 詳細
+                if !context.state.detail.isEmpty {
                     HStack(spacing: 8) {
                         Color.clear.frame(width: 26, height: 0)
-                        VStack(alignment: .leading, spacing: 1) {
-                            if !context.state.currentTool.isEmpty {
-                                Text(context.state.currentTool)
-                                    .font(.subheadline.monospaced())
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-                            if !context.state.detail.isEmpty {
-                                Text(context.state.detail)
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(2)
-                                    .contentTransition(.opacity)
-                            }
-                        }
+                        Text(context.state.detail)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .contentTransition(.opacity)
                         Spacer(minLength: 0)
                     }
                 }
