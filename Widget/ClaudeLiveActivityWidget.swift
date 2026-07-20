@@ -301,9 +301,13 @@ private struct LockScreenView: View {
                              compact: false,
                              isSettled: context.state.textSettled)
             } else {
-                // ヘッダ: プロジェクト名・Mac 名・経過時間
+                // ヘッダ: 状態アイコン（作業中はアニメーション）・状態ラベル・
+                // プロジェクト名・Mac 名・経過時間
                 HStack(spacing: 6) {
-                    ClaudeMarkIcon(size: 26, color: status.color)
+                    StatusIconView(status: status, size: 26)
+                    Text(status.label)
+                        .font(.headline)
+                        .foregroundStyle(status.needsAttention ? status.color : .primary)
                     Text(context.attributes.projectName)
                         .font(.caption.bold())
                         .lineLimit(1)
@@ -325,30 +329,27 @@ private struct LockScreenView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                // メイン: 状態 + 実行中ツール
-                HStack(spacing: 8) {
-                    StatusIconView(status: status, size: 26)
-                    VStack(alignment: .leading, spacing: 1) {
-                        HStack(spacing: 6) {
-                            Text(status.label)
-                                .font(.headline)
-                                .foregroundStyle(status.needsAttention ? status.color : .primary)
+                // 実行中ツール・詳細
+                if !context.state.currentTool.isEmpty || !context.state.detail.isEmpty {
+                    HStack(spacing: 8) {
+                        Color.clear.frame(width: 26, height: 0)
+                        VStack(alignment: .leading, spacing: 1) {
                             if !context.state.currentTool.isEmpty {
                                 Text(context.state.currentTool)
                                     .font(.subheadline.monospaced())
                                     .foregroundStyle(.secondary)
                                     .lineLimit(1)
                             }
+                            if !context.state.detail.isEmpty {
+                                Text(context.state.detail)
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(2)
+                                    .contentTransition(.opacity)
+                            }
                         }
-                        if !context.state.detail.isEmpty {
-                            Text(context.state.detail)
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(2)
-                                .contentTransition(.opacity)
-                        }
+                        Spacer(minLength: 0)
                     }
-                    Spacer(minLength: 0)
                 }
 
                 // 完了時、返答が長くて場所を取るならツールログ・実行回数は省いて
