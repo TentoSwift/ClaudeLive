@@ -11,16 +11,17 @@
 		CB00000000000000000000A2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A2 /* ContentView.swift */; };
 		CB00000000000000000000A3 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A3 /* AppModel.swift */; };
 		CB00000000000000000000A4 /* ClaudeActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A4 /* ClaudeActivityAttributes.swift */; };
+		CB00000000000000000000A5 /* ClaudeActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A4 /* ClaudeActivityAttributes.swift */; };
+		CB00000000000000000000A6 /* ClaudeLiveWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A5 /* ClaudeLiveWidgetBundle.swift */; };
+		CB00000000000000000000A7 /* ClaudeLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A6 /* ClaudeLiveActivityWidget.swift */; };
+		CB00000000000000000000A8 /* ClaudeLiveWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000B0 /* ClaudeLiveWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		CB00000000000000000000A9 /* SessionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000AA /* SessionsView.swift */; };
 		CB00000000000000000000AB /* MarkdownText.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000AB /* MarkdownText.swift */; };
 		CB00000000000000000000AC /* AnswerIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000AC /* AnswerIntent.swift */; };
 		CB00000000000000000000AD /* AnswerIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000AC /* AnswerIntent.swift */; };
-		CB00000000000000000000A5 /* ClaudeActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A4 /* ClaudeActivityAttributes.swift */; };
-		CB00000000000000000000A6 /* ClaudeLiveWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A5 /* ClaudeLiveWidgetBundle.swift */; };
-		CB00000000000000000000A7 /* ClaudeLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A6 /* ClaudeLiveActivityWidget.swift */; };
 		CB00000000000000000000B1 /* FrameAnimation.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000B1 /* FrameAnimation.swift */; };
-		CB00000000000000000000B3 /* MarqueeText.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000B3 /* MarqueeText.swift */; };
 		CB00000000000000000000B2 /* FillRect-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000B2 /* FillRect-Regular.otf */; };
+		CB00000000000000000000B3 /* MarqueeText.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000B3 /* MarqueeText.swift */; };
 		CB00000000000000000000C0 /* spinner-frame1.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C0 /* spinner-frame1.png */; };
 		CB00000000000000000000C1 /* spinner-frame2.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C1 /* spinner-frame2.png */; };
 		CB00000000000000000000C2 /* spinner-frame3.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C2 /* spinner-frame3.png */; };
@@ -31,7 +32,6 @@
 		CB00000000000000000000C7 /* spinner-frame8.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C7 /* spinner-frame8.png */; };
 		CB00000000000000000000C8 /* ClaudeSpark.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C8 /* ClaudeSpark.png */; };
 		CB00000000000000000000C9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C9 /* Assets.xcassets */; };
-		CB00000000000000000000A8 /* ClaudeLiveWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000B0 /* ClaudeLiveWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		CB00000000000000000000E0 /* ClaudeLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A6 /* ClaudeLiveActivityWidget.swift */; };
 		CB00000000000000000000E1 /* FrameAnimation.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000B1 /* FrameAnimation.swift */; };
 		CB00000000000000000000E2 /* MarqueeText.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000B3 /* MarqueeText.swift */; };
@@ -50,26 +50,26 @@
 		CB00000000000000000000F0 /* ClaudeFrames-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000F0 /* ClaudeFrames-Regular.ttf */; };
 		CB00000000000000000000F1 /* ClaudeFrames-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000F0 /* ClaudeFrames-Regular.ttf */; };
 		CB0000000000000000000400 /* ClaudeLoop00-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000400 /* ClaudeLoop00-Regular.ttf */; };
-		CB0000000000000000000500 /* ClaudeLoop00-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000400 /* ClaudeLoop00-Regular.ttf */; };
 		CB0000000000000000000401 /* ClaudeLoop01-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000401 /* ClaudeLoop01-Regular.ttf */; };
-		CB0000000000000000000501 /* ClaudeLoop01-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000401 /* ClaudeLoop01-Regular.ttf */; };
 		CB0000000000000000000402 /* ClaudeLoop02-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000402 /* ClaudeLoop02-Regular.ttf */; };
-		CB0000000000000000000502 /* ClaudeLoop02-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000402 /* ClaudeLoop02-Regular.ttf */; };
 		CB0000000000000000000403 /* ClaudeLoop03-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000403 /* ClaudeLoop03-Regular.ttf */; };
-		CB0000000000000000000503 /* ClaudeLoop03-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000403 /* ClaudeLoop03-Regular.ttf */; };
 		CB0000000000000000000404 /* ClaudeLoop04-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000404 /* ClaudeLoop04-Regular.ttf */; };
-		CB0000000000000000000504 /* ClaudeLoop04-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000404 /* ClaudeLoop04-Regular.ttf */; };
 		CB0000000000000000000405 /* ClaudeLoop05-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000405 /* ClaudeLoop05-Regular.ttf */; };
-		CB0000000000000000000505 /* ClaudeLoop05-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000405 /* ClaudeLoop05-Regular.ttf */; };
 		CB0000000000000000000406 /* ClaudeLoop06-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000406 /* ClaudeLoop06-Regular.ttf */; };
-		CB0000000000000000000506 /* ClaudeLoop06-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000406 /* ClaudeLoop06-Regular.ttf */; };
 		CB0000000000000000000407 /* ClaudeLoop07-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000407 /* ClaudeLoop07-Regular.ttf */; };
+		CB0000000000000000000500 /* ClaudeLoop00-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000400 /* ClaudeLoop00-Regular.ttf */; };
+		CB0000000000000000000501 /* ClaudeLoop01-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000401 /* ClaudeLoop01-Regular.ttf */; };
+		CB0000000000000000000502 /* ClaudeLoop02-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000402 /* ClaudeLoop02-Regular.ttf */; };
+		CB0000000000000000000503 /* ClaudeLoop03-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000403 /* ClaudeLoop03-Regular.ttf */; };
+		CB0000000000000000000504 /* ClaudeLoop04-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000404 /* ClaudeLoop04-Regular.ttf */; };
+		CB0000000000000000000505 /* ClaudeLoop05-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000405 /* ClaudeLoop05-Regular.ttf */; };
+		CB0000000000000000000506 /* ClaudeLoop06-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000406 /* ClaudeLoop06-Regular.ttf */; };
 		CB0000000000000000000507 /* ClaudeLoop07-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000407 /* ClaudeLoop07-Regular.ttf */; };
 		CB000000000000000006A1 /* ClaudeLiveWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000006A1 /* ClaudeLiveWatchApp.swift */; };
 		CB000000000000000006A2 /* WatchModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000006A2 /* WatchModel.swift */; };
 		CB000000000000000006A3 /* WatchContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000006A3 /* WatchContentView.swift */; };
-		CB000000000000000006A5 /* WatchLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000006A5 /* WatchLink.swift */; };
 		CB000000000000000006A4 /* ClaudeLiveWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = CA000000000000000006A0 /* ClaudeLiveWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		CB000000000000000006A5 /* WatchLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000006A5 /* WatchLink.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -121,9 +121,17 @@
 		CA00000000000000000000A4 /* ClaudeActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeActivityAttributes.swift; sourceTree = "<group>"; };
 		CA00000000000000000000A5 /* ClaudeLiveWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLiveWidgetBundle.swift; sourceTree = "<group>"; };
 		CA00000000000000000000A6 /* ClaudeLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLiveActivityWidget.swift; sourceTree = "<group>"; };
+		CA00000000000000000000A7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		CA00000000000000000000A8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		CA00000000000000000000A9 /* ClaudeLive.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ClaudeLive.entitlements; sourceTree = "<group>"; };
+		CA00000000000000000000AA /* SessionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionsView.swift; sourceTree = "<group>"; };
+		CA00000000000000000000AB /* MarkdownText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownText.swift; sourceTree = "<group>"; };
+		CA00000000000000000000AC /* AnswerIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnswerIntent.swift; sourceTree = "<group>"; };
+		CA00000000000000000000AF /* ClaudeLive.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ClaudeLive.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CA00000000000000000000B0 /* ClaudeLiveWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = ClaudeLiveWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		CA00000000000000000000B1 /* FrameAnimation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameAnimation.swift; sourceTree = "<group>"; };
-		CA00000000000000000000B3 /* MarqueeText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarqueeText.swift; sourceTree = "<group>"; };
 		CA00000000000000000000B2 /* FillRect-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "FillRect-Regular.otf"; sourceTree = "<group>"; };
+		CA00000000000000000000B3 /* MarqueeText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarqueeText.swift; sourceTree = "<group>"; };
 		CA00000000000000000000C0 /* spinner-frame1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "spinner-frame1.png"; sourceTree = "<group>"; };
 		CA00000000000000000000C1 /* spinner-frame2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "spinner-frame2.png"; sourceTree = "<group>"; };
 		CA00000000000000000000C2 /* spinner-frame3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "spinner-frame3.png"; sourceTree = "<group>"; };
@@ -132,7 +140,7 @@
 		CA00000000000000000000C5 /* spinner-frame6.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "spinner-frame6.png"; sourceTree = "<group>"; };
 		CA00000000000000000000C6 /* spinner-frame7.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "spinner-frame7.png"; sourceTree = "<group>"; };
 		CA00000000000000000000C7 /* spinner-frame8.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "spinner-frame8.png"; sourceTree = "<group>"; };
-		CA00000000000000000000C8 /* ClaudeSpark.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "ClaudeSpark.png"; sourceTree = "<group>"; };
+		CA00000000000000000000C8 /* ClaudeSpark.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ClaudeSpark.png; sourceTree = "<group>"; };
 		CA00000000000000000000C9 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		CA00000000000000000000EE /* LiveActivityMirrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityMirrorView.swift; sourceTree = "<group>"; };
 		CA00000000000000000000F0 /* ClaudeFrames-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "ClaudeFrames-Regular.ttf"; sourceTree = "<group>"; };
@@ -144,15 +152,7 @@
 		CA0000000000000000000405 /* ClaudeLoop05-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "ClaudeLoop05-Regular.ttf"; sourceTree = "<group>"; };
 		CA0000000000000000000406 /* ClaudeLoop06-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "ClaudeLoop06-Regular.ttf"; sourceTree = "<group>"; };
 		CA0000000000000000000407 /* ClaudeLoop07-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "ClaudeLoop07-Regular.ttf"; sourceTree = "<group>"; };
-		CA00000000000000000000A7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		CA00000000000000000000A8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		CA00000000000000000000A9 /* ClaudeLive.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ClaudeLive.entitlements; sourceTree = "<group>"; };
-		CA00000000000000000000AA /* SessionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionsView.swift; sourceTree = "<group>"; };
-		CA00000000000000000000AB /* MarkdownText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownText.swift; sourceTree = "<group>"; };
-		CA00000000000000000000AC /* AnswerIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnswerIntent.swift; sourceTree = "<group>"; };
-		CA00000000000000000000AF /* ClaudeLive.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ClaudeLive.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		CA00000000000000000000B0 /* ClaudeLiveWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = ClaudeLiveWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		CA000000000000000006A0 /* ClaudeLiveWatch.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ClaudeLiveWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CA000000000000000006A0 /* ClaudeLiveWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClaudeLiveWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CA000000000000000006A1 /* ClaudeLiveWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLiveWatchApp.swift; sourceTree = "<group>"; };
 		CA000000000000000006A2 /* WatchModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchModel.swift; sourceTree = "<group>"; };
 		CA000000000000000006A3 /* WatchContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchContentView.swift; sourceTree = "<group>"; };
@@ -198,6 +198,27 @@
 			path = Widget;
 			sourceTree = "<group>";
 		};
+		CC00000000000000000000A4 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				CA00000000000000000000AF /* ClaudeLive.app */,
+				CA00000000000000000000B0 /* ClaudeLiveWidget.appex */,
+				CA000000000000000006A0 /* ClaudeLiveWatch.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		CC00000000000000000000A5 = {
+			isa = PBXGroup;
+			children = (
+				CC00000000000000000000A1 /* App */,
+				CC000000000000000006A1 /* Watch */,
+				CC00000000000000000000A2 /* Shared */,
+				CC00000000000000000000A3 /* Widget */,
+				CC00000000000000000000A4 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
 		CC00000000000000000000B0 /* Animation */ = {
 			isa = PBXGroup;
 			children = (
@@ -224,27 +245,6 @@
 				CA00000000000000000000C8 /* ClaudeSpark.png */,
 			);
 			path = Animation;
-			sourceTree = "<group>";
-		};
-		CC00000000000000000000A4 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				CA00000000000000000000AF /* ClaudeLive.app */,
-				CA00000000000000000000B0 /* ClaudeLiveWidget.appex */,
-				CA000000000000000006A0 /* ClaudeLiveWatch.app */,
-			);
-			name = Products;
-			sourceTree = "<group>";
-		};
-		CC00000000000000000000A5 = {
-			isa = PBXGroup;
-			children = (
-				CC00000000000000000000A1 /* App */,
-				CC000000000000000006A1 /* Watch */,
-				CC00000000000000000000A2 /* Shared */,
-				CC00000000000000000000A3 /* Widget */,
-				CC00000000000000000000A4 /* Products */,
-			);
 			sourceTree = "<group>";
 		};
 		CC000000000000000006A1 /* Watch */ = {
@@ -335,10 +335,6 @@
 						DevelopmentTeam = LV3H7Q68W6;
 						ProvisioningStyle = Automatic;
 					};
-					CD000000000000000006A1 = {
-						DevelopmentTeam = LV3H7Q68W6;
-						ProvisioningStyle = Automatic;
-					};
 				};
 			};
 			buildConfigurationList = D000000000000000000000A1 /* Build configuration list for PBXProject "ClaudeLive" */;
@@ -361,6 +357,63 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		CE00000000000000000000A4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CB00000000000000000000E3 /* FillRect-Regular.otf in Resources */,
+				CB00000000000000000000F1 /* ClaudeFrames-Regular.ttf in Resources */,
+				CB0000000000000000000500 /* ClaudeLoop00-Regular.ttf in Resources */,
+				CB0000000000000000000501 /* ClaudeLoop01-Regular.ttf in Resources */,
+				CB0000000000000000000502 /* ClaudeLoop02-Regular.ttf in Resources */,
+				CB0000000000000000000503 /* ClaudeLoop03-Regular.ttf in Resources */,
+				CB0000000000000000000504 /* ClaudeLoop04-Regular.ttf in Resources */,
+				CB0000000000000000000505 /* ClaudeLoop05-Regular.ttf in Resources */,
+				CB0000000000000000000506 /* ClaudeLoop06-Regular.ttf in Resources */,
+				CB0000000000000000000507 /* ClaudeLoop07-Regular.ttf in Resources */,
+				CB00000000000000000000E4 /* spinner-frame1.png in Resources */,
+				CB00000000000000000000E5 /* spinner-frame2.png in Resources */,
+				CB00000000000000000000E6 /* spinner-frame3.png in Resources */,
+				CB00000000000000000000E7 /* spinner-frame4.png in Resources */,
+				CB00000000000000000000E8 /* spinner-frame5.png in Resources */,
+				CB00000000000000000000E9 /* spinner-frame6.png in Resources */,
+				CB00000000000000000000EA /* spinner-frame7.png in Resources */,
+				CB00000000000000000000EB /* spinner-frame8.png in Resources */,
+				CB00000000000000000000EC /* ClaudeSpark.png in Resources */,
+				CB00000000000000000000ED /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CE00000000000000000000B3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CB00000000000000000000B2 /* FillRect-Regular.otf in Resources */,
+				CB00000000000000000000F0 /* ClaudeFrames-Regular.ttf in Resources */,
+				CB0000000000000000000400 /* ClaudeLoop00-Regular.ttf in Resources */,
+				CB0000000000000000000401 /* ClaudeLoop01-Regular.ttf in Resources */,
+				CB0000000000000000000402 /* ClaudeLoop02-Regular.ttf in Resources */,
+				CB0000000000000000000403 /* ClaudeLoop03-Regular.ttf in Resources */,
+				CB0000000000000000000404 /* ClaudeLoop04-Regular.ttf in Resources */,
+				CB0000000000000000000405 /* ClaudeLoop05-Regular.ttf in Resources */,
+				CB0000000000000000000406 /* ClaudeLoop06-Regular.ttf in Resources */,
+				CB0000000000000000000407 /* ClaudeLoop07-Regular.ttf in Resources */,
+				CB00000000000000000000C0 /* spinner-frame1.png in Resources */,
+				CB00000000000000000000C1 /* spinner-frame2.png in Resources */,
+				CB00000000000000000000C2 /* spinner-frame3.png in Resources */,
+				CB00000000000000000000C3 /* spinner-frame4.png in Resources */,
+				CB00000000000000000000C4 /* spinner-frame5.png in Resources */,
+				CB00000000000000000000C5 /* spinner-frame6.png in Resources */,
+				CB00000000000000000000C6 /* spinner-frame7.png in Resources */,
+				CB00000000000000000000C7 /* spinner-frame8.png in Resources */,
+				CB00000000000000000000C8 /* ClaudeSpark.png in Resources */,
+				CB00000000000000000000C9 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		CE00000000000000000000A1 /* Sources */ = {
@@ -406,63 +459,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin PBXResourcesBuildPhase section */
-		CE00000000000000000000B3 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				CB00000000000000000000B2 /* FillRect-Regular.otf in Resources */,
-				CB00000000000000000000F0 /* ClaudeFrames-Regular.ttf in Resources */,
-				CB0000000000000000000400 /* ClaudeLoop00-Regular.ttf in Resources */,
-				CB0000000000000000000401 /* ClaudeLoop01-Regular.ttf in Resources */,
-				CB0000000000000000000402 /* ClaudeLoop02-Regular.ttf in Resources */,
-				CB0000000000000000000403 /* ClaudeLoop03-Regular.ttf in Resources */,
-				CB0000000000000000000404 /* ClaudeLoop04-Regular.ttf in Resources */,
-				CB0000000000000000000405 /* ClaudeLoop05-Regular.ttf in Resources */,
-				CB0000000000000000000406 /* ClaudeLoop06-Regular.ttf in Resources */,
-				CB0000000000000000000407 /* ClaudeLoop07-Regular.ttf in Resources */,
-				CB00000000000000000000C0 /* spinner-frame1.png in Resources */,
-				CB00000000000000000000C1 /* spinner-frame2.png in Resources */,
-				CB00000000000000000000C2 /* spinner-frame3.png in Resources */,
-				CB00000000000000000000C3 /* spinner-frame4.png in Resources */,
-				CB00000000000000000000C4 /* spinner-frame5.png in Resources */,
-				CB00000000000000000000C5 /* spinner-frame6.png in Resources */,
-				CB00000000000000000000C6 /* spinner-frame7.png in Resources */,
-				CB00000000000000000000C7 /* spinner-frame8.png in Resources */,
-				CB00000000000000000000C8 /* ClaudeSpark.png in Resources */,
-				CB00000000000000000000C9 /* Assets.xcassets in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		CE00000000000000000000A4 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				CB00000000000000000000E3 /* FillRect-Regular.otf in Resources */,
-				CB00000000000000000000F1 /* ClaudeFrames-Regular.ttf in Resources */,
-				CB0000000000000000000500 /* ClaudeLoop00-Regular.ttf in Resources */,
-				CB0000000000000000000501 /* ClaudeLoop01-Regular.ttf in Resources */,
-				CB0000000000000000000502 /* ClaudeLoop02-Regular.ttf in Resources */,
-				CB0000000000000000000503 /* ClaudeLoop03-Regular.ttf in Resources */,
-				CB0000000000000000000504 /* ClaudeLoop04-Regular.ttf in Resources */,
-				CB0000000000000000000505 /* ClaudeLoop05-Regular.ttf in Resources */,
-				CB0000000000000000000506 /* ClaudeLoop06-Regular.ttf in Resources */,
-				CB0000000000000000000507 /* ClaudeLoop07-Regular.ttf in Resources */,
-				CB00000000000000000000E4 /* spinner-frame1.png in Resources */,
-				CB00000000000000000000E5 /* spinner-frame2.png in Resources */,
-				CB00000000000000000000E6 /* spinner-frame3.png in Resources */,
-				CB00000000000000000000E7 /* spinner-frame4.png in Resources */,
-				CB00000000000000000000E8 /* spinner-frame5.png in Resources */,
-				CB00000000000000000000E9 /* spinner-frame6.png in Resources */,
-				CB00000000000000000000EA /* spinner-frame7.png in Resources */,
-				CB00000000000000000000EB /* spinner-frame8.png in Resources */,
-				CB00000000000000000000EC /* ClaudeSpark.png in Resources */,
-				CB00000000000000000000ED /* Assets.xcassets in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
 		D100000000000000000000A2 /* PBXTargetDependency */ = {
@@ -668,6 +664,7 @@
 		CF000000000000000006A1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = LV3H7Q68W6;
@@ -681,6 +678,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tento.ClaudeLive.watchkitapp;
 				PRODUCT_NAME = ClaudeLiveWatch;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 5.9;
@@ -692,6 +690,7 @@
 		CF000000000000000006A2 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = LV3H7Q68W6;
@@ -705,6 +704,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tento.ClaudeLive.watchkitapp;
 				PRODUCT_NAME = ClaudeLiveWatch;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 5.9;

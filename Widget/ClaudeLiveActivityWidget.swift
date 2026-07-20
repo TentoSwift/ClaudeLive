@@ -596,6 +596,14 @@ private struct WatchSmallView: View {
     }
 
     var body: some View {
+        // .widgetURL だけでは watchOS Smart Stack のタップでアプリが開かない
+        // ケースがあったため、他の箇所（Claude マーク等）と同じ Link 方式に統一する
+        Link(destination: URL(string: "claudelive://session/\(context.attributes.sessionId)")!) {
+            content
+        }
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack(alignment: .top, spacing: 5) {
                 // 常時表示(AOD)中はアニメを止めて静止アイコンに（輝度を落とす必要があり、
@@ -670,8 +678,6 @@ private struct WatchSmallView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        // タップで watchOS コンパニオンアプリの該当セッションを開く
-        .widgetURL(URL(string: "claudelive://session/\(context.attributes.sessionId)"))
     }
 }
 
