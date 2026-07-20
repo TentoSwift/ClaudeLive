@@ -89,7 +89,7 @@ struct ClaudeLiveActivityWidget: Widget {
                                     }
                                 }
                                 HStack(alignment: .top, spacing: 6) {
-                                    ReplyIcon(size: 20, color: Color.claudeBrand, status: status)
+                                    ReplyIcon(size: 20, color: Color.claudeBrand, status: status, changeTrigger: context.state.lastResponse)
                                     Text(styledMarkdown(context.state.lastResponse))
                                         .font(.footnote)
                                         .foregroundStyle(.primary)
@@ -111,7 +111,7 @@ struct ClaudeLiveActivityWidget: Widget {
                                     if status == .done && context.state.lastResponse.count >= 16 {
                                         // 完了時、16文字以上の返答はマーキーにせず2行まで折り返す
                                         HStack(alignment: .top, spacing: 6) {
-                                            ReplyIcon(size: 20, color: Color.claudeBrand, status: status)
+                                            ReplyIcon(size: 20, color: Color.claudeBrand, status: status, changeTrigger: context.state.lastResponse)
                                             Text(styledMarkdown(context.state.lastResponse))
                                                 .font(.footnote)
                                                 .foregroundStyle(.primary)
@@ -120,7 +120,7 @@ struct ClaudeLiveActivityWidget: Widget {
                                     } else {
                                         // マーキーは 1 行なのでアイコンは中央揃え（.top だと浮く）
                                         HStack(alignment: .center, spacing: 6) {
-                                            ReplyIcon(size: 24, color: Color.claudeBrand, status: status)
+                                            ReplyIcon(size: 24, color: Color.claudeBrand, status: status, changeTrigger: context.state.lastResponse)
                                             MarqueeText(
                                                 text: context.state.lastResponse,
                                                 font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
@@ -226,6 +226,8 @@ struct ReplyIcon: View {
     let size: CGFloat
     var color: Color = .primary
     var status: ClaudeStatus? = nil
+    /// この値が変わるたびに一度だけ揺れる（新しい返答が来たときのフィードバック用）
+    var changeTrigger: String = ""
 
     private var symbolName: String {
         status == .done ? "ClaudeBubbleReplyDone" : "ClaudeBubbleReply"
@@ -238,6 +240,7 @@ struct ReplyIcon: View {
             .scaledToFit()
             .frame(width: size, height: size)
             .foregroundStyle(color)
+            .symbolEffect(.wiggle, value: changeTrigger)
     }
 }
 
@@ -369,7 +372,7 @@ private struct LockScreenView: View {
                         }
                     }
                     HStack(alignment: .top, spacing: 6) {
-                        ReplyIcon(size: 22, color: Color.claudeBrand, status: status)
+                        ReplyIcon(size: 22, color: Color.claudeBrand, status: status, changeTrigger: context.state.lastResponse)
                         Text(styledMarkdown(context.state.lastResponse))
                             .font(.footnote)
                             .foregroundStyle(.primary)
@@ -392,7 +395,7 @@ private struct LockScreenView: View {
                         if status == .done && context.state.lastResponse.count >= 16 {
                             // 完了時、16文字以上の返答はマーキーにせず2行まで折り返す
                             HStack(alignment: .top, spacing: 6) {
-                                ReplyIcon(size: 22, color: Color.claudeBrand, status: status)
+                                ReplyIcon(size: 22, color: Color.claudeBrand, status: status, changeTrigger: context.state.lastResponse)
                                 Text(styledMarkdown(context.state.lastResponse))
                                     .font(.footnote)
                                     .foregroundStyle(.primary)
@@ -400,7 +403,7 @@ private struct LockScreenView: View {
                             }
                         } else {
                             HStack(alignment: .center, spacing: 6) {
-                                ReplyIcon(size: 26, color: Color.claudeBrand, status: status)
+                                ReplyIcon(size: 26, color: Color.claudeBrand, status: status, changeTrigger: context.state.lastResponse)
                                 MarqueeText(
                                     text: context.state.lastResponse,
                                     font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
