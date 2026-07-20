@@ -168,7 +168,9 @@ struct ClaudeLiveActivityWidget: Widget {
                 // いずれもタップで Claude モバイルアプリを開く
                 Link(destination: URL(string: "claude://")!) {
                     if context.state.currentTool.isEmpty {
-                        StatusIconView(status: status, size: 20)
+                        // マスク方式のコマ送り（作業中）はコンパクト領域では
+                        // 塗り潰し矩形が出てしまうため、ここでは無効化する
+                        StatusIconView(status: status, size: 20, animateWhenWorking: false)
                     } else {
                         Image(systemName: toolSymbolName(context.state.currentTool))
                             .resizable()
