@@ -331,17 +331,15 @@ private struct LockScreenView: View {
                             .lineLimit(1)
                     }
                     Spacer()
-                    HStack(spacing: 3) {
-                        if !context.state.model.isEmpty {
-                            Text(shortModelName(context.state.model))
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
-                        ElapsedTimerText(startedAt: context.state.startedAt)
-                            .font(.caption.monospacedDigit())
+                    if !context.state.model.isEmpty {
+                        Text(shortModelName(context.state.model))
+                            .font(.caption2)
                             .foregroundStyle(.secondary)
+                            .lineLimit(1)
                     }
+                    ElapsedTimerText(startedAt: context.state.startedAt)
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 

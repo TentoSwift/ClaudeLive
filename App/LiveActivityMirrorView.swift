@@ -35,17 +35,15 @@ struct LiveActivityMirrorView: View {
                             .lineLimit(1)
                     }
                     Spacer()
-                    HStack(spacing: 3) {
-                        if !state.model.isEmpty {
-                            Text(shortModelName(state.model))
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
-                        ElapsedTimerText(startedAt: state.startedAt)
-                            .font(.caption.monospacedDigit())
+                    if !state.model.isEmpty {
+                        Text(shortModelName(state.model))
+                            .font(.caption2)
                             .foregroundStyle(.secondary)
+                            .lineLimit(1)
                     }
+                    ElapsedTimerText(startedAt: state.startedAt)
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
