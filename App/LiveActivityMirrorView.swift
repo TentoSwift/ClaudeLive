@@ -96,7 +96,9 @@ struct LiveActivityMirrorView: View {
                                 text: state.lastResponse,
                                 font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
                                 color: .primary, lineHeight: 16,
-                                isSettled: state.textSettled)
+                                // 完了時、16文字以上の返答はマーキーにせず静止表示する
+                                isSettled: state.textSettled
+                                    || (status == .done && state.lastResponse.count >= 16))
                         }
                     }
 

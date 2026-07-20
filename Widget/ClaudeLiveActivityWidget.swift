@@ -115,7 +115,9 @@ struct ClaudeLiveActivityWidget: Widget {
                                             text: context.state.lastResponse,
                                             font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
                                             color: .primary, lineHeight: 14,
-                                            isSettled: context.state.textSettled)
+                                            // 完了時、16文字以上の返答はマーキーにせず静止表示する
+                                            isSettled: context.state.textSettled
+                                                || (status == .done && context.state.lastResponse.count >= 16))
                                     }
                                 }
                                 if context.state.lastPrompt.isEmpty, context.state.lastResponse.isEmpty,
@@ -384,7 +386,9 @@ private struct LockScreenView: View {
                                 text: context.state.lastResponse,
                                 font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
                                 color: .primary, lineHeight: 16,
-                                isSettled: context.state.textSettled)
+                                // 完了時、16文字以上の返答はマーキーにせず静止表示する
+                                isSettled: context.state.textSettled
+                                    || (status == .done && context.state.lastResponse.count >= 16))
                         }
                     }
 
