@@ -336,6 +336,8 @@ final class AppModel: ObservableObject {
                 ? "登録成功（\(stamp)）"
                 : "登録失敗 — Mac に届いていません（\(stamp)）"
         }
+        // 判明したデーモン URL を Apple Watch にも共有する
+        if success { WatchLink.shared.syncDaemonURL() }
     }
 
     private func manualURL(path: String = "/register") -> URL? {

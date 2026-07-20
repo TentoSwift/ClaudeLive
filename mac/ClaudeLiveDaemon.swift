@@ -557,6 +557,9 @@ final class Daemon {
                 "hasActivityToken": tokens.activityTokens[sessionId] != nil,
                 "lastPrompt": session?.lastPrompt ?? "",
                 "lastResponse": session?.lastResponse ?? "",
+                "question": session?.question ?? "",
+                "options": session?.options ?? [],
+                "model": session?.model ?? "",
             ])
         }
         list.sort { ($0["startedAt"] as? Int ?? 0) > ($1["startedAt"] as? Int ?? 0) }

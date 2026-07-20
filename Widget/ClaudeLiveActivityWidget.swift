@@ -670,6 +670,8 @@ private struct WatchSmallView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
+        // タップで watchOS コンパニオンアプリの該当セッションを開く
+        .widgetURL(URL(string: "claudelive://session/\(context.attributes.sessionId)"))
     }
 }
 

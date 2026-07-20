@@ -65,6 +65,11 @@
 		CB0000000000000000000506 /* ClaudeLoop06-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000406 /* ClaudeLoop06-Regular.ttf */; };
 		CB0000000000000000000407 /* ClaudeLoop07-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000407 /* ClaudeLoop07-Regular.ttf */; };
 		CB0000000000000000000507 /* ClaudeLoop07-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000407 /* ClaudeLoop07-Regular.ttf */; };
+		CB000000000000000006A1 /* ClaudeLiveWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000006A1 /* ClaudeLiveWatchApp.swift */; };
+		CB000000000000000006A2 /* WatchModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000006A2 /* WatchModel.swift */; };
+		CB000000000000000006A3 /* WatchContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000006A3 /* WatchContentView.swift */; };
+		CB000000000000000006A5 /* WatchLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000006A5 /* WatchLink.swift */; };
+		CB000000000000000006A4 /* ClaudeLiveWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = CA000000000000000006A0 /* ClaudeLiveWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -74,6 +79,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = CD00000000000000000000A2;
 			remoteInfo = ClaudeLiveWidget;
+		};
+		D1000000000000000006A3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CD00000000000000000000A3 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CD000000000000000006A1;
+			remoteInfo = ClaudeLiveWatch;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -87,6 +99,17 @@
 				CB00000000000000000000A8 /* ClaudeLiveWidget.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CE000000000000000006A2 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				CB000000000000000006A4 /* ClaudeLiveWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -129,6 +152,12 @@
 		CA00000000000000000000AC /* AnswerIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnswerIntent.swift; sourceTree = "<group>"; };
 		CA00000000000000000000AF /* ClaudeLive.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ClaudeLive.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CA00000000000000000000B0 /* ClaudeLiveWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = ClaudeLiveWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		CA000000000000000006A0 /* ClaudeLiveWatch.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ClaudeLiveWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CA000000000000000006A1 /* ClaudeLiveWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLiveWatchApp.swift; sourceTree = "<group>"; };
+		CA000000000000000006A2 /* WatchModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchModel.swift; sourceTree = "<group>"; };
+		CA000000000000000006A3 /* WatchContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchContentView.swift; sourceTree = "<group>"; };
+		CA000000000000000006A4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		CA000000000000000006A5 /* WatchLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchLink.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -140,6 +169,7 @@
 				CA00000000000000000000A3 /* AppModel.swift */,
 				CA00000000000000000000AA /* SessionsView.swift */,
 				CA00000000000000000000AB /* MarkdownText.swift */,
+				CA000000000000000006A5 /* WatchLink.swift */,
 				CA00000000000000000000EE /* LiveActivityMirrorView.swift */,
 				CA00000000000000000000A7 /* Info.plist */,
 				CA00000000000000000000A9 /* ClaudeLive.entitlements */,
@@ -201,6 +231,7 @@
 			children = (
 				CA00000000000000000000AF /* ClaudeLive.app */,
 				CA00000000000000000000B0 /* ClaudeLiveWidget.appex */,
+				CA000000000000000006A0 /* ClaudeLiveWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -209,10 +240,22 @@
 			isa = PBXGroup;
 			children = (
 				CC00000000000000000000A1 /* App */,
+				CC000000000000000006A1 /* Watch */,
 				CC00000000000000000000A2 /* Shared */,
 				CC00000000000000000000A3 /* Widget */,
 				CC00000000000000000000A4 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		CC000000000000000006A1 /* Watch */ = {
+			isa = PBXGroup;
+			children = (
+				CA000000000000000006A1 /* ClaudeLiveWatchApp.swift */,
+				CA000000000000000006A2 /* WatchModel.swift */,
+				CA000000000000000006A3 /* WatchContentView.swift */,
+				CA000000000000000006A4 /* Info.plist */,
+			);
+			path = Watch;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -225,11 +268,13 @@
 				CE00000000000000000000A1 /* Sources */,
 				CE00000000000000000000A4 /* Resources */,
 				CE00000000000000000000A3 /* Embed Foundation Extensions */,
+				CE000000000000000006A2 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				D100000000000000000000A2 /* PBXTargetDependency */,
+				D1000000000000000006A4 /* PBXTargetDependency */,
 			);
 			name = ClaudeLive;
 			packageProductDependencies = (
@@ -256,6 +301,23 @@
 			productReference = CA00000000000000000000B0 /* ClaudeLiveWidget.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		CD000000000000000006A1 /* ClaudeLiveWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D0000000000000000006A1 /* Build configuration list for PBXNativeTarget "ClaudeLiveWatch" */;
+			buildPhases = (
+				CE000000000000000006A1 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ClaudeLiveWatch;
+			packageProductDependencies = (
+			);
+			productName = ClaudeLiveWatch;
+			productReference = CA000000000000000006A0 /* ClaudeLiveWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -270,6 +332,10 @@
 						ProvisioningStyle = Automatic;
 					};
 					CD00000000000000000000A2 = {
+						DevelopmentTeam = LV3H7Q68W6;
+						ProvisioningStyle = Automatic;
+					};
+					CD000000000000000006A1 = {
 						DevelopmentTeam = LV3H7Q68W6;
 						ProvisioningStyle = Automatic;
 					};
@@ -291,6 +357,7 @@
 			targets = (
 				CD00000000000000000000A1 /* ClaudeLive */,
 				CD00000000000000000000A2 /* ClaudeLiveWidget */,
+				CD000000000000000006A1 /* ClaudeLiveWatch */,
 			);
 		};
 /* End PBXProject section */
@@ -311,6 +378,7 @@
 				CB00000000000000000000E1 /* FrameAnimation.swift in Sources */,
 				CB00000000000000000000E2 /* MarqueeText.swift in Sources */,
 				CB00000000000000000000EE /* LiveActivityMirrorView.swift in Sources */,
+				CB000000000000000006A5 /* WatchLink.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -324,6 +392,16 @@
 				CB00000000000000000000A7 /* ClaudeLiveActivityWidget.swift in Sources */,
 				CB00000000000000000000B1 /* FrameAnimation.swift in Sources */,
 				CB00000000000000000000B3 /* MarqueeText.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CE000000000000000006A1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CB000000000000000006A1 /* ClaudeLiveWatchApp.swift in Sources */,
+				CB000000000000000006A2 /* WatchModel.swift in Sources */,
+				CB000000000000000006A3 /* WatchContentView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -391,6 +469,11 @@
 			isa = PBXTargetDependency;
 			target = CD00000000000000000000A2 /* ClaudeLiveWidget */;
 			targetProxy = D100000000000000000000A1 /* PBXContainerItemProxy */;
+		};
+		D1000000000000000006A4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CD000000000000000006A1 /* ClaudeLiveWatch */;
+			targetProxy = D1000000000000000006A3 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -582,6 +665,54 @@
 			};
 			name = Release;
 		};
+		CF000000000000000006A1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = LV3H7Q68W6;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Watch/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tento.ClaudeLive.watchkitapp;
+				PRODUCT_NAME = ClaudeLiveWatch;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+			};
+			name = Debug;
+		};
+		CF000000000000000006A2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = LV3H7Q68W6;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Watch/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tento.ClaudeLive.watchkitapp;
+				PRODUCT_NAME = ClaudeLiveWatch;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -611,6 +742,15 @@
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
+		};
+		D0000000000000000006A1 /* Build configuration list for PBXNativeTarget "ClaudeLiveWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CF000000000000000006A1 /* Debug */,
+				CF000000000000000006A2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
