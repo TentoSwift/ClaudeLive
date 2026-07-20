@@ -328,7 +328,14 @@ final class AppModel: ObservableObject {
             if await postOverConnection(body: body, to: endpoint) { success = true }
         }
         if let url = manualURL() {
-            if await postOverURLSession(body: body, url: url) { success = true }
+            if await postOverURLSession(body: body, url: url) {
+                success = true
+                // 手動指定（Tailscale の IP など）で届いた場合も、その URL を
+                // 回答ボタンや Watch が使えるように保存する
+                if let scheme = url.scheme, let host = url.host, let port = url.port {
+                    UserDefaults.standard.set("\(scheme)://\(host):\(port)", forKey: "lastDaemonURL")
+                }
+            }
         }
         let stamp = Date().formatted(date: .omitted, time: .standard)
         await MainActor.run {
