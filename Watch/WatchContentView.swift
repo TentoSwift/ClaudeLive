@@ -42,6 +42,7 @@ struct WatchContentView: View {
             }
         }
         .task {
+            model.recheckContext()
             await model.refresh()
             // ライブアクティビティのタップで起動された場合は該当セッションを開く
             if let id = model.focusSessionId {

@@ -126,6 +126,22 @@ extension WatchModel: WCSessionDelegate {
         Task { @MainActor in self.apply(applicationContext) }
     }
 
+    nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        Task { @MainActor in self.apply(message) }
+    }
+
+    nonisolated func session(_ session: WCSession,
+                             didReceiveUserInfo userInfo: [String: Any] = [:]) {
+        Task { @MainActor in self.apply(userInfo) }
+    }
+
+    /// 画面表示時などに、受信済みの applicationContext を改めて確認する
+    /// （アクティベート完了より先に UI が出るケースの取りこぼし対策）
+    func recheckContext() {
+        guard WCSession.isSupported() else { return }
+        apply(WCSession.default.receivedApplicationContext)
+    }
+
     private func apply(_ context: [String: Any]) {
         if let url = context["daemonURL"] as? String, !url.isEmpty, url != daemonURL {
             daemonURL = url

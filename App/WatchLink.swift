@@ -16,15 +16,17 @@ final class WatchLink: NSObject {
     }
 
     /// 現在保存されているデーモン URL を Watch に送る。
-    /// 変わっていなければ何もしない（applicationContext は同値の再送を嫌うため）
+    /// applicationContext（最新値のみ保持・Watch アプリ起動時に配送）に加え、
+    /// 到達性のある時は transferUserInfo でも送って取りこぼしを減らす
     func syncDaemonURL() {
         guard WCSession.isSupported(),
               WCSession.default.activationState == .activated,
               let url = UserDefaults.standard.string(forKey: "lastDaemonURL"),
               !url.isEmpty else { return }
-        let current = WCSession.default.applicationContext["daemonURL"] as? String
-        guard current != url else { return }
         try? WCSession.default.updateApplicationContext(["daemonURL": url])
+        if WCSession.default.isReachable {
+            WCSession.default.sendMessage(["daemonURL": url], replyHandler: nil)
+        }
     }
 }
 

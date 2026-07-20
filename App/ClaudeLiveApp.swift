@@ -22,6 +22,8 @@ struct ClaudeLiveApp: App {
             if phase == .active {
                 model.refresh()
                 model.registerToServer()
+                // Watch へ接続先を再同期（初回インストール直後の取りこぼし対策）
+                WatchLink.shared.syncDaemonURL()
             }
         }
     }
