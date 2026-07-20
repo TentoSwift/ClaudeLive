@@ -219,6 +219,10 @@ final class SessionState {
     var lastResponse = ""
     /// 直近のアシスタント発言が使ったモデル名（transcript の message.model 由来）
     var model = ""
+    /// このターン（直近の UserPromptSubmit）が始まった時点の transcript ファイルサイズ。
+    /// これより前のバイトは前のターンの内容なので、latestAssistantTurn で拾わないよう
+    /// 読み取り開始位置をこれ未満に遡らせない（前ターンの返答が作業中に再表示される事故を防ぐ）
+    var turnStartOffset: UInt64 = 0
     /// AskUserQuestion の質問文と選択肢（iPhone 回答待ちの間だけ入る）
     var question = ""
     var options: [String] = []
@@ -600,10 +604,13 @@ final class Daemon {
         guard let path = transcriptPath(for: sessionId),
               let handle = FileHandle(forReadingAtPath: path) else { return (nil, nil) }
         defer { try? handle.close() }
-        // 直近の発言だけが目的なので末尾 64KB で十分
+        // 直近の発言だけが目的なので末尾 64KB で十分。ただし今のターンより前には
+        // 絶対に遡らない（前ターンの返答を誤って拾う事故を防ぐため）
         let maxBytes: UInt64 = 64 * 1024
         let size = (try? handle.seekToEnd()) ?? 0
-        let offset = size > maxBytes ? size - maxBytes : 0
+        let turnStartOffset = sessions[sessionId]?.turnStartOffset ?? 0
+        let tailOffset = size > maxBytes ? size - maxBytes : 0
+        let offset = min(max(tailOffset, turnStartOffset), size)
         try? handle.seek(toOffset: offset)
         let data = (try? handle.readToEnd()) ?? Data()
         var lines = data.split(separator: UInt8(ascii: "\n"))
@@ -855,6 +862,13 @@ final class Daemon {
             session.lastResponse = ""  // 新しいターンが始まるので前の返答は消す
             session.question = ""
             session.options = []
+            // これ以降 latestAssistantTurn がこのオフセットより前を読まないようにし、
+            // 前ターンの返答が「作業中」に一瞬再表示される事故を防ぐ
+            if let path = transcriptPath(for: session.id),
+               let handle = FileHandle(forReadingAtPath: path) {
+                session.turnStartOffset = (try? handle.seekToEnd()) ?? 0
+                try? handle.close()
+            }
             session.hasSubstantiveActivity = true
             session.dismissedByUser = false  // ユーザーが再びやり取りした → 表示再開してよい
             if let prompt = json["prompt"] as? String {
