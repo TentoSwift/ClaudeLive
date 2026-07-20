@@ -185,30 +185,25 @@ struct ClaudeLiveActivityWidget: Widget {
                                   startedAt: context.state.startedAt,
                                   animated: context.state.compactAnimated)
             } compactTrailing: {
-                // 実行中のツールを表すアイコン。ツールが動いていないときは
-                // Claude マークではなく状態アイコン（完了バッジ等）。
-                // いずれもタップで Claude モバイルアプリを開く
+                // 実行中のツール、または完了時は直近ツールのチェックマーク付き
+                // アイコン。どちらも無いときは何も出さない（以前はここで
+                // Claude マークを出していたが、左側と重複するのでやめた）。
+                // タップで Claude モバイルアプリを開く
                 Link(destination: URL(string: "claude://")!) {
                     if !context.state.currentTool.isEmpty {
                         Image(systemName: toolSymbolName(context.state.currentTool))
                             .resizable()
                             .scaledToFit()
-                            .frame(width: 17, height: 17)
+                            .frame(width: 20, height: 20)
                             .foregroundStyle(status.color)
                     } else if status == .done,
                               let name = toolCheckmarkSymbolName(context.state.lastTool) {
-                        // 完了時は直近使ったツールのチェックマーク付きアイコン
-                        // （用意されていれば）。無ければ共通のバッジに任せる
                         Image(name)
                             .renderingMode(.template)
                             .resizable()
                             .scaledToFit()
                             .frame(width: 20, height: 20)
                             .foregroundStyle(Color.claudeBrand)
-                    } else {
-                        // マスク方式のコマ送り（作業中）はコンパクト領域では
-                        // 塗り潰し矩形が出てしまうため、ここでは無効化する
-                        StatusIconView(status: status, size: 20, animateWhenWorking: false)
                     }
                 }
             } minimal: {
