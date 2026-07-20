@@ -164,10 +164,11 @@ struct ClaudeLiveActivityWidget: Widget {
                                   animated: context.state.compactAnimated)
             } compactTrailing: {
                 // 実行中のツールを表すアイコン。ツールが動いていないときは
-                // Claude マーク。いずれもタップで Claude モバイルアプリを開く
+                // Claude マークではなく状態アイコン（完了バッジ等）。
+                // いずれもタップで Claude モバイルアプリを開く
                 Link(destination: URL(string: "claude://")!) {
                     if context.state.currentTool.isEmpty {
-                        ClaudeMarkIcon(size: 20, color: status.color)
+                        StatusIconView(status: status, size: 20)
                     } else {
                         Image(systemName: toolSymbolName(context.state.currentTool))
                             .resizable()
