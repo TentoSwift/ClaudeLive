@@ -199,12 +199,15 @@ struct ClaudeLiveActivityWidget: Widget {
                                 .foregroundStyle(status.color)
                         } else if let name = toolCheckmarkSymbolName(context.state.lastTool) {
                             // ツール実行が終わったら（完了時に限らず作業中の合間も）
-                            // 直近ツールのチェックマーク付きアイコンを出す
+                            // 直近ツールのチェックマーク付きアイコンを出す。
+                            // バッジ付きは横長なので正方形に fit させると本体が
+                            // 縮んで左に寄る → 高さ基準で合わせ、幅はみ出しは許容
                             Image(name)
                                 .renderingMode(.template)
                                 .resizable()
                                 .scaledToFit()
                                 .foregroundStyle(Color.claudeBrand)
+                                .frame(height: 20)
                         } else {
                             Color.clear
                         }
