@@ -197,8 +197,9 @@ struct ClaudeLiveActivityWidget: Widget {
                                 .resizable()
                                 .scaledToFit()
                                 .foregroundStyle(status.color)
-                        } else if status == .done,
-                                  let name = toolCheckmarkSymbolName(context.state.lastTool) {
+                        } else if let name = toolCheckmarkSymbolName(context.state.lastTool) {
+                            // ツール実行が終わったら（完了時に限らず作業中の合間も）
+                            // 直近ツールのチェックマーク付きアイコンを出す
                             Image(name)
                                 .renderingMode(.template)
                                 .resizable()
