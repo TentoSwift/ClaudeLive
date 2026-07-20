@@ -186,25 +186,28 @@ struct ClaudeLiveActivityWidget: Widget {
                                   animated: context.state.compactAnimated)
             } compactTrailing: {
                 // 実行中のツール、または完了時は直近ツールのチェックマーク付き
-                // アイコン。どちらも無いときは何も出さない（以前はここで
-                // Claude マークを出していたが、左側と重複するのでやめた）。
+                // アイコン。どちらも無いときは透明なプレースホルダを置く
+                // （空にすると幅が詰まって Dynamic Island の大きさが変わるため）。
                 // タップで Claude モバイルアプリを開く
                 Link(destination: URL(string: "claude://")!) {
-                    if !context.state.currentTool.isEmpty {
-                        Image(systemName: toolSymbolName(context.state.currentTool))
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 20, height: 20)
-                            .foregroundStyle(status.color)
-                    } else if status == .done,
-                              let name = toolCheckmarkSymbolName(context.state.lastTool) {
-                        Image(name)
-                            .renderingMode(.template)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 20, height: 20)
-                            .foregroundStyle(Color.claudeBrand)
+                    Group {
+                        if !context.state.currentTool.isEmpty {
+                            Image(systemName: toolSymbolName(context.state.currentTool))
+                                .resizable()
+                                .scaledToFit()
+                                .foregroundStyle(status.color)
+                        } else if status == .done,
+                                  let name = toolCheckmarkSymbolName(context.state.lastTool) {
+                            Image(name)
+                                .renderingMode(.template)
+                                .resizable()
+                                .scaledToFit()
+                                .foregroundStyle(Color.claudeBrand)
+                        } else {
+                            Color.clear
+                        }
                     }
+                    .frame(width: 20, height: 20)
                 }
             } minimal: {
                 StatusIconView(status: status, size: 18, animateWhenWorking: false)
