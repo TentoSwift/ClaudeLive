@@ -84,6 +84,8 @@ struct WatchSessionDetailView: View {
     @EnvironmentObject private var model: WatchModel
     let sessionId: String
     @State private var messages: [WatchModel.Message] = []
+    @State private var promptInput = ""
+    @State private var sending = false
 
     private var session: WatchModel.Session? {
         model.sessions.first { $0.id == sessionId }
@@ -104,6 +106,27 @@ struct WatchSessionDetailView: View {
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
+                    }
+
+                    // プロンプト送信（音声ディクテーション対応の標準 TextField）
+                    HStack(spacing: 4) {
+                        TextField("指示を送る…", text: $promptInput)
+                            .font(.footnote)
+                        if !promptInput.isEmpty {
+                            Button {
+                                let text = promptInput
+                                promptInput = ""
+                                sending = true
+                                Task {
+                                    await model.sendPrompt(sessionId: sessionId, text: text)
+                                    sending = false
+                                }
+                            } label: {
+                                Image(systemName: sending ? "hourglass" : "arrow.up.circle.fill")
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(sending)
+                        }
                     }
 
                     // 質問 + 回答ボタン

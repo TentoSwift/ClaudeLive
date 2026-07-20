@@ -478,6 +478,19 @@ final class Daemon {
             } else {
                 respond(connection, status: "400 Bad Request", json: #"{"ok":false}"#)
             }
+        case ("POST", "/prompt"):
+            // Watch / iPhone からのプロンプト送信。`claude -p --resume` で
+            // 該当セッションに注入する（tmux 前提にしない構成のため）。
+            // LAN + Tailscale 内限定の API という前提（ユーザー了承済み）
+            if let json = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any],
+               let sessionId = json["sessionId"] as? String,
+               let text = json["text"] as? String,
+               !text.trimmingCharacters(in: .whitespaces).isEmpty {
+                respond(connection)
+                runPrompt(sessionId: sessionId, text: text)
+            } else {
+                respond(connection, status: "400 Bad Request", json: #"{"ok":false}"#)
+            }
         case ("POST", "/register"):
             if let json = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any] {
                 handleRegister(json)
@@ -823,6 +836,32 @@ final class Daemon {
         } else {
             log("iPhone から回答: session \(sessionId.prefix(8))「\(Self.truncate(answer, 40))」")
             releaseQuestion(sessionId: sessionId, answer: answer, notify: true)
+        }
+    }
+
+    /// Watch / iPhone から送られたプロンプトを `claude -p --resume` で
+    /// 該当セッションに注入する。処理そのものはヘッドレスの別プロセスとして
+    /// 走り、hooks 経由でライブアクティビティに進捗が反映される
+    private func runPrompt(sessionId: String, text: String) {
+        let claudePath = ("~/.local/bin/claude" as NSString).expandingTildeInPath
+        guard FileManager.default.fileExists(atPath: claudePath) else {
+            log("プロンプト注入失敗: claude が見つからない (\(claudePath))")
+            return
+        }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: claudePath)
+        process.arguments = ["-p", "--resume", sessionId, text]
+        // プロジェクトの文脈を保つため、セッションの cwd で実行する
+        if let entry = loadSessionRegistry()[sessionId], !entry.cwd.isEmpty {
+            process.currentDirectoryURL = URL(fileURLWithPath: entry.cwd)
+        }
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        do {
+            try process.run()
+            log("プロンプト注入: session \(sessionId.prefix(8))「\(Self.truncate(text, 60))」")
+        } catch {
+            log("プロンプト注入失敗: \(error.localizedDescription)")
         }
     }
 

@@ -118,6 +118,15 @@ final class WatchModel: NSObject, ObservableObject {
         _ = await request(path: "/answer", method: "POST", body: body)
         await refresh()
     }
+
+    /// プロンプト送信（音声ディクテーション/テキスト入力）。
+    /// デーモンが claude -p --resume で該当セッションに注入する
+    func sendPrompt(sessionId: String, text: String) async {
+        let payload: [String: Any] = ["sessionId": sessionId, "text": text]
+        guard let body = try? JSONSerialization.data(withJSONObject: payload) else { return }
+        _ = await request(path: "/prompt", method: "POST", body: body)
+        await refresh()
+    }
 }
 
 // MARK: - WatchConnectivity（iPhone からデーモン URL を受け取る）
