@@ -21,8 +21,10 @@ struct SendPromptIntent: AppIntent {
         guard let base = UserDefaults.standard.string(forKey: "lastDaemonURL"), !base.isEmpty else {
             return .result(dialog: "Mac の接続先が分かりません。ClaudeLive アプリを一度開いてください")
         }
-        guard let sessionId = await Self.pickSessionId(base: base) else {
-            return .result(dialog: "送り先のセッションが見つかりませんでした")
+        let picked = await Self.pickSessionId(base: base)
+        guard let sessionId = picked.id else {
+            // どこで失敗したかを音声で返す（ネットワーク到達性の切り分け用）
+            return .result(dialog: "セッションが見つかりませんでした（\(base)、\(picked.detail)）")
         }
         let payload: [String: Any] = ["sessionId": sessionId, "text": text]
         guard let body = try? JSONSerialization.data(withJSONObject: payload),
@@ -33,24 +35,45 @@ struct SendPromptIntent: AppIntent {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = body
-        guard let (_, response) = try? await URLSession.shared.data(for: request),
-              (response as? HTTPURLResponse)?.statusCode == 200 else {
-            return .result(dialog: "Mac に届きませんでした")
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+                return .result(dialog: "Mac がエラーを返しました")
+            }
+        } catch {
+            return .result(dialog: "Mac に届きませんでした: \(error.localizedDescription)")
         }
         return .result(dialog: "送りました")
     }
 
-    /// 作業中・許可待ち・入力待ちのセッションを優先し、無ければ最新のものを選ぶ
-    private static func pickSessionId(base: String) async -> String? {
-        guard let url = URL(string: base + "/sessions"),
-              let (data, _) = try? await URLSession.shared.data(from: url),
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let sessions = object["sessions"] as? [[String: Any]] else { return nil }
+    /// 作業中・許可待ち・入力待ちのセッションを優先し、無ければ最新のものを選ぶ。
+    /// 失敗理由を detail に入れて返す（診断用）
+    private static func pickSessionId(base: String) async -> (id: String?, detail: String) {
+        guard let url = URL(string: base + "/sessions") else {
+            return (nil, "不正なURL")
+        }
+        let data: Data
+        do {
+            let (d, response) = try await URLSession.shared.data(from: url)
+            guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+                return (nil, "HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0)")
+            }
+            data = d
+        } catch {
+            return (nil, "通信失敗: \(error.localizedDescription)")
+        }
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let sessions = object["sessions"] as? [[String: Any]] else {
+            return (nil, "解析失敗")
+        }
+        guard !sessions.isEmpty else {
+            return (nil, "0件")
+        }
         let active = ["working", "permission", "waiting", "question", "compacting"]
         if let hit = sessions.first(where: { active.contains($0["status"] as? String ?? "") }) {
-            return hit["sessionId"] as? String
+            return (hit["sessionId"] as? String, "OK")
         }
-        return sessions.first?["sessionId"] as? String
+        return (sessions.first?["sessionId"] as? String, "OK(非アクティブ)")
     }
 }
 
