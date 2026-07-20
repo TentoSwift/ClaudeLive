@@ -50,7 +50,7 @@ struct AnswerQuestionIntent: LiveActivityIntent {
         // 2. 保存済み URL / 手動指定へのフォールバック
         var urls: [URL] = []
         if let saved = defaults.string(forKey: "lastDaemonURL"),
-           let url = URL(string: saved + "/answer") {
+           let url = URL(string: sanitizeDaemonURL(saved) + "/answer") {
             urls.append(url)
         }
         if let manual = defaults.string(forKey: "manualHost"), !manual.isEmpty {

@@ -18,9 +18,10 @@ struct SendPromptIntent: AppIntent {
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        guard let base = UserDefaults.standard.string(forKey: "lastDaemonURL"), !base.isEmpty else {
+        guard var base = UserDefaults.standard.string(forKey: "lastDaemonURL"), !base.isEmpty else {
             return .result(dialog: "Mac の接続先が分かりません。ClaudeLive アプリを一度開いてください")
         }
+        base = sanitizeDaemonURL(base)
         let picked = await Self.pickSessionId(base: base)
         guard let sessionId = picked.id else {
             // どこで失敗したかを音声で返す（ネットワーク到達性の切り分け用）
