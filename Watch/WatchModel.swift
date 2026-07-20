@@ -152,6 +152,22 @@ extension WatchModel: WCSessionDelegate {
         apply(WCSession.default.receivedApplicationContext)
     }
 
+    /// Watch 単体での手動設定（"100.x.x.x:53536" のような IP:ポート。
+    /// スキーム・ポート省略可）。iPhone からの自動同期より優先される
+    func setManualURL(_ input: String) {
+        var text = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        if !text.hasPrefix("http://") && !text.hasPrefix("https://") {
+            text = "http://" + text
+        }
+        if URL(string: text)?.port == nil {
+            text += ":53536"
+        }
+        daemonURL = text
+        UserDefaults.standard.set(text, forKey: "daemonURL")
+        Task { await refresh() }
+    }
+
     private func apply(_ context: [String: Any]) {
         guard var url = context["daemonURL"] as? String, !url.isEmpty else { return }
         // 過去に "%en0" のようなスコープ ID 付きで同期された値を修復する

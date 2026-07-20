@@ -4,6 +4,7 @@ import SwiftUI
 struct WatchContentView: View {
     @EnvironmentObject private var model: WatchModel
     @State private var path: [String] = []
+    @State private var hostInput = ""
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -35,6 +36,13 @@ struct WatchContentView: View {
                         .font(.footnote)
                         .foregroundStyle(.red)
                 }
+                // 接続先の手動入力（例 "100.x.x.x:53536"。スキーム省略可）。
+                // iPhone からの自動同期とは独立に、Watch 単体でも設定できる
+                TextField("接続先 IP:ポート", text: $hostInput)
+                    .font(.system(size: 12).monospaced())
+                    .onSubmit {
+                        model.setManualURL(hostInput)
+                    }
                 if !model.daemonURL.isEmpty {
                     Text(model.daemonURL)
                         .font(.system(size: 11).monospaced())
