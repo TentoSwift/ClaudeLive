@@ -302,15 +302,12 @@ private struct LockScreenView: View {
                              isSettled: context.state.textSettled)
             } else {
                 // ヘッダ: 状態アイコン（作業中はアニメーション）・状態ラベル・
-                // プロジェクト名・Mac 名・経過時間
+                // Mac 名・経過時間
                 HStack(spacing: 6) {
                     StatusIconView(status: status, size: 26)
                     Text(status.label)
                         .font(.headline)
                         .foregroundStyle(status.needsAttention ? status.color : .primary)
-                    Text(context.attributes.projectName)
-                        .font(.caption.bold())
-                        .lineLimit(1)
                     Text(context.state.sessionName.isEmpty
                          ? context.attributes.hostName
                          : context.state.sessionName)
