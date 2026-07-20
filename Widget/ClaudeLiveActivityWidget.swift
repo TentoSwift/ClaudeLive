@@ -268,6 +268,10 @@ struct StatusIconView: View {
         Group {
             if status == .working && animateWhenWorking {
                 SpinnerProofView(size: size, color: status.color)
+            } else if status == .working {
+                // アニメーションを使わない場所（DI minimal・watch AOD 中）は
+                // 金槌マークではなく Claude マークの静止版で表す
+                ClaudeMarkIcon(size: size, color: status.color)
             } else if let name = customSymbolName {
                 Image(name)
                     .renderingMode(.template)
