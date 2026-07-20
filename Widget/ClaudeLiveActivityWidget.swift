@@ -295,11 +295,11 @@ struct CompactStatusIcon: View {
     var body: some View {
         Group {
             if status == .working {
-                // ロック画面と同じ元動画由来のコマ送り。ただしコンパクト領域では
-                // .mask 合成が効かないため、数字グリフ＝コマ画像の自作フォント方式
-                // 滑らか版（2秒8コマ・型抜き合成）。もしコンパクト領域で
-                // blendMode も効かず矩形が見えたら DigitFrameSpinnerView(1fps) に戻す
-                CompactSpinnerView(size: size)
+                // ★ コマ送り版（CompactSpinnerView、8フォント使用）はライブ
+                //   アクティビティが数秒おきに強制終了される不具合を引き起こした
+                //   ため撤回。原因はおそらくウィジェット拡張の負荷過多によるクラッシュ。
+                //   静止版の Claude マークに戻す（安定性を優先）
+                ClaudeMarkIcon(size: size, color: status.color)
             } else if symbolName.isEmpty {
                 Image(systemName: status.icon)
                     .resizable()
