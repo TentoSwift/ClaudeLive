@@ -616,7 +616,7 @@ private struct WatchSmallView: View {
                             .scaledToFit()
                             .foregroundStyle(tint)
                             // ターミナル（Bash）だけ大きめに見せる
-                            .frame(height: context.state.lastTool == "Bash" ? 16 * 1.4 * 1.5 * 1.5 : 16)
+                            .frame(height: context.state.lastTool == "Bash" ? 16 * 1.4 * 1.5 * 1.5 * 1.7 : 16)
                     } else {
                         Color.clear
                     }
