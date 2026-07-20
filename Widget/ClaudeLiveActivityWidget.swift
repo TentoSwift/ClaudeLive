@@ -23,8 +23,18 @@ func toolSymbolName(_ tool: String) -> String {
 /// まだ用意していないツールは nil を返し、呼び出し側は共通の
 /// ClaudeBadgeCheckmark にフォールバックする
 func toolCheckmarkSymbolName(_ tool: String) -> String? {
-    guard !tool.isEmpty else { return nil }
-    let name = "Claude\(tool)Checkmark"
+    // toolSymbolName と同じグループ分けで、似たツールは1つのシンボルを共有する
+    let group: String
+    switch tool {
+    case "Bash":                          group = "Bash"
+    case "Read":                          group = "Read"
+    case "Edit", "Write", "NotebookEdit": group = "Edit"
+    case "Grep", "Glob":                  group = "Grep"
+    case "Task", "Agent":                 group = "Task"
+    case "WebFetch", "WebSearch":         group = "WebFetch"
+    default:                              return nil
+    }
+    let name = "Claude\(group)Checkmark"
     return UIImage(named: name) != nil ? name : nil
 }
 
