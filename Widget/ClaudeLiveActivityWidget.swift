@@ -183,7 +183,8 @@ struct ClaudeLiveActivityWidget: Widget {
             } compactLeading: {
                 CompactStatusIcon(status: status, size: 20,
                                   startedAt: context.state.startedAt,
-                                  animated: context.state.compactAnimated)
+                                  animated: context.state.compactAnimated,
+                                  changeTrigger: context.state.toolCount)
             } compactTrailing: {
                 // 実行中のツール、または完了時は直近ツールのチェックマーク付き
                 // アイコン。どちらも無いときは透明なプレースホルダを置く
@@ -321,6 +322,10 @@ struct CompactStatusIcon: View {
     /// ライブアクティビティが強制終了される不具合を起こしたため、既定は false
     /// （静止版）にし、アプリの設定画面から検証用にオン/オフできるようにした
     var animated: Bool = false
+    /// この値が変わるたびに一度だけバウンドする（ツール切り替わりのフィード
+    /// バック用）。symbolEffect の .repeating はコンパクト領域では連続再生
+    /// されない（実機で確認）ため、value トリガー方式に変更した
+    var changeTrigger: Int = 0
 
     private var symbolName: String {
         switch status {
@@ -335,15 +340,12 @@ struct CompactStatusIcon: View {
             if status == .working && animated {
                 CompactSpinnerView(size: size)
             } else if status == .working {
-                // フォントマスク方式（CompactSpinnerView）は不安定だったため、
-                // 作業中はずっと symbolEffect（公式のネイティブ手段）で
-                // 淡く明滅させ続ける。カスタムシンボルなので tint が効く
                 Image("ClaudeMark")
                     .renderingMode(.template)
                     .resizable()
                     .scaledToFit()
                     .foregroundStyle(status.color)
-                    .symbolEffect(.variableColor.iterative, options: .repeating, isActive: true)
+                    .symbolEffect(.bounce, value: changeTrigger)
             } else if symbolName.isEmpty {
                 Image(systemName: status.icon)
                     .resizable()
