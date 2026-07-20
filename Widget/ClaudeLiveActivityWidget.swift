@@ -78,6 +78,16 @@ struct ClaudeLiveActivityWidget: Widget {
                             // 完了時、返答が長くて場所を取るならツールログ・実行回数は省いて
                             // 返答を複数行で優先表示する（マーキーは1行しか流せないため）
                             if expandResponse {
+                                if !context.state.lastPrompt.isEmpty {
+                                    HStack(alignment: .center, spacing: 6) {
+                                        PromptIcon(size: 24, color: .secondary)
+                                        MarqueeText(
+                                            text: context.state.lastPrompt,
+                                            font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
+                                            color: .secondary, lineHeight: 14,
+                                            isSettled: context.state.textSettled)
+                                    }
+                                }
                                 HStack(alignment: .top, spacing: 6) {
                                     ReplyIcon(size: 20, color: Color.claudeBrand, status: status)
                                     Text(styledMarkdown(context.state.lastResponse))
@@ -353,6 +363,16 @@ private struct LockScreenView: View {
                 // 返答を複数行で優先表示する（マーキーは1行しか流せないため）
                 let expandResponse = status == .done && context.state.lastResponse.count > 40
                 if expandResponse {
+                    if !context.state.lastPrompt.isEmpty {
+                        HStack(alignment: .center, spacing: 6) {
+                            PromptIcon(size: 26, color: .secondary)
+                            MarqueeText(
+                                text: context.state.lastPrompt,
+                                font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
+                                color: .secondary, lineHeight: 16,
+                                isSettled: context.state.textSettled)
+                        }
+                    }
                     HStack(alignment: .top, spacing: 6) {
                         ReplyIcon(size: 22, color: Color.claudeBrand, status: status)
                         Text(styledMarkdown(context.state.lastResponse))
