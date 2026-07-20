@@ -115,7 +115,7 @@ enum ClaudeStatus: String {
         case .permission: return .yellow
         case .waiting:    return .cyan
         case .question:   return .indigo
-        case .done:       return .green
+        case .done:       return .claudeBrand
         case .error:      return .red
         case .compacting: return .purple
         }
