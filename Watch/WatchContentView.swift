@@ -35,6 +35,11 @@ struct WatchContentView: View {
                         .font(.footnote)
                         .foregroundStyle(.red)
                 }
+                if !model.daemonURL.isEmpty {
+                    Text(model.daemonURL)
+                        .font(.system(size: 11).monospaced())
+                        .foregroundStyle(.tertiary)
+                }
             }
             .navigationTitle("ClaudeLive")
             .navigationDestination(for: String.self) { sessionId in
@@ -43,11 +48,15 @@ struct WatchContentView: View {
         }
         .task {
             model.recheckContext()
-            await model.refresh()
-            // ライブアクティビティのタップで起動された場合は該当セッションを開く
-            if let id = model.focusSessionId {
-                model.focusSessionId = nil
-                path = [id]
+            // 画面が出ている間は数秒おきに取得し直す
+            // （URL 同期の完了が取得より後になるケースの取りこぼしも防ぐ）
+            while !Task.isCancelled {
+                await model.refresh()
+                if let id = model.focusSessionId {
+                    model.focusSessionId = nil
+                    path = [id]
+                }
+                try? await Task.sleep(for: .seconds(4))
             }
         }
         .onChange(of: model.focusSessionId) { _, id in
