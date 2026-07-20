@@ -134,7 +134,10 @@ struct ClaudeLiveActivityWidget: Widget {
                     .ignoresSafeArea(.container, edges: .bottom)
                 }
             } compactLeading: {
-                ClaudeMarkIcon(size: 20, color: status.color)
+                // タップで Claude モバイルアプリを直接開く
+                Link(destination: URL(string: "claude://")!) {
+                    ClaudeMarkIcon(size: 20, color: status.color)
+                }
             } compactTrailing: {
                 StatusIconView(status: status, size: 20)
             } minimal: {
