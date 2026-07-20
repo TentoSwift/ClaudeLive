@@ -207,7 +207,7 @@ struct ClaudeLiveActivityWidget: Widget {
                                 .resizable()
                                 .scaledToFit()
                                 .foregroundStyle(Color.claudeBrand)
-                                .frame(height: 20)
+                                .frame(height: 20 * 1.2)
                         } else {
                             Color.clear
                         }
