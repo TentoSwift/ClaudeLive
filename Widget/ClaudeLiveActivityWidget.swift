@@ -597,7 +597,7 @@ private struct WatchSmallView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            HStack(spacing: 5) {
+            HStack(alignment: .top, spacing: 5) {
                 // 常時表示(AOD)中はアニメを止めて静止アイコンに（輝度を落とす必要があり、
                 // このアイコン画像は固定色のため tint を効かせられないため）
                 StatusIconView(status: status, size: 22, animateWhenWorking: !isLuminanceReduced)
