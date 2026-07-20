@@ -108,16 +108,25 @@ struct ClaudeLiveActivityWidget: Widget {
                                     }
                                 }
                                 if !context.state.lastResponse.isEmpty {
-                                    // マーキーは 1 行なのでアイコンは中央揃え（.top だと浮く）
-                                    HStack(alignment: .center, spacing: 6) {
-                                        ReplyIcon(size: 24, color: Color.claudeBrand, status: status)
-                                        MarqueeText(
-                                            text: context.state.lastResponse,
-                                            font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
-                                            color: .primary, lineHeight: 14,
-                                            // 完了時、16文字以上の返答はマーキーにせず静止表示する
-                                            isSettled: context.state.textSettled
-                                                || (status == .done && context.state.lastResponse.count >= 16))
+                                    if status == .done && context.state.lastResponse.count >= 16 {
+                                        // 完了時、16文字以上の返答はマーキーにせず2行まで折り返す
+                                        HStack(alignment: .top, spacing: 6) {
+                                            ReplyIcon(size: 20, color: Color.claudeBrand, status: status)
+                                            Text(styledMarkdown(context.state.lastResponse))
+                                                .font(.footnote)
+                                                .foregroundStyle(.primary)
+                                                .lineLimit(2)
+                                        }
+                                    } else {
+                                        // マーキーは 1 行なのでアイコンは中央揃え（.top だと浮く）
+                                        HStack(alignment: .center, spacing: 6) {
+                                            ReplyIcon(size: 24, color: Color.claudeBrand, status: status)
+                                            MarqueeText(
+                                                text: context.state.lastResponse,
+                                                font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
+                                                color: .primary, lineHeight: 14,
+                                                isSettled: context.state.textSettled)
+                                        }
                                     }
                                 }
                                 if context.state.lastPrompt.isEmpty, context.state.lastResponse.isEmpty,
@@ -380,15 +389,24 @@ private struct LockScreenView: View {
                         }
                     }
                     if !context.state.lastResponse.isEmpty {
-                        HStack(alignment: .center, spacing: 6) {
-                            ReplyIcon(size: 26, color: Color.claudeBrand, status: status)
-                            MarqueeText(
-                                text: context.state.lastResponse,
-                                font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
-                                color: .primary, lineHeight: 16,
-                                // 完了時、16文字以上の返答はマーキーにせず静止表示する
-                                isSettled: context.state.textSettled
-                                    || (status == .done && context.state.lastResponse.count >= 16))
+                        if status == .done && context.state.lastResponse.count >= 16 {
+                            // 完了時、16文字以上の返答はマーキーにせず2行まで折り返す
+                            HStack(alignment: .top, spacing: 6) {
+                                ReplyIcon(size: 22, color: Color.claudeBrand, status: status)
+                                Text(styledMarkdown(context.state.lastResponse))
+                                    .font(.footnote)
+                                    .foregroundStyle(.primary)
+                                    .lineLimit(2)
+                            }
+                        } else {
+                            HStack(alignment: .center, spacing: 6) {
+                                ReplyIcon(size: 26, color: Color.claudeBrand, status: status)
+                                MarqueeText(
+                                    text: context.state.lastResponse,
+                                    font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
+                                    color: .primary, lineHeight: 16,
+                                    isSettled: context.state.textSettled)
+                            }
                         }
                     }
 

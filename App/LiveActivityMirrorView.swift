@@ -90,15 +90,24 @@ struct LiveActivityMirrorView: View {
                         }
                     }
                     if !state.lastResponse.isEmpty {
-                        HStack(alignment: .center, spacing: 6) {
-                            ReplyIcon(size: 26, color: Color.claudeBrand, status: status)
-                            MarqueeText(
-                                text: state.lastResponse,
-                                font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
-                                color: .primary, lineHeight: 16,
-                                // 完了時、16文字以上の返答はマーキーにせず静止表示する
-                                isSettled: state.textSettled
-                                    || (status == .done && state.lastResponse.count >= 16))
+                        if status == .done && state.lastResponse.count >= 16 {
+                            // 完了時、16文字以上の返答はマーキーにせず2行まで折り返す
+                            HStack(alignment: .top, spacing: 6) {
+                                ReplyIcon(size: 22, color: Color.claudeBrand, status: status)
+                                Text(styledMarkdown(state.lastResponse))
+                                    .font(.footnote)
+                                    .foregroundStyle(.primary)
+                                    .lineLimit(2)
+                            }
+                        } else {
+                            HStack(alignment: .center, spacing: 6) {
+                                ReplyIcon(size: 26, color: Color.claudeBrand, status: status)
+                                MarqueeText(
+                                    text: state.lastResponse,
+                                    font: .footnote, uiFontSize: 13, uiFontWeight: .regular,
+                                    color: .primary, lineHeight: 16,
+                                    isSettled: state.textSettled)
+                            }
                         }
                     }
 
