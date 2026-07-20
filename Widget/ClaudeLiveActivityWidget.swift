@@ -208,7 +208,7 @@ struct ClaudeLiveActivityWidget: Widget {
                                 .scaledToFit()
                                 .foregroundStyle(Color.claudeBrand)
                                 // ターミナル（Bash）だけ大きめに見せる
-                                .frame(height: context.state.lastTool == "Bash" ? 20 * 1.4 : 20)
+                                .frame(height: context.state.lastTool == "Bash" ? 20 * 1.4 * 1.5 : 20)
                         } else {
                             Color.clear
                         }
@@ -616,7 +616,7 @@ private struct WatchSmallView: View {
                             .scaledToFit()
                             .foregroundStyle(tint)
                             // ターミナル（Bash）だけ大きめに見せる
-                            .frame(height: context.state.lastTool == "Bash" ? 16 * 1.4 : 16)
+                            .frame(height: context.state.lastTool == "Bash" ? 16 * 1.4 * 1.5 : 16)
                     } else {
                         Color.clear
                     }
