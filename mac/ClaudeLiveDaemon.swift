@@ -909,25 +909,56 @@ final class Daemon {
     /// 該当セッションに注入する。処理そのものはヘッドレスの別プロセスとして
     /// 走り、hooks 経由でライブアクティビティに進捗が反映される
     private func runPrompt(sessionId: String, text: String) {
-        let claudePath = ("~/.local/bin/claude" as NSString).expandingTildeInPath
-        guard FileManager.default.fileExists(atPath: claudePath) else {
-            log("プロンプト注入失敗: claude が見つからない (\(claudePath))")
-            return
+        // Claude Desktop アプリ（起動中の Claude Code セッションを表示している）に
+        // キー入力で流し込む。claude -p --resume はヘッドレスの別プロセスになり
+        // GUI に即反映されないため（再起動しないと出ない）、こちらに切り替えた。
+        // 注意: 今フォーカスされているセッションに入る（sessionId は特定できない）。
+        // System Events のキー入力にはアクセシビリティ許可が必要
+        typeIntoClaudeApp(text)
+        log("プロンプト送信(キー入力): 「\(Self.truncate(text, 60))」")
+    }
+
+    /// Claude アプリを前面に出し、クリップボード経由でテキストを貼り付けて Enter。
+    /// 長文・日本語でも確実に入るよう keystroke ではなくペーストを使う
+    private func typeIntoClaudeApp(_ text: String) {
+        func esc(_ s: String) -> String {
+            s.replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"", with: "\\\"")
         }
+        let script = """
+        set prev to ""
+        try
+            set prev to the clipboard as text
+        end try
+        set the clipboard to "\(esc(text))"
+        tell application id "com.anthropic.claudefordesktop" to activate
+        delay 0.4
+        tell application "System Events"
+            keystroke "v" using command down
+            delay 0.15
+            key code 36
+        end tell
+        delay 0.2
+        try
+            set the clipboard to prev
+        end try
+        """
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: claudePath)
-        process.arguments = ["-p", "--resume", sessionId, text]
-        // プロジェクトの文脈を保つため、セッションの cwd で実行する
-        if let entry = loadSessionRegistry()[sessionId], !entry.cwd.isEmpty {
-            process.currentDirectoryURL = URL(fileURLWithPath: entry.cwd)
-        }
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = ["-e", script]
         process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
+        let errPipe = Pipe()
+        process.standardError = errPipe
         do {
             try process.run()
-            log("プロンプト注入: session \(sessionId.prefix(8))「\(Self.truncate(text, 60))」")
+            process.waitUntilExit()
+            if process.terminationStatus != 0 {
+                let err = String(data: errPipe.fileHandleForReading.readDataToEndOfFile(),
+                                 encoding: .utf8) ?? ""
+                log("キー入力失敗: \(err.trimmingCharacters(in: .whitespacesAndNewlines))")
+            }
         } catch {
-            log("プロンプト注入失敗: \(error.localizedDescription)")
+            log("キー入力失敗: \(error.localizedDescription)")
         }
     }
 
