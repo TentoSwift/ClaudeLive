@@ -647,15 +647,16 @@ private struct WatchSmallView: View {
                             .resizable()
                             .scaledToFit()
                             .foregroundStyle(status.color)
-                            // ターミナル（Bash）だけ大きめに見せる
-                            .frame(height: context.state.lastTool == "Bash" ? 16 * 1.4 * 1.5 * 1.5 * 1.7 : 16)
+                            // ターミナル（Bash）だけ大きめに見せるが、行の高さ（22pt）を
+                            // 超えると Smart Stack のカードからはみ出すので上限を設ける
+                            .frame(height: context.state.lastTool == "Bash" ? 22 : 16)
                     } else {
                         Color.clear
                     }
                 }
                 // 行の先頭アイコン（22pt）と同じ高さの枠に収め、上端で揃える
-                // （Bash の拡大アイコンなど背が高くなっても行の上を基準にする）
                 .frame(width: 16, height: 22, alignment: .top)
+                .clipped()
             }
 
             if !context.state.question.isEmpty {
