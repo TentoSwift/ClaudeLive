@@ -17,6 +17,7 @@
 
 import AppKit
 import CryptoKit
+import Darwin
 import Foundation
 import Network
 
@@ -284,6 +285,17 @@ struct RegistryEntry {
     let cwd: String
 }
 
+/// PID の生死だけでは不十分（macOS は PID を再利用するため、セッション
+/// 終了後に別プロセスが同じ番号を持つと「生きたまま」と誤判定してしまう）。
+/// 実行ファイル名が "claude" かどうかも確認する
+private func isClaudeProcess(pid: Int32) -> Bool {
+    var pathBuf = [Int8](repeating: 0, count: Int(4 * MAXPATHLEN))
+    let len = proc_pidpath(pid, &pathBuf, UInt32(pathBuf.count))
+    guard len > 0 else { return false }
+    let path = String(cString: pathBuf)
+    return (path as NSString).lastPathComponent == "claude"
+}
+
 func loadSessionRegistry() -> [String: RegistryEntry] {
     let dir = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent(".claude/sessions", isDirectory: true)
@@ -292,7 +304,7 @@ func loadSessionRegistry() -> [String: RegistryEntry] {
         at: dir, includingPropertiesForKeys: nil)) ?? []
     for file in files where file.pathExtension == "json" {
         guard let pid = Int32(file.deletingPathExtension().lastPathComponent),
-              pid > 0, kill(pid, 0) == 0,
+              pid > 0, kill(pid, 0) == 0, isClaudeProcess(pid: pid),
               let data = try? Data(contentsOf: file),
               let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
               let sessionId = obj["sessionId"] as? String else { continue }
