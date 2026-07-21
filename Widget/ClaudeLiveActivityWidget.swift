@@ -638,20 +638,24 @@ private struct WatchSmallView: View {
                         Image(systemName: toolSymbolName(context.state.currentTool))
                             .resizable()
                             .scaledToFit()
-                            .foregroundStyle(tint)
+                            // 常時表示(AOD)中も色を変えない（他のアイコンは輝度を落とすが、
+                            // これは要望によりそのままにする）
+                            .foregroundStyle(status.color)
                     } else if let name = toolCheckmarkSymbolName(context.state.lastTool) {
                         Image(name)
                             .renderingMode(.template)
                             .resizable()
                             .scaledToFit()
-                            .foregroundStyle(tint)
+                            .foregroundStyle(status.color)
                             // ターミナル（Bash）だけ大きめに見せる
                             .frame(height: context.state.lastTool == "Bash" ? 16 * 1.4 * 1.5 * 1.5 * 1.7 : 16)
                     } else {
                         Color.clear
                     }
                 }
-                .frame(width: 16, height: 16)
+                // 行の先頭アイコン（22pt）と同じ高さの枠に収め、上端で揃える
+                // （Bash の拡大アイコンなど背が高くなっても行の上を基準にする）
+                .frame(width: 16, height: 22, alignment: .top)
             }
 
             if !context.state.question.isEmpty {
