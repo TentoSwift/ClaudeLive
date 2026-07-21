@@ -652,10 +652,21 @@ private struct WatchSmallView: View {
             }
 
             if !context.state.question.isEmpty {
-                // 質問中は質問文を短く表示するだけ（回答ボタンは iPhone 側）
                 Text(styled(context.state.question))
                     .font(.caption2)
                     .lineLimit(2)
+                // Smart Stack の中でも回答できるようにする（アプリを開かなくてよい）
+                ForEach(Array(context.state.options.prefix(4).enumerated()), id: \.offset) { _, option in
+                    Button(intent: AnswerQuestionIntent(
+                        sessionId: context.attributes.sessionId, answer: option)) {
+                        Text(option)
+                            .font(.caption2.bold())
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .tint(Color(red: 0.85, green: 0.47, blue: 0.34))
+                }
             } else {
                 if !context.state.currentTool.isEmpty {
                     Text(context.state.currentTool)
