@@ -192,7 +192,12 @@ struct ClaudeLiveActivityWidget: Widget {
                 // タップで Claude モバイルアプリを開く
                 Link(destination: URL(string: "claude://")!) {
                     Group {
-                        if !context.state.currentTool.isEmpty {
+                        if status == .question {
+                            Image(systemName: "questionmark")
+                                .resizable()
+                                .scaledToFit()
+                                .foregroundStyle(status.color)
+                        } else if !context.state.currentTool.isEmpty {
                             Image(systemName: toolSymbolName(context.state.currentTool))
                                 .resizable()
                                 .scaledToFit()
@@ -373,7 +378,8 @@ struct CompactStatusIcon: View {
                     .renderingMode(.template)
                     .resizable()
                     .scaledToFit()
-                    .foregroundStyle(Color.claudeBrand)
+                    // 完了はブランドカラー固定、質問は状態色（インディゴ）にする
+                    .foregroundStyle(status == .question ? status.color : Color.claudeBrand)
                     .symbolEffect(.pulse, options: .repeating,
                                   isActive: status == .question)
             }
@@ -409,7 +415,8 @@ struct StatusIconView: View {
                     .renderingMode(.template)
                     .resizable()
                     .scaledToFit()
-                    .foregroundStyle(Color.claudeBrand)
+                    // 完了はブランドカラー固定、質問は状態色（インディゴ）にする
+                    .foregroundStyle(status == .question ? status.color : Color.claudeBrand)
             } else {
                 Image(systemName: status.icon)
                     .resizable()
