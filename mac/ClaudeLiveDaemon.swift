@@ -493,6 +493,21 @@ final class Daemon {
             } else {
                 respond(connection, status: "400 Bad Request", json: #"{"ok":false}"#)
             }
+        case ("GET", "/projects"):
+            // 新規セッションを開始できるプロジェクト（過去に使った cwd）の一覧
+            respond(connection, json: projectsJSON())
+        case ("POST", "/newsession"):
+            // 新規 Claude Code セッションを cwd で開始する（--resume なし）。
+            // cwd 省略時は最初のプロジェクトを使う
+            if let json = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any],
+               let text = json["text"] as? String,
+               !text.trimmingCharacters(in: .whitespaces).isEmpty {
+                let cwd = (json["cwd"] as? String) ?? knownProjectPaths().first ?? ""
+                respond(connection)
+                startNewSession(cwd: cwd, text: text)
+            } else {
+                respond(connection, status: "400 Bad Request", json: #"{"ok":false}"#)
+            }
         case ("POST", "/register"):
             if let json = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any] {
                 handleRegister(json)
@@ -913,6 +928,101 @@ final class Daemon {
             log("プロンプト注入: session \(sessionId.prefix(8))「\(Self.truncate(text, 60))」")
         } catch {
             log("プロンプト注入失敗: \(error.localizedDescription)")
+        }
+    }
+
+    /// 新規セッションを開始できる既知のプロジェクト（過去に使った cwd）の一覧。
+    /// ~/.claude/projects/ のディレクトリ名（cwd を "-" 区切りにしたもの）を
+    /// 実在パスに復元する。更新時刻の新しい順
+    private func knownProjectEntries() -> [(path: String, name: String)] {
+        let projectsDir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".claude/projects", isDirectory: true)
+        let fm = FileManager.default
+        guard let dirs = try? fm.contentsOfDirectory(
+            at: projectsDir, includingPropertiesForKeys: [.contentModificationDateKey]) else { return [] }
+        var result: [(path: String, name: String, date: Date)] = []
+        for dir in dirs where (try? dir.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true {
+            // ディレクトリ名は cwd の英数字以外を "-" にしたもの。
+            // 先頭 "-" は "/" 始まりの絶対パス由来なので "/" に戻し、以降の "-" も
+            // "/" として復元してみて、実在するパスを採用する（曖昧さは実在チェックで解決）
+            let munged = dir.lastPathComponent
+            guard let path = Self.restorePath(fromMunged: munged) else { continue }
+            let date = (try? dir.resourceValues(forKeys: [.contentModificationDateKey]))?
+                .contentModificationDate ?? .distantPast
+            result.append((path, (path as NSString).lastPathComponent, date))
+        }
+        result.sort { $0.date > $1.date }
+        return result.map { ($0.path, $0.name) }
+    }
+
+    private func knownProjectPaths() -> [String] { knownProjectEntries().map(\.path) }
+
+    /// "-Users-foo-bar" のようなプロジェクトディレクトリ名から実在パスを復元する。
+    /// "-" を順に "/" と "-"（元がハイフンだったケース）両方試して実在するものを返す
+    private static func restorePath(fromMunged munged: String) -> String? {
+        guard munged.hasPrefix("-") else { return nil }
+        func normalize(_ p: String) -> String {
+            // 連続スラッシュを畳み、末尾スラッシュを落とす
+            var s = p
+            while s.contains("//") { s = s.replacingOccurrences(of: "//", with: "/") }
+            if s.count > 1 && s.hasSuffix("/") { s.removeLast() }
+            return s
+        }
+        // まず単純に全 "-" を "/" に（大半のパスはこれで当たる）
+        let simple = normalize("/" + munged.dropFirst().replacingOccurrences(of: "-", with: "/"))
+        if FileManager.default.fileExists(atPath: simple) { return simple }
+        // ダメならセグメントを貪欲に "/" 区切りで探索
+        let parts = munged.dropFirst().split(separator: "-").map(String.init)
+        var path = ""
+        for part in parts {
+            let candidate = path + "/" + part
+            if FileManager.default.fileExists(atPath: candidate) {
+                path = candidate
+            } else if !path.isEmpty {
+                // ハイフンを含むディレクトリ名だった可能性。直前セグメントと連結
+                path = path + "-" + part
+            } else {
+                path = "/" + part
+            }
+        }
+        return FileManager.default.fileExists(atPath: path) ? path : nil
+    }
+
+    private func projectsJSON() -> String {
+        let list = knownProjectEntries().prefix(30).map {
+            ["path": $0.path, "name": $0.name]
+        }
+        let data = (try? JSONSerialization.data(withJSONObject: ["ok": true, "projects": Array(list)]))
+            ?? Data("{}".utf8)
+        return String(data: data, encoding: .utf8) ?? "{}"
+    }
+
+    /// 新規 Claude Code セッションを cwd で開始する（--resume なし）。
+    /// ヘッドレスの別プロセスとして走り、SessionStart フックから
+    /// push-to-start でライブアクティビティが立ち上がる
+    private func startNewSession(cwd: String, text: String) {
+        let claudePath = ("~/.local/bin/claude" as NSString).expandingTildeInPath
+        guard FileManager.default.fileExists(atPath: claudePath) else {
+            log("新規セッション失敗: claude が見つからない")
+            return
+        }
+        var isDir: ObjCBool = false
+        guard !cwd.isEmpty, FileManager.default.fileExists(atPath: cwd, isDirectory: &isDir),
+              isDir.boolValue else {
+            log("新規セッション失敗: 不正な cwd (\(cwd))")
+            return
+        }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: claudePath)
+        process.arguments = ["-p", text]  // --resume なし = 新規セッション
+        process.currentDirectoryURL = URL(fileURLWithPath: cwd)
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        do {
+            try process.run()
+            log("新規セッション開始: \((cwd as NSString).lastPathComponent)「\(Self.truncate(text, 60))」")
+        } catch {
+            log("新規セッション失敗: \(error.localizedDescription)")
         }
     }
 

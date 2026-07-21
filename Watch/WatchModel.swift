@@ -127,6 +127,30 @@ final class WatchModel: NSObject, ObservableObject {
         _ = await request(path: "/prompt", method: "POST", body: body)
         await refresh()
     }
+
+    @Published var projects: [(path: String, name: String)] = []
+
+    /// 新規セッションを開始できるプロジェクト一覧を取得する
+    func loadProjects() async {
+        guard let data = await request(path: "/projects"),
+              let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let list = object["projects"] as? [[String: Any]] else { return }
+        projects = list.compactMap { entry in
+            guard let path = entry["path"] as? String,
+                  let name = entry["name"] as? String else { return nil }
+            return (path, name)
+        }
+    }
+
+    /// 新規 Claude Code セッションを開始する（cwd で claude -p、--resume なし）
+    func newSession(cwd: String, text: String) async {
+        let payload: [String: Any] = ["cwd": cwd, "text": text]
+        guard let body = try? JSONSerialization.data(withJSONObject: payload) else { return }
+        _ = await request(path: "/newsession", method: "POST", body: body)
+        // 開始直後は SessionStart→push まで少し待ってから取得
+        try? await Task.sleep(for: .seconds(2))
+        await refresh()
+    }
 }
 
 // MARK: - WatchConnectivity（iPhone からデーモン URL を受け取る）

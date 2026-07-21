@@ -19,6 +19,12 @@ struct WatchContentView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                // 新規セッション開始
+                NavigationLink(value: "__new__") {
+                    Label("新規セッション", systemImage: "plus.circle.fill")
+                        .font(.headline)
+                        .foregroundStyle(Color(red: 0.85, green: 0.47, blue: 0.34))
+                }
                 ForEach(model.sessions) { session in
                     NavigationLink(value: session.id) {
                         VStack(alignment: .leading, spacing: 2) {
@@ -53,8 +59,12 @@ struct WatchContentView: View {
                     .foregroundStyle(.tertiary)
             }
             .navigationTitle("ClaudeLive")
-            .navigationDestination(for: String.self) { sessionId in
-                WatchSessionDetailView(sessionId: sessionId)
+            .navigationDestination(for: String.self) { value in
+                if value == "__new__" {
+                    WatchNewSessionView()
+                } else {
+                    WatchSessionDetailView(sessionId: value)
+                }
             }
         }
         .task {
@@ -189,6 +199,67 @@ struct WatchSessionDetailView: View {
             .font(.caption2.bold())
             .foregroundStyle(.secondary)
             .padding(.top, 4)
+    }
+}
+
+/// 新規セッション開始: プロジェクトを選んで最初の指示を送る
+struct WatchNewSessionView: View {
+    @EnvironmentObject private var model: WatchModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedPath = ""
+    @State private var promptInput = ""
+    @State private var sending = false
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("プロジェクト")
+                    .font(.caption2.bold())
+                    .foregroundStyle(.secondary)
+                ForEach(model.projects, id: \.path) { project in
+                    Button {
+                        selectedPath = project.path
+                    } label: {
+                        HStack {
+                            Text(project.name).font(.footnote).lineLimit(1)
+                            Spacer()
+                            if selectedPath == project.path {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Divider()
+                TextField("最初の指示…", text: $promptInput)
+                    .font(.footnote)
+                Button {
+                    let cwd = selectedPath.isEmpty ? (model.projects.first?.path ?? "") : selectedPath
+                    let text = promptInput
+                    sending = true
+                    Task {
+                        await model.newSession(cwd: cwd, text: text)
+                        sending = false
+                        dismiss()
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: sending ? "hourglass" : "paperplane.fill")
+                        Text(sending ? "開始中…" : "開始")
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color(red: 0.85, green: 0.47, blue: 0.34))
+                .disabled(promptInput.isEmpty || sending)
+            }
+        }
+        .navigationTitle("新規セッション")
+        .task {
+            await model.loadProjects()
+            if selectedPath.isEmpty { selectedPath = model.projects.first?.path ?? "" }
+        }
     }
 }
 
