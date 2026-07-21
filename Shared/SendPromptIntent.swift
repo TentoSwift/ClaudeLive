@@ -1,80 +1,95 @@
 import AppIntents
 import Foundation
 
+/// ショートカットで選べるセッション。EntityQuery が Mac デーモンの /sessions を
+/// 取得して候補一覧を返すので、ショートカットのパラメータでピッカーから選べる
+struct ClaudeSessionEntity: AppEntity, Identifiable {
+    let id: String        // sessionId（= cliSessionId）
+    var name: String
+    var project: String
+    var status: String
+    var title: String
+    var lastPrompt: String
+
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Claude セッション"
+    static var defaultQuery = ClaudeSessionQuery()
+
+    var displayRepresentation: DisplayRepresentation {
+        // "claud-9b" のようなランダムな内部名だけでは一覧で見分けがつかないため、
+        // 会話の中身を表す文字列を見出しにする。直前のプロンプトの方が
+        // 「今何をしているセッションか」を表すので、最初の指示（title）より優先する
+        let label: String
+        if !lastPrompt.isEmpty { label = lastPrompt }
+        else if !title.isEmpty { label = title }
+        else { label = name.isEmpty ? project : name }
+        let subtitle = name.isEmpty ? status : "\(project) ・ \(status)"
+        return DisplayRepresentation(title: "\(label)", subtitle: "\(subtitle)")
+    }
+}
+
+struct ClaudeSessionQuery: EntityQuery {
+    func entities(for identifiers: [String]) async throws -> [ClaudeSessionEntity] {
+        let all = try await suggestedEntities()
+        return all.filter { identifiers.contains($0.id) }
+    }
+
+    func suggestedEntities() async throws -> [ClaudeSessionEntity] {
+        guard let data = await daemonRequest(path: "/sessions"),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let sessions = object["sessions"] as? [[String: Any]] else { return [] }
+        return sessions.compactMap { entry in
+            guard let id = entry["sessionId"] as? String else { return nil }
+            return ClaudeSessionEntity(
+                id: id,
+                name: entry["name"] as? String ?? "",
+                project: entry["project"] as? String ?? "",
+                status: entry["status"] as? String ?? "",
+                title: entry["title"] as? String ?? "",
+                lastPrompt: entry["lastPrompt"] as? String ?? "")
+        }
+    }
+}
+
 /// Siri・ショートカット・アクションボタンから直接 Claude にプロンプトを
 /// 送るための App Intent。「指示を送る」から音声/テキストを渡すと、
-/// 直近のアクティブセッション（作業中・許可待ち・入力待ちのいずれか、
-/// 無ければ最新のセッション）へ Mac デーモンの /prompt を叩いて注入する
+/// 指定されたセッション（省略時は直近のアクティブセッション）へ
+/// Mac デーモンの /prompt を叩いて注入する
 struct SendPromptIntent: AppIntent {
     static var title: LocalizedStringResource = "Claude に指示を送る"
-    static var description = IntentDescription("直近の Claude Code セッションに指示を送ります")
+    static var description = IntentDescription("選んだ Claude Code セッションに指示を送ります")
     static var openAppWhenRun: Bool = false
 
-    @Parameter(title: "指示")
+    /// 送信先セッション。必須にしているので、ショートカット実行時に値が
+    /// 未設定なら、その場でセッション一覧のピッカーが出て選べる。
+    /// text より先に宣言することで、こちらを先に尋ねさせる
+    @Parameter(title: "セッション", requestValueDialog: "どのセッションに送りますか？")
+    var session: ClaudeSessionEntity
+
+    @Parameter(title: "指示", requestValueDialog: "指示の内容は？")
     var text: String
 
     static var parameterSummary: some ParameterSummary {
-        Summary("Claude に「\(\.$text)」を送る")
+        Summary("Claude の \(\.$session) に「\(\.$text)」を送る")
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        guard var base = UserDefaults.standard.string(forKey: "lastDaemonURL"), !base.isEmpty else {
-            return .result(dialog: "Mac の接続先が分かりません。ClaudeLive アプリを一度開いてください")
+        // ショートカットで text に空（「指定入力」の誤配線など）が渡ると、
+        // 以前は無言で失敗していた。空ならその場で指示を尋ね直す。
+        // session は先に宣言しているので、この再入力は必ずセッション選択の後になる
+        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            throw $text.needsValueError("送る指示を入力してください")
         }
-        base = sanitizeDaemonURL(base)
-        let picked = await Self.pickSessionId(base: base)
-        guard let sessionId = picked.id else {
-            // どこで失敗したかを音声で返す（ネットワーク到達性の切り分け用）
-            return .result(dialog: "セッションが見つかりませんでした（\(base)、\(picked.detail)）")
-        }
-        let payload: [String: Any] = ["sessionId": sessionId, "text": text]
-        guard let body = try? JSONSerialization.data(withJSONObject: payload),
-              let url = URL(string: base + "/prompt") else {
-            return .result(dialog: "送信に失敗しました")
-        }
-        var request = URLRequest(url: url, timeoutInterval: 8)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = body
-        do {
-            let (_, response) = try await URLSession.shared.data(for: request)
-            guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-                return .result(dialog: "Mac がエラーを返しました")
-            }
-        } catch {
-            return .result(dialog: "Mac に届きませんでした: \(error.localizedDescription)")
-        }
-        return .result(dialog: "送りました")
+        let ok = await Self.sendPrompt(sessionId: session.id, text: text)
+        return .result(dialog: ok ? "送りました" : "Mac に届きませんでした")
     }
 
-    /// 作業中・許可待ち・入力待ちのセッションを優先し、無ければ最新のものを選ぶ。
-    /// 失敗理由を detail に入れて返す（診断用）
-    private static func pickSessionId(base: String) async -> (id: String?, detail: String) {
-        guard let url = URL(string: base + "/sessions") else {
-            return (nil, "不正なURL")
-        }
-        let data: Data
-        do {
-            let (d, response) = try await URLSession.shared.data(from: url)
-            guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-                return (nil, "HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0)")
-            }
-            data = d
-        } catch {
-            return (nil, "通信失敗: \(error.localizedDescription)")
-        }
-        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let sessions = object["sessions"] as? [[String: Any]] else {
-            return (nil, "解析失敗")
-        }
-        guard !sessions.isEmpty else {
-            return (nil, "0件")
-        }
-        let active = ["working", "permission", "waiting", "question", "compacting"]
-        if let hit = sessions.first(where: { active.contains($0["status"] as? String ?? "") }) {
-            return (hit["sessionId"] as? String, "OK")
-        }
-        return (sessions.first?["sessionId"] as? String, "OK(非アクティブ)")
+    /// Mac デーモンの /prompt へプロンプトを送る。/answer と同じキー入力方式
+    /// （typeIntoClaudeApp）で Claude Desktop に即反映される。
+    /// 通知のテキスト入力アクション（NotificationManager）からも共有する
+    static func sendPrompt(sessionId: String, text: String) async -> Bool {
+        let payload: [String: Any] = ["sessionId": sessionId, "text": text]
+        guard let body = try? JSONSerialization.data(withJSONObject: payload) else { return false }
+        return await daemonRequestOK(path: "/prompt", body: body)
     }
 }
 
@@ -88,5 +103,29 @@ struct ClaudeLiveShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "指示を送る",
             systemImageName: "mic.fill")
+        AppShortcut(
+            intent: StartNewSessionIntent(),
+            phrases: [
+                "\(.applicationName) で新規セッションを開始する",
+                "\(.applicationName) で新しいセッションを始める",
+            ],
+            shortTitle: "新規セッションを開始",
+            systemImageName: "plus.circle.fill")
+        AppShortcut(
+            intent: ChangeModelIntent(),
+            phrases: [
+                "\(.applicationName) でモデルを変更する",
+                "\(.applicationName) のモデルを切り替える",
+            ],
+            shortTitle: "モデルを変更",
+            systemImageName: "cpu.fill")
+        AppShortcut(
+            intent: SendCommandIntent(),
+            phrases: [
+                "\(.applicationName) でコマンドを送る",
+                "\(.applicationName) にコマンドを送信する",
+            ],
+            shortTitle: "コマンドを送る",
+            systemImageName: "terminal.fill")
     }
 }

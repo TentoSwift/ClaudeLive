@@ -70,10 +70,19 @@
 		CB000000000000000006A3 /* WatchContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000006A3 /* WatchContentView.swift */; };
 		CB000000000000000006A4 /* ClaudeLiveWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = CA000000000000000006A0 /* ClaudeLiveWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		CB000000000000000006A5 /* WatchLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000006A5 /* WatchLink.swift */; };
+		CB00000000000000000BA0 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000BA0 /* NotificationManager.swift */; };
 		CB00000000000000000007A0 /* OpenAppIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000007A0 /* OpenAppIntent.swift */; };
 		CB00000000000000000007A1 /* OpenAppIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000007A0 /* OpenAppIntent.swift */; };
 		CB00000000000000000008A0 /* SendPromptIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000008A0 /* SendPromptIntent.swift */; };
 		CB00000000000000000008A1 /* SendPromptIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000008A0 /* SendPromptIntent.swift */; };
+		CB00000000000000000008B0 /* StartNewSessionIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000008B0 /* StartNewSessionIntent.swift */; };
+		CB00000000000000000008B1 /* StartNewSessionIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000008B0 /* StartNewSessionIntent.swift */; };
+		CB00000000000000000008C0 /* ClaudeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000008C0 /* ClaudeModel.swift */; };
+		CB00000000000000000008C1 /* ClaudeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000008C0 /* ClaudeModel.swift */; };
+		CB00000000000000000008D0 /* ChangeModelIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000008D0 /* ChangeModelIntent.swift */; };
+		CB00000000000000000008D1 /* ChangeModelIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000008D0 /* ChangeModelIntent.swift */; };
+		CB00000000000000000008E0 /* SendCommandIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000008E0 /* SendCommandIntent.swift */; };
+		CB00000000000000000008E1 /* SendCommandIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000008E0 /* SendCommandIntent.swift */; };
 		CB00000000000000000009A0 /* DaemonURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000009A0 /* DaemonURL.swift */; };
 		CB00000000000000000009A1 /* DaemonURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000009A0 /* DaemonURL.swift */; };
 		CB00000000000000000009A2 /* DaemonURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000009A0 /* DaemonURL.swift */; };
@@ -165,8 +174,13 @@
 		CA000000000000000006A3 /* WatchContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchContentView.swift; sourceTree = "<group>"; };
 		CA000000000000000006A4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		CA000000000000000006A5 /* WatchLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchLink.swift; sourceTree = "<group>"; };
+		CA00000000000000000BA0 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		CA00000000000000000007A0 /* OpenAppIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAppIntent.swift; sourceTree = "<group>"; };
 		CA00000000000000000008A0 /* SendPromptIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendPromptIntent.swift; sourceTree = "<group>"; };
+		CA00000000000000000008B0 /* StartNewSessionIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartNewSessionIntent.swift; sourceTree = "<group>"; };
+		CA00000000000000000008C0 /* ClaudeModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeModel.swift; sourceTree = "<group>"; };
+		CA00000000000000000008D0 /* ChangeModelIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangeModelIntent.swift; sourceTree = "<group>"; };
+		CA00000000000000000008E0 /* SendCommandIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendCommandIntent.swift; sourceTree = "<group>"; };
 		CA00000000000000000009A0 /* DaemonURL.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonURL.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -180,6 +194,7 @@
 				CA00000000000000000000AA /* SessionsView.swift */,
 				CA00000000000000000000AB /* MarkdownText.swift */,
 				CA000000000000000006A5 /* WatchLink.swift */,
+				CA00000000000000000BA0 /* NotificationManager.swift */,
 				CA00000000000000000000EE /* LiveActivityMirrorView.swift */,
 				CA00000000000000000000A7 /* Info.plist */,
 				CA00000000000000000000A9 /* ClaudeLive.entitlements */,
@@ -194,6 +209,10 @@
 				CA00000000000000000000AC /* AnswerIntent.swift */,
 				CA00000000000000000009A0 /* DaemonURL.swift */,
 				CA00000000000000000008A0 /* SendPromptIntent.swift */,
+				CA00000000000000000008B0 /* StartNewSessionIntent.swift */,
+				CA00000000000000000008C0 /* ClaudeModel.swift */,
+				CA00000000000000000008D0 /* ChangeModelIntent.swift */,
+				CA00000000000000000008E0 /* SendCommandIntent.swift */,
 				CA00000000000000000007A0 /* OpenAppIntent.swift */,
 			);
 			path = Shared;
@@ -442,12 +461,17 @@
 				CB00000000000000000000AC /* AnswerIntent.swift in Sources */,
 				CB00000000000000000009A0 /* DaemonURL.swift in Sources */,
 				CB00000000000000000008A0 /* SendPromptIntent.swift in Sources */,
+				CB00000000000000000008B0 /* StartNewSessionIntent.swift in Sources */,
+				CB00000000000000000008C0 /* ClaudeModel.swift in Sources */,
+				CB00000000000000000008D0 /* ChangeModelIntent.swift in Sources */,
+				CB00000000000000000008E0 /* SendCommandIntent.swift in Sources */,
 				CB00000000000000000007A0 /* OpenAppIntent.swift in Sources */,
 				CB00000000000000000000E0 /* ClaudeLiveActivityWidget.swift in Sources */,
 				CB00000000000000000000E1 /* FrameAnimation.swift in Sources */,
 				CB00000000000000000000E2 /* MarqueeText.swift in Sources */,
 				CB00000000000000000000EE /* LiveActivityMirrorView.swift in Sources */,
 				CB000000000000000006A5 /* WatchLink.swift in Sources */,
+				CB00000000000000000BA0 /* NotificationManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -474,6 +498,10 @@
 				CB000000000000000006A2 /* WatchModel.swift in Sources */,
 				CB000000000000000006A3 /* WatchContentView.swift in Sources */,
 				CB00000000000000000008A1 /* SendPromptIntent.swift in Sources */,
+				CB00000000000000000008B1 /* StartNewSessionIntent.swift in Sources */,
+				CB00000000000000000008C1 /* ClaudeModel.swift in Sources */,
+				CB00000000000000000008D1 /* ChangeModelIntent.swift in Sources */,
+				CB00000000000000000008E1 /* SendCommandIntent.swift in Sources */,
 				CB00000000000000000009A2 /* DaemonURL.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

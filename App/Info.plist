@@ -20,11 +20,26 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.tento.ClaudeLive</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>claudelive</string>
+			</array>
+		</dict>
+	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>NSAllowsLocalNetworking</key>
+		<!-- NSAllowsLocalNetworking を併記すると、Apple の仕様で
+		     NSAllowsArbitraryLoads が無視される（個別キーが優先される）。
+		     Tailscale の 100.x.x.x への HTTP を通すには ArbitraryLoads
+		     単独にする必要がある（これだけでローカル通信も許可される） -->
+		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
 	<key>NSBonjourServices</key>

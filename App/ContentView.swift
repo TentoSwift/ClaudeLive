@@ -4,9 +4,19 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject private var model: AppModel
     @AppStorage("manualHost") private var manualHost = ""
+    @State private var path: [String] = []
+
+    // ライブアクティビティのタップから開いた質問への回答。
+    // アプリの画面へ遷移させず、ショートカットの「入力を要求」のような
+    // システムのアラート（テキストフィールド付き）でその場で答えられるようにする
+    @State private var showAnswerAlert = false
+    @State private var alertSessionId: String?
+    @State private var alertQuestion = ""
+    @State private var alertOptions: [String] = []
+    @State private var alertAnswerText = ""
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             Form {
                 mirrorSection
                 statusSection
@@ -28,6 +38,37 @@ struct ContentView: View {
             .task {
                 await model.loadRemoteSessions()
             }
+        }
+        .onChange(of: model.focusSessionId) { _, sessionId in
+            guard let sessionId else { return }
+            model.focusSessionId = nil
+            Task {
+                await model.loadRemoteSessions()
+                if let session = model.remoteSessions.first(where: { $0.id == sessionId }),
+                   !session.question.isEmpty {
+                    alertSessionId = sessionId
+                    alertQuestion = session.question
+                    alertOptions = session.options
+                    alertAnswerText = ""
+                    showAnswerAlert = true
+                } else {
+                    // 質問中でなければ通常どおり会話の詳細画面を開く
+                    path = [sessionId]
+                }
+            }
+        }
+        .alert(alertQuestion, isPresented: $showAnswerAlert) {
+            ForEach(alertOptions, id: \.self) { option in
+                Button(option) {
+                    Task { await model.answer(sessionId: alertSessionId ?? "", answer: option) }
+                }
+            }
+            TextField("自由入力で回答…", text: $alertAnswerText)
+            Button("送信する") {
+                guard !alertAnswerText.isEmpty else { return }
+                Task { await model.answer(sessionId: alertSessionId ?? "", answer: alertAnswerText) }
+            }
+            Button("キャンセル", role: .cancel) {}
         }
     }
 
@@ -172,10 +213,17 @@ struct ContentView: View {
             Button("テストを終了", role: .destructive) {
                 model.endTestActivities()
             }
+            Button("回答アラートのテスト") {
+                alertSessionId = "test"
+                alertQuestion = "テスト用の質問です。選択肢または自由入力で回答してください"
+                alertOptions = ["はい", "いいえ", "保留"]
+                alertAnswerText = ""
+                showAnswerAlert = true
+            }
         } header: {
             Text("ローカルテスト")
         } footer: {
-            Text("APNs を使わずにライブアクティビティの見た目を確認できます。マーキーテストは push-to-start budget や AskUserQuestion の hooks 保留を一切使わないので、何度でも試せます。")
+            Text("APNs を使わずにライブアクティビティの見た目を確認できます。マーキーテストは push-to-start budget や AskUserQuestion の hooks 保留を一切使わないので、何度でも試せます。回答アラートのテストは URL スキームやライブアクティビティのタップを介さず、アラート UI 自体だけを直接確認できます。")
         }
     }
 }

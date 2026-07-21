@@ -22,6 +22,14 @@ final class AppModel: ObservableObject {
         var hasPushToken: Bool
     }
 
+    /// AskUserQuestion の 1 問分（multiSelect なら複数選択できる）
+    struct QuestionItem: Identifiable {
+        let id = UUID()
+        var question: String
+        var options: [String]
+        var multiSelect: Bool
+    }
+
     struct RemoteSession: Identifiable {
         let id: String        // sessionId
         var name: String
@@ -33,6 +41,11 @@ final class AppModel: ObservableObject {
         var toolCount: Int
         var lastPrompt: String
         var lastResponse: String
+        var question: String
+        var options: [String]
+        /// 質問がすべて入る（1回の AskUserQuestion に複数問あることがある）。
+        /// question/options は互換用に先頭1問を反映したもの
+        var questions: [QuestionItem]
     }
 
     struct ChatMessage: Identifiable {
@@ -62,6 +75,9 @@ final class AppModel: ObservableObject {
     @Published var lastRegistration = "未登録"
     @Published var lastError: String?
     @Published var activitiesEnabled = ActivityAuthorizationInfo().areActivitiesEnabled
+    /// ライブアクティビティのタップ（claudelive://session/<id>）で指定されたセッション。
+    /// ContentView がこれを見て該当セッションの詳細画面へ遷移する
+    @Published var focusSessionId: String?
 
     /// sessionId -> per-activity push token (hex)
     private var activityTokens: [String: String] = [:]
@@ -156,23 +172,49 @@ final class AppModel: ObservableObject {
         refreshList()
         adoptSessions()
         Task { await loadRemoteSessions() }
+        checkPendingFocusSession()
+    }
+
+    /// ライブアクティビティの「開いて回答」ボタン（OpenSessionIntent）が
+    /// UserDefaults に書いたセッション ID を拾う。App Intent はウィジェット拡張の
+    /// プロセスで動くため、直接 focusSessionId を書き込めずこの経由で受け渡す
+    private func checkPendingFocusSession() {
+        let defaults = UserDefaults.standard
+        guard let sessionId = defaults.string(forKey: "pendingFocusSessionId"), !sessionId.isEmpty else { return }
+        defaults.removeObject(forKey: "pendingFocusSessionId")
+        focusSessionId = sessionId
     }
 
     // MARK: - セッション一覧・会話（閲覧専用）
 
-    /// GET を発見済み Bonjour エンドポイント → 手動指定の順に試して body を返す
+    /// GET を発見済み Bonjour エンドポイント・手動指定に同時に投げて、最初に
+    /// 成功したものを返す。以前は順番に1つずつタイムアウトを待っていたため、
+    /// Wi-Fi を切っていると（＝ Bonjour エンドポイントは必ずタイムアウトする）
+    /// 手動指定（Tailscale の IP など）が生きていても、その順番待ちで
+    /// 全体がタイムアウトしてしまっていた
     private func fetchData(path: String) async -> Data? {
-        for endpoint in discoveredEndpoints {
-            if let response = await httpRequest(method: "GET", path: path, body: nil, to: endpoint),
-               let body = Self.httpResponseBody(response) {
-                return body
+        await withTaskGroup(of: Data?.self) { group in
+            for endpoint in discoveredEndpoints {
+                group.addTask {
+                    guard let response = await self.httpRequest(
+                        method: "GET", path: path, body: nil, to: endpoint) else { return nil }
+                    return Self.httpResponseBody(response)
+                }
             }
+            if let url = manualURL(path: path) {
+                group.addTask {
+                    try? await URLSession.shared.data(
+                        for: URLRequest(url: url, timeoutInterval: 5)).0
+                }
+            }
+            for await result in group {
+                if let result {
+                    group.cancelAll()
+                    return result
+                }
+            }
+            return nil
         }
-        if let url = manualURL(path: path) {
-            return try? await URLSession.shared.data(
-                for: URLRequest(url: url, timeoutInterval: 5)).0
-        }
-        return nil
     }
 
     func loadRemoteSessions() async {
@@ -191,8 +233,31 @@ final class AppModel: ObservableObject {
                 currentTool: entry["currentTool"] as? String ?? "",
                 toolCount: entry["toolCount"] as? Int ?? 0,
                 lastPrompt: entry["lastPrompt"] as? String ?? "",
-                lastResponse: entry["lastResponse"] as? String ?? "")
+                lastResponse: entry["lastResponse"] as? String ?? "",
+                question: entry["question"] as? String ?? "",
+                options: entry["options"] as? [String] ?? [],
+                questions: (entry["questions"] as? [[String: Any]] ?? []).map { q in
+                    QuestionItem(
+                        question: q["question"] as? String ?? "",
+                        options: q["options"] as? [String] ?? [],
+                        multiSelect: q["multiSelect"] as? Bool ?? false)
+                })
         }
+    }
+
+    /// AskUserQuestion への回答（単一質問・単一選択のときの簡易版。
+    /// 選択肢ボタン・自由入力のどちらからも使う）
+    func answer(sessionId: String, answer: String) async {
+        await self.answer(sessionId: sessionId, answers: [[answer]])
+    }
+
+    /// 質問ごとの選択結果をまとめて回答する（複数質問・複数選択(multiSelect)対応）。
+    /// answers は questions と同じ並びで、multiSelect の質問は複数要素になる
+    func answer(sessionId: String, answers: [[String]]) async {
+        let payload: [String: Any] = ["sessionId": sessionId, "answers": answers]
+        guard let body = try? JSONSerialization.data(withJSONObject: payload) else { return }
+        _ = await relayRequest(path: "/answer", method: "POST", bodyData: body)
+        await loadRemoteSessions()
     }
 
     func fetchMessages(sessionId: String) async -> [ChatMessage]? {
@@ -207,6 +272,71 @@ final class AppModel: ObservableObject {
                 role: entry["role"] as? String ?? "assistant",
                 text: entry["text"] as? String ?? "",
                 timestamp: entry["timestamp"] as? String ?? "")
+        }
+    }
+
+    // MARK: - 新規セッション開始
+
+    @Published var projects: [(path: String, name: String)] = []
+
+    /// 新規セッションを開始できるプロジェクト（過去に使った cwd）一覧を取得する
+    func loadProjects() async {
+        guard let data = await fetchData(path: "/projects"),
+              let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let list = object["projects"] as? [[String: Any]] else { return }
+        projects = list.compactMap { entry in
+            guard let path = entry["path"] as? String,
+                  let name = entry["name"] as? String else { return nil }
+            return (path, name)
+        }
+    }
+
+    /// 新規 Claude Code セッションを開始する（cwd で `claude -p`、--resume なし）。
+    /// model 省略時は CLI の既定モデルを使う
+    func startNewSession(cwd: String, text: String, model: String = "") async {
+        var payload: [String: Any] = ["cwd": cwd, "text": text]
+        if !model.isEmpty { payload["model"] = model }
+        guard let body = try? JSONSerialization.data(withJSONObject: payload) else { return }
+        _ = await relayRequest(path: "/newsession", method: "POST", bodyData: body)
+        // 開始直後は SessionStart → push まで少し待ってから取得
+        try? await Task.sleep(for: .seconds(2))
+        await loadRemoteSessions()
+    }
+
+    // MARK: - Apple Watch からの中継（WatchLink 経由）
+
+    /// Watch から WatchConnectivity で届いたリクエストを Mac デーモンへ中継する。
+    /// Watch は Mac と直接通信せず、必ずこの iPhone アプリを経由する
+    func relayRequest(path: String, method: String, bodyData: Data?) async -> Data? {
+        if method == "GET" {
+            return await fetchData(path: path)
+        }
+        return await withTaskGroup(of: Data?.self) { group in
+            for endpoint in discoveredEndpoints {
+                group.addTask {
+                    guard let response = await self.httpRequest(
+                        method: method, path: path, body: bodyData, to: endpoint) else { return nil }
+                    return Self.httpResponseBody(response)
+                }
+            }
+            if let url = manualURL(path: path) {
+                group.addTask {
+                    var request = URLRequest(url: url, timeoutInterval: 8)
+                    request.httpMethod = method
+                    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    request.httpBody = bodyData
+                    guard let (data, response) = try? await URLSession.shared.data(for: request),
+                          (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+                    return data
+                }
+            }
+            for await result in group {
+                if let result {
+                    group.cancelAll()
+                    return result
+                }
+            }
+            return nil
         }
     }
 
@@ -232,7 +362,10 @@ final class AppModel: ObservableObject {
             guard let sessionId = entry["sessionId"] as? String,
                   let project = entry["project"] as? String,
                   !existing.contains(sessionId),
-                  status != "done", status != "idle" else { continue }
+                  // Mac 側は「入力待ち」をライブアクティビティに残さない設計
+                  // （Notification フックで pushEnd 済み）。ここで拾い直して
+                  // 復活させると意図が崩れるので、waiting も対象外にする
+                  status != "done", status != "idle", status != "waiting" else { continue }
             let startedAt = (entry["startedAt"] as? Double)
                 .map { Date(timeIntervalSince1970: $0) } ?? Date()
             let attributes = ClaudeActivityAttributes(
@@ -318,24 +451,39 @@ final class AppModel: ObservableObject {
         var payload: [String: Any] = ["device": UIDevice.current.name]
         payload["compactAnimated"] = compactAnimated
         if let token = pushToStartToken { payload["pushToStartToken"] = token }
+        // 質問プッシュ通知（返信アクション付き）用のリモート通知トークン
+        if let remoteToken = UserDefaults.standard.string(forKey: "remoteDeviceToken") {
+            payload["remoteDeviceToken"] = remoteToken
+        }
         // 「いま生きているアクティビティ」のスナップショットとして常に送る（空でも）。
         // Mac 側はここに無いセッションのトークンを破棄して再開始可能に戻す
         payload["activityTokens"] = activityTokens
         guard let body = try? JSONSerialization.data(withJSONObject: payload) else { return }
 
-        var success = false
-        for endpoint in discoveredEndpoints {
-            if await postOverConnection(body: body, to: endpoint) { success = true }
-        }
-        if let url = manualURL() {
-            if await postOverURLSession(body: body, url: url) {
-                success = true
-                // 手動指定（Tailscale の IP など）で届いた場合も、その URL を
-                // 回答ボタンや Watch が使えるように保存する
-                if let scheme = url.scheme, let host = url.host, let port = url.port {
-                    UserDefaults.standard.set("\(scheme)://\(host):\(port)", forKey: "lastDaemonURL")
+        // 発見済みエンドポイント・手動指定すべてに同時に登録を投げる（生きている
+        // Mac 全部に届けたいので、こちらは先着1つで打ち切らず全部の結果を待つ）。
+        // 順番に1つずつタイムアウトを待つと、Wi-Fi を切っているときに
+        // 手動指定（Tailscale の IP など）が生きていても届くのが遅れていた
+        let success = await withTaskGroup(of: Bool.self) { group -> Bool in
+            for endpoint in discoveredEndpoints {
+                group.addTask { await self.postOverConnection(body: body, to: endpoint) }
+            }
+            if let url = manualURL() {
+                group.addTask {
+                    let ok = await self.postOverURLSession(body: body, url: url)
+                    // 手動指定（Tailscale の IP など）で届いた場合も、その URL を
+                    // 回答ボタンや Watch が使えるように保存する
+                    if ok, let scheme = url.scheme, let host = url.host, let port = url.port {
+                        UserDefaults.standard.set("\(scheme)://\(host):\(port)", forKey: "lastDaemonURL")
+                    }
+                    return ok
                 }
             }
+            var anySuccess = false
+            for await ok in group where ok {
+                anySuccess = true
+            }
+            return anySuccess
         }
         let stamp = Date().formatted(date: .omitted, time: .standard)
         await MainActor.run {
@@ -343,15 +491,12 @@ final class AppModel: ObservableObject {
                 ? "登録成功（\(stamp)）"
                 : "登録失敗 — Mac に届いていません（\(stamp)）"
         }
-        // 判明したデーモン URL を Apple Watch にも共有する
-        if success { WatchLink.shared.syncDaemonURL() }
     }
 
     private func manualURL(path: String = "/register") -> URL? {
         let host = UserDefaults.standard.string(forKey: "manualHost") ?? ""
         guard !host.isEmpty else { return nil }
-        let hostPort = host.contains(":") ? host : "\(host):53536"
-        return URL(string: "http://\(hostPort)\(path)")
+        return URL(string: "http://\(normalizedManualHostPort(host))\(path)")
     }
 
     /// Bonjour の service エンドポイントに直接 TCP 接続して素の HTTP/1.1 を話す
@@ -422,7 +567,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    private static func httpResponseBody(_ response: Data) -> Data? {
+    private nonisolated static func httpResponseBody(_ response: Data) -> Data? {
         guard let range = response.range(of: Data("\r\n\r\n".utf8)),
               String(data: response.prefix(64), encoding: .utf8)?.contains(" 200 ") == true
         else { return nil }

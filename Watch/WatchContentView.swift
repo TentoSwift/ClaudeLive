@@ -4,14 +4,13 @@ import SwiftUI
 struct WatchContentView: View {
     @EnvironmentObject private var model: WatchModel
     @State private var path: [String] = []
-    @State private var hostInput = ""
 
     var body: some View {
         NavigationStack(path: $path) {
             List {
                 if model.sessions.isEmpty {
-                    if model.daemonURL.isEmpty {
-                        Text("iPhone の ClaudeLive アプリを一度開くと、Mac の接続先が自動で同期されます")
+                    if !model.isReachable {
+                        Text("iPhone に到達できません。iPhone の ClaudeLive アプリを開いて、Watch の近くに置いてください")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     } else {
@@ -28,7 +27,13 @@ struct WatchContentView: View {
                 ForEach(model.sessions) { session in
                     NavigationLink(value: session.id) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(session.name.isEmpty ? session.project : session.name)
+                            // ランダムな内部名（例 "claud-9b"）より、会話の中身を表す
+                            // 直前のプロンプト（無ければ最初の指示）を見出しにする
+                            Text(session.lastPrompt.isEmpty
+                                 ? (session.title.isEmpty
+                                    ? (session.name.isEmpty ? session.project : session.name)
+                                    : session.title)
+                                 : session.lastPrompt)
                                 .font(.headline)
                                 .lineLimit(1)
                             Text(statusLabel(session.status))
@@ -42,18 +47,9 @@ struct WatchContentView: View {
                         .font(.footnote)
                         .foregroundStyle(.red)
                 }
-                // 接続先の手動入力（例 "100.x.x.x:53536"。スキーム省略可）。
-                // iPhone からの自動同期とは独立に、Watch 単体でも設定できる
-                TextField("接続先 IP:ポート", text: $hostInput)
-                    .font(.system(size: 12).monospaced())
-                    .onSubmit {
-                        model.setManualURL(hostInput)
-                    }
-                if !model.daemonURL.isEmpty {
-                    Text(model.daemonURL)
-                        .font(.system(size: 11).monospaced())
-                        .foregroundStyle(.tertiary)
-                }
+                Text(model.isReachable ? "iPhone: 接続中" : "iPhone: 未接続")
+                    .font(.system(size: 11).monospaced())
+                    .foregroundStyle(model.isReachable ? Color.secondary : Color.red)
                 Text(model.lastFetchInfo)
                     .font(.system(size: 11).monospaced())
                     .foregroundStyle(.tertiary)
@@ -96,16 +92,32 @@ struct WatchSessionDetailView: View {
     @State private var messages: [WatchModel.Message] = []
     @State private var promptInput = ""
     @State private var sending = false
+    @State private var answerInput = ""
+    @State private var answering = false
+    @State private var showModelPicker = false
+    @State private var showCommandPicker = false
+    /// 複数質問・複数選択(multiSelect)のときの選択状態。質問のインデックス → 選んだ選択肢
+    @State private var selections: [Int: Set<String>] = [:]
 
     private var session: WatchModel.Session? {
         model.sessions.first { $0.id == sessionId }
+    }
+
+    private func toggleSelection(_ option: String, at index: Int, multiSelect: Bool) {
+        var set = selections[index] ?? []
+        if multiSelect {
+            if set.contains(option) { set.remove(option) } else { set.insert(option) }
+        } else {
+            set = [option]
+        }
+        selections[index] = set
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
                 if let session {
-                    // 状態行
+                    // 状態行 + モデル変更ボタン（watchOS には Menu が無いのでシートで選ぶ）
                     HStack(spacing: 4) {
                         Text(statusLabel(session.status))
                             .font(.headline)
@@ -116,6 +128,24 @@ struct WatchSessionDetailView: View {
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
+                        Button {
+                            showCommandPicker = true
+                        } label: {
+                            Image(systemName: "terminal")
+                        }
+                        .buttonStyle(.plain)
+                        Button {
+                            showModelPicker = true
+                        } label: {
+                            Image(systemName: "cpu")
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .sheet(isPresented: $showModelPicker) {
+                        WatchModelPickerView(sessionId: sessionId)
+                    }
+                    .sheet(isPresented: $showCommandPicker) {
+                        WatchCommandPickerView(sessionId: sessionId)
                     }
 
                     // プロンプト送信（音声ディクテーション対応の標準 TextField）
@@ -139,20 +169,80 @@ struct WatchSessionDetailView: View {
                         }
                     }
 
-                    // 質問 + 回答ボタン
+                    // 質問 + 回答ボタン。単一質問・単一選択はタップで即送信、
+                    // 複数質問や multiSelect の質問があるときは選んでからまとめて送信する
                     if !session.question.isEmpty {
-                        Text(session.question)
-                            .font(.footnote)
-                        ForEach(session.options, id: \.self) { option in
+                        let questions = session.questions.isEmpty
+                            ? [WatchModel.QuestionItem(question: session.question,
+                                                        options: session.options, multiSelect: false)]
+                            : session.questions
+                        let accumulate = questions.count > 1 || (questions.first?.multiSelect ?? false)
+
+                        ForEach(Array(questions.enumerated()), id: \.offset) { index, q in
+                            Text(q.question)
+                                .font(.footnote)
+                            ForEach(q.options, id: \.self) { option in
+                                let isSelected = selections[index]?.contains(option) ?? false
+                                Button {
+                                    if accumulate {
+                                        toggleSelection(option, at: index, multiSelect: q.multiSelect)
+                                    } else {
+                                        Task { await model.answer(sessionId: sessionId, answer: option) }
+                                    }
+                                } label: {
+                                    HStack {
+                                        Text(option).font(.footnote.bold())
+                                        if accumulate {
+                                            Spacer()
+                                            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(accumulate && !isSelected
+                                      ? Color.gray.opacity(0.35)
+                                      : Color(red: 0.85, green: 0.47, blue: 0.34))
+                            }
+                        }
+                        if accumulate {
                             Button {
-                                Task { await model.answer(sessionId: sessionId, answer: option) }
+                                let answers = (0..<questions.count).map { Array(selections[$0] ?? []) }
+                                answering = true
+                                Task {
+                                    await model.answer(sessionId: sessionId, answers: answers)
+                                    answering = false
+                                    selections = [:]
+                                }
                             } label: {
-                                Text(option)
+                                Text(answering ? "送信中…" : "回答する")
                                     .font(.footnote.bold())
                                     .frame(maxWidth: .infinity)
                             }
                             .buttonStyle(.borderedProminent)
                             .tint(Color(red: 0.85, green: 0.47, blue: 0.34))
+                            .disabled(answering || selections.values.allSatisfy(\.isEmpty))
+                        } else {
+                            // 選択肢にない答えを自由入力できるようにする
+                            HStack(spacing: 4) {
+                                TextField("自由入力で回答…", text: $answerInput)
+                                    .font(.footnote)
+                                if !answerInput.isEmpty {
+                                    Button {
+                                        let text = answerInput
+                                        answerInput = ""
+                                        answering = true
+                                        Task {
+                                            await model.answer(sessionId: sessionId, answer: text)
+                                            answering = false
+                                        }
+                                    } label: {
+                                        Image(systemName: answering ? "hourglass" : "arrow.up.circle.fill")
+                                    }
+                                    .buttonStyle(.plain)
+                                    .disabled(answering)
+                                }
+                            }
                         }
                     }
 
@@ -183,7 +273,10 @@ struct WatchSessionDetailView: View {
                 }
             }
         }
-        .navigationTitle(session?.name ?? "セッション")
+        .navigationTitle(session.map { s in
+            if !s.lastPrompt.isEmpty { return s.lastPrompt }
+            return s.title.isEmpty ? (s.name.isEmpty ? s.project : s.name) : s.title
+        } ?? "セッション")
         .task {
             await model.refresh()
             messages = await model.fetchMessages(sessionId: sessionId)
@@ -207,6 +300,7 @@ struct WatchNewSessionView: View {
     @EnvironmentObject private var model: WatchModel
     @Environment(\.dismiss) private var dismiss
     @State private var selectedPath = ""
+    @State private var selectedModel: ClaudeModelChoice?
     @State private var promptInput = ""
     @State private var sending = false
 
@@ -232,14 +326,24 @@ struct WatchNewSessionView: View {
                 }
 
                 Divider()
+                Picker("モデル", selection: $selectedModel) {
+                    Text("既定のまま").tag(ClaudeModelChoice?.none)
+                    ForEach(ClaudeModelChoice.allCases) { choice in
+                        Text(choice.label).tag(ClaudeModelChoice?.some(choice))
+                    }
+                }
+                .font(.footnote)
+
+                Divider()
                 TextField("最初の指示…", text: $promptInput)
                     .font(.footnote)
                 Button {
                     let cwd = selectedPath.isEmpty ? (model.projects.first?.path ?? "") : selectedPath
                     let text = promptInput
+                    let modelId = selectedModel?.rawValue ?? ""
                     sending = true
                     Task {
-                        await model.newSession(cwd: cwd, text: text)
+                        await model.newSession(cwd: cwd, text: text, model: modelId)
                         sending = false
                         dismiss()
                     }
@@ -260,6 +364,48 @@ struct WatchNewSessionView: View {
             await model.loadProjects()
             if selectedPath.isEmpty { selectedPath = model.projects.first?.path ?? "" }
         }
+    }
+}
+
+/// モデル変更の選択シート（watchOS には Menu が無いためシートで代用）
+struct WatchModelPickerView: View {
+    @EnvironmentObject private var model: WatchModel
+    @Environment(\.dismiss) private var dismiss
+    let sessionId: String
+
+    var body: some View {
+        List {
+            ForEach(ClaudeModelChoice.allCases) { choice in
+                Button(choice.label) {
+                    Task {
+                        await model.changeModel(sessionId: sessionId, model: choice.rawValue)
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .navigationTitle("モデル変更")
+    }
+}
+
+/// クイックコマンドの選択シート
+struct WatchCommandPickerView: View {
+    @EnvironmentObject private var model: WatchModel
+    @Environment(\.dismiss) private var dismiss
+    let sessionId: String
+
+    var body: some View {
+        List {
+            ForEach(ClaudeQuickCommand.allCases) { command in
+                Button(command.label) {
+                    Task {
+                        await model.sendCommand(sessionId: sessionId, command: command.rawValue)
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .navigationTitle("コマンド送信")
     }
 }
 

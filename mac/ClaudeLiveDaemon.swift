@@ -133,9 +133,12 @@ final class APNSClient {
         return token
     }
 
-    /// Live Activity 用プッシュを送る。completion(成功したか)
+    /// APNs へプッシュを送る。pushType は "liveactivity"（既定）または
+    /// "alert"（通常のプッシュ通知。質問の返信アクション付き通知に使う）。
+    /// completion(成功したか)
     func send(deviceToken: String, payload: [String: Any],
-              label: String, completion: @escaping (Bool) -> Void) {
+              label: String, pushType: String = "liveactivity",
+              completion: @escaping (Bool) -> Void) {
         let token: String
         let body: Data
         do {
@@ -150,9 +153,13 @@ final class APNSClient {
             url: URL(string: "https://\(config.apnsHost)/3/device/\(deviceToken)")!)
         request.httpMethod = "POST"
         request.setValue("bearer \(token)", forHTTPHeaderField: "authorization")
-        request.setValue("\(config.bundleId).push-type.liveactivity",
-                         forHTTPHeaderField: "apns-topic")
-        request.setValue("liveactivity", forHTTPHeaderField: "apns-push-type")
+        // alert（通常通知）の topic はバンドル ID そのもの。
+        // Live Activity は ".push-type.liveactivity" サフィックスが必要
+        let topic = pushType == "liveactivity"
+            ? "\(config.bundleId).push-type.liveactivity"
+            : config.bundleId
+        request.setValue(topic, forHTTPHeaderField: "apns-topic")
+        request.setValue(pushType, forHTTPHeaderField: "apns-push-type")
         request.setValue("10", forHTTPHeaderField: "apns-priority")
         request.setValue("0", forHTTPHeaderField: "apns-expiration")
         request.httpBody = body
@@ -185,6 +192,8 @@ struct TokenStore: Codable {
     /// DI コンパクトの作業中アイコンをコマ送りアニメーションにするか。
     /// アプリの設定画面からのトグルがここに反映される（既定 false = 静止）
     var compactAnimated: Bool = false
+    /// 通常のプッシュ通知（質問の返信アクション付き通知）用のデバイストークン
+    var remoteDeviceToken: String?
 
     init() {}
 
@@ -200,6 +209,7 @@ struct TokenStore: Codable {
         activityTokens = try c.decodeIfPresent([String: String].self, forKey: .activityTokens) ?? [:]
         deviceName = try c.decodeIfPresent(String.self, forKey: .deviceName)
         compactAnimated = try c.decodeIfPresent(Bool.self, forKey: .compactAnimated) ?? false
+        remoteDeviceToken = try c.decodeIfPresent(String.self, forKey: .remoteDeviceToken)
     }
 
     static func load() -> TokenStore {
@@ -215,6 +225,16 @@ struct TokenStore: Codable {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         try? (try? encoder.encode(self))?.write(to: tokensPath)
     }
+}
+
+// MARK: - AskUserQuestion の 1 問分
+
+/// AskUserQuestion の questions 配列の 1 要素。multiSelect が true の質問は
+/// 選択肢を複数選んでから確定する（iPhone/Watch/Mac のダイアログ共通の仕様）
+struct QuestionItem {
+    var question: String
+    var options: [String]
+    var multiSelect: Bool
 }
 
 // MARK: - セッション状態
@@ -246,9 +266,15 @@ final class SessionState {
     /// これより前のバイトは前のターンの内容なので、latestAssistantTurn で拾わないよう
     /// 読み取り開始位置をこれ未満に遡らせない（前ターンの返答が作業中に再表示される事故を防ぐ）
     var turnStartOffset: UInt64 = 0
-    /// AskUserQuestion の質問文と選択肢（iPhone 回答待ちの間だけ入る）
+    /// AskUserQuestion の質問文と選択肢（iPhone 回答待ちの間だけ入る）。
+    /// 複数質問・複数選択に対応する前からの互換フィールドで、常に
+    /// questionItems の最初の1問を反映する（ライブアクティビティの
+    /// マーキー表示など、1問だけを前提にした場所はこちらを見ればよい）
     var question = ""
     var options: [String] = []
+    /// AskUserQuestion が渡した質問をすべて保持する（1回のツール呼び出しに
+    /// 複数の質問が含まれることがあり、各質問は複数選択(multiSelect)のこともある）
+    var questionItems: [QuestionItem] = []
     /// UserPromptSubmit か PreToolUse を一度でも観測したか。
     /// SessionStart だけで即終了する内部的・裏側のプロセス（サブエージェント等）を
     /// 通知しないためのゲート
@@ -481,13 +507,20 @@ final class Daemon {
                 respond(connection, json: "{}")
             }
         case ("POST", "/answer"):
-            // iPhone のライブアクティビティのボタン（AnswerQuestionIntent）から
+            // iPhone のライブアクティビティのボタン（AnswerQuestionIntent）から。
+            // 複数質問対応の "answers"（質問ごとの選択配列）を優先し、
+            // 無ければ従来の単一 "answer" 文字列を1問分の回答として扱う
             if let json = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any],
                let sessionId = json["sessionId"] as? String {
-                handleAnswer(
-                    sessionId: sessionId,
-                    answer: json["answer"] as? String ?? "",
-                    pass: json["pass"] as? Bool ?? false)
+                let answers: [[String]]
+                if let structured = json["answers"] as? [[String]] {
+                    answers = structured
+                } else if let legacy = json["answer"] as? String, !legacy.isEmpty {
+                    answers = [[legacy]]
+                } else {
+                    answers = []
+                }
+                handleAnswer(sessionId: sessionId, answers: answers, pass: json["pass"] as? Bool ?? false)
                 respond(connection)
             } else {
                 respond(connection, status: "400 Bad Request", json: #"{"ok":false}"#)
@@ -505,18 +538,45 @@ final class Daemon {
             } else {
                 respond(connection, status: "400 Bad Request", json: #"{"ok":false}"#)
             }
+        case ("POST", "/changemodel"):
+            // Watch / iPhone からのモデル変更。/prompt と同じキー入力方式で
+            // 「/model <id>」を該当セッションに送るだけ（Claude Code 本体の
+            // /model スラッシュコマンドがモデル切り替えを処理する）
+            if let json = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any],
+               let sessionId = json["sessionId"] as? String,
+               let model = json["model"] as? String,
+               !model.trimmingCharacters(in: .whitespaces).isEmpty {
+                respond(connection)
+                runPrompt(sessionId: sessionId, text: "/model \(model)")
+            } else {
+                respond(connection, status: "400 Bad Request", json: #"{"ok":false}"#)
+            }
+        case ("POST", "/command"):
+            // Watch / iPhone からのスラッシュコマンド送信（/compact 等）。
+            // /prompt と同じキー入力方式でそのまま該当セッションに送るだけ
+            if let json = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any],
+               let sessionId = json["sessionId"] as? String,
+               let command = json["command"] as? String,
+               !command.trimmingCharacters(in: .whitespaces).isEmpty {
+                let normalized = command.hasPrefix("/") ? command : "/\(command)"
+                respond(connection)
+                runPrompt(sessionId: sessionId, text: normalized)
+            } else {
+                respond(connection, status: "400 Bad Request", json: #"{"ok":false}"#)
+            }
         case ("GET", "/projects"):
             // 新規セッションを開始できるプロジェクト（過去に使った cwd）の一覧
             respond(connection, json: projectsJSON())
         case ("POST", "/newsession"):
             // 新規 Claude Code セッションを cwd で開始する（--resume なし）。
-            // cwd 省略時は最初のプロジェクトを使う
+            // cwd 省略時は最初のプロジェクトを使う。model 省略時は既定のモデルを使う
             if let json = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any],
                let text = json["text"] as? String,
                !text.trimmingCharacters(in: .whitespaces).isEmpty {
                 let cwd = (json["cwd"] as? String) ?? knownProjectPaths().first ?? ""
+                let model = json["model"] as? String ?? ""
                 respond(connection)
-                startNewSession(cwd: cwd, text: text)
+                startNewSession(cwd: cwd, text: text, model: model)
             } else {
                 respond(connection, status: "400 Bad Request", json: #"{"ok":false}"#)
             }
@@ -601,6 +661,9 @@ final class Daemon {
                 "lastResponse": session?.lastResponse ?? "",
                 "question": session?.question ?? "",
                 "options": session?.options ?? [],
+                "questions": (session?.questionItems ?? []).map {
+                    ["question": $0.question, "options": $0.options, "multiSelect": $0.multiSelect]
+                },
                 "model": session?.model ?? "",
             ])
         }
@@ -755,6 +818,11 @@ final class Daemon {
             // 表示中のライブアクティビティにもすぐ反映する
             for session in sessions.values { pushUpdate(session) }
         }
+        if let remoteToken = json["remoteDeviceToken"] as? String,
+           remoteToken != tokens.remoteDeviceToken {
+            tokens.remoteDeviceToken = remoteToken
+            log("リモート通知トークン登録（質問の返信用）")
+        }
         var newStartToken = false
         if let token = json["pushToStartToken"] as? String, token != tokens.pushToStartToken {
             tokens.pushToStartToken = token
@@ -806,35 +874,41 @@ final class Daemon {
     // MARK: AskUserQuestion の iPhone 回答
 
     /// AskUserQuestion の PreToolUse フックを保留し、質問をライブアクティビティへ送る。
-    /// 対象外（複数質問・アクティビティ未表示・サブエージェント等）は即座に素通しする
+    /// 1 回の呼び出しに複数の質問（questions 配列）が含まれることがあり、
+    /// 各質問は multiSelect（複数選択可）のこともある。最大 4 問まで扱う
     private func handleQuestionHook(_ json: [String: Any], on connection: NWConnection) {
         guard json["agent_id"] == nil,
               let sessionId = json["session_id"] as? String,
               let toolInput = json["tool_input"] as? [String: Any],
-              let questions = toolInput["questions"] as? [[String: Any]],
-              questions.count == 1,  // 複数質問はボタンで表現しきれないので Mac に任せる
-              let first = questions.first,
-              let questionText = first["question"] as? String,
-              let rawOptions = first["options"] as? [[String: Any]],
+              let rawQuestions = toolInput["questions"] as? [[String: Any]],
+              !rawQuestions.isEmpty,
               tokens.activityTokens[sessionId] != nil  // アクティビティが出ていなければ保留する意味がない
         else {
             respond(connection, json: "{}")
             return
         }
-        let options = rawOptions.compactMap { $0["label"] as? String }.prefix(4)
-        guard !options.isEmpty else {
+        let items: [QuestionItem] = rawQuestions.prefix(4).compactMap { q in
+            guard let text = q["question"] as? String,
+                  let rawOptions = q["options"] as? [[String: Any]] else { return nil }
+            let labels = rawOptions.compactMap { $0["label"] as? String }.prefix(4)
+            guard !labels.isEmpty else { return nil }
+            let multiSelect = q["multiSelect"] as? Bool ?? false
+            return QuestionItem(question: text, options: Array(labels), multiSelect: multiSelect)
+        }
+        guard !items.isEmpty else {
             respond(connection, json: "{}")
             return
         }
 
         // 既存の保留が残っていたら素通しで解放（多重質問は起きないはずだが保険）
-        releaseQuestion(sessionId: sessionId, answer: nil, notify: false)
+        releaseQuestion(sessionId: sessionId, answers: nil, notify: false)
 
         let session = ensureSession(sessionId, json: json)
         session.lastHookAt = Date()
         session.status = "question"
-        session.question = Self.truncate(questionText, 200)
-        session.options = Array(options)
+        session.questionItems = items
+        session.question = Self.truncate(items[0].question, 200)
+        session.options = items[0].options
         session.detail = ""
         session.currentTool = ""
         markTextChanged(session)
@@ -844,39 +918,85 @@ final class Daemon {
         timer.schedule(deadline: .now() + config.questionHold)
         timer.setEventHandler { [weak self] in
             // 時間切れ: フックを素通しして Mac 側に質問を出す
-            self?.releaseQuestion(sessionId: sessionId, answer: nil, notify: true)
+            self?.releaseQuestion(sessionId: sessionId, answers: nil, notify: true)
         }
         timer.resume()
         pending.timer = timer
         pendingQuestions[sessionId] = pending
 
-        log("質問を iPhone へ送信: \(session.projectName)「\(Self.truncate(questionText, 40))」")
+        let summary = items.count == 1 ? items[0].question : "\(items.count)件の質問"
+        log("質問を iPhone へ送信: \(session.projectName)「\(Self.truncate(summary, 40))」")
         pushUpdate(session, alert: [
             "title": "\(session.projectName): 質問",
-            "body": Self.truncate(questionText, 100),
+            "body": Self.truncate(summary, 100),
             "sound": "default",
         ])
+
+        // 返信アクション付きの通常通知も送る。通知を長押し →「回答を入力」で
+        // アプリを一切開かずにシステムのテキスト入力欄から自由回答できる
+        pushQuestionNotification(session, questionText: summary)
 
         // Mac 側にも選択肢ダイアログを出す（保留中は Claude Desktop に質問が
         // 出ないため、その代わり）。選べば iPhone のボタンと同じ扱いで回答、
         // キャンセルすれば素通しして Claude Desktop 側の質問 UI に任せる
-        showQuestionDialog(sessionId: sessionId, pending: pending,
-                           question: questionText, options: Array(options))
+        showQuestionDialog(sessionId: sessionId, pending: pending, items: items)
     }
 
-    /// osascript の「choose from list」で質問ダイアログを表示する。
+    /// 質問の返信アクション付き通常通知（apns-push-type: alert）を送る。
+    /// iOS 側は NotificationManager が CLAUDE_QUESTION カテゴリとして受け、
+    /// 通知上のテキスト入力（システム UI）だけで回答を返せる
+    private func pushQuestionNotification(_ session: SessionState, questionText: String) {
+        guard let remoteToken = tokens.remoteDeviceToken else { return }
+        let payload: [String: Any] = [
+            "aps": [
+                "alert": [
+                    "title": "\(session.projectName): 質問",
+                    "body": Self.truncate(questionText, 160),
+                ],
+                "sound": "default",
+                "category": "CLAUDE_QUESTION",
+                "thread-id": session.id,
+            ],
+            "sessionId": session.id,
+        ]
+        apns.send(deviceToken: remoteToken, payload: payload,
+                  label: "質問通知 \(session.projectName)", pushType: "alert") { _ in }
+    }
+
+    /// osascript の「choose from list」で質問ダイアログを表示する（質問が複数
+    /// あれば順番に表示する）。multiSelect の質問は複数選択可にする。
+    /// 各質問の選択結果は ASCII 31（項目区切り）・30（質問区切り）で連結して
+    /// 1本の文字列として受け取り、Swift 側で分解する。
     /// iPhone 側で先に回答されたら releaseQuestion が dialog を terminate する
-    private func showQuestionDialog(sessionId: String, pending: PendingQuestion,
-                                    question: String, options: [String]) {
+    private func showQuestionDialog(sessionId: String, pending: PendingQuestion, items: [QuestionItem]) {
         func esc(_ text: String) -> String {
             text.replacingOccurrences(of: "\\", with: "\\\\")
                 .replacingOccurrences(of: "\"", with: "\\\"")
         }
-        let list = options.map { "\"\(esc($0))\"" }.joined(separator: ", ")
-        let script = """
-        choose from list {\(list)} with title "ClaudeLive" with prompt "\(esc(question))" \
-        default items {\"\(esc(options[0]))\"}
-        """
+        var scriptParts: [String] = []
+        var joinedVars: [String] = []
+        for (i, item) in items.enumerated() {
+            let optList = item.options.map { "\"\(esc($0))\"" }.joined(separator: ", ")
+            let multiClause = item.multiSelect ? " with multiple selections allowed" : ""
+            let joinedVar = "joined\(i)"
+            joinedVars.append(joinedVar)
+            scriptParts.append("""
+            set opts\(i) to {\(optList)}
+            set sel\(i) to choose from list opts\(i) with title "ClaudeLive" with prompt "\(esc(item.question))"\(multiClause) default items {item 1 of opts\(i)}
+            if sel\(i) is false then return ""
+            set \(joinedVar) to ""
+            repeat with x in sel\(i)
+                if \(joinedVar) is "" then
+                    set \(joinedVar) to x as text
+                else
+                    set \(joinedVar) to \(joinedVar) & (ASCII character 31) & (x as text)
+                end if
+            end repeat
+            """)
+        }
+        let combine = joinedVars.joined(separator: " & (ASCII character 30) & ")
+        let script = scriptParts.joined(separator: "\n") + "\nreturn \(combine)"
+
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
         process.arguments = ["-e", script]
@@ -889,13 +1009,15 @@ final class Daemon {
                 .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             self?.queue.async {
                 guard let self, self.pendingQuestions[sessionId] === pending else { return }
-                if output.isEmpty || output == "false" {
-                    // キャンセル → 素通しして Claude Desktop の質問 UI に任せる
+                if output.isEmpty {
+                    // キャンセル（いずれかの質問で）→ 素通しして Claude Desktop の質問 UI に任せる
                     log("Mac ダイアログでキャンセル → 素通し: \(sessionId.prefix(8))")
-                    self.releaseQuestion(sessionId: sessionId, answer: nil, notify: true)
+                    self.releaseQuestion(sessionId: sessionId, answers: nil, notify: true)
                 } else {
-                    log("Mac ダイアログから回答: 「\(Self.truncate(output, 40))」")
-                    self.releaseQuestion(sessionId: sessionId, answer: output, notify: true)
+                    let answers = output.components(separatedBy: "\u{1E}")
+                        .map { $0.components(separatedBy: "\u{1F}") }
+                    log("Mac ダイアログから回答: \(sessionId.prefix(8))")
+                    self.releaseQuestion(sessionId: sessionId, answers: answers, notify: true)
                 }
             }
         }
@@ -907,35 +1029,62 @@ final class Daemon {
         }
     }
 
-    private func handleAnswer(sessionId: String, answer: String, pass: Bool) {
-        if pass || answer.isEmpty {
+    /// answers は質問ごとの選択結果の配列（multiSelect の質問は複数要素）。
+    /// 単一質問・単一選択の従来どおりの回答も answers: [[text]] として渡ってくる
+    private func handleAnswer(sessionId: String, answers: [[String]], pass: Bool) {
+        let hasAnswer = answers.contains { !$0.isEmpty }
+        if pass || !hasAnswer {
             log("iPhone から「Macで回答」: session \(sessionId.prefix(8))")
-            releaseQuestion(sessionId: sessionId, answer: nil, notify: true)
-        } else {
-            log("iPhone から回答: session \(sessionId.prefix(8))「\(Self.truncate(answer, 40))」")
-            releaseQuestion(sessionId: sessionId, answer: answer, notify: true)
+            releaseQuestion(sessionId: sessionId, answers: nil, notify: true)
+            return
         }
+        guard pendingQuestions[sessionId] != nil else {
+            // 保留のタイムアウト（questionHold）を過ぎてすでに素通しされた質問。
+            // ブロック中のフック接続がもう無く release では届けられないため、
+            // /prompt と同じキー入力方式で Claude Desktop に直接反映する
+            let items = sessions[sessionId]?.questionItems ?? []
+            let text = composeAnswerText(items: items, answers: answers)
+            log("iPhone から回答（保留期限切れ、キー入力で反映）: session \(sessionId.prefix(8))「\(Self.truncate(text, 40))」")
+            typeIntoClaudeApp(text)
+            return
+        }
+        log("iPhone から回答: session \(sessionId.prefix(8))")
+        releaseQuestion(sessionId: sessionId, answers: answers, notify: true)
     }
 
-    /// Watch / iPhone から送られたプロンプトを `claude -p --resume` で
-    /// 該当セッションに注入する。処理そのものはヘッドレスの別プロセスとして
-    /// 走り、hooks 経由でライブアクティビティに進捗が反映される
+    /// Watch / iPhone から送られたプロンプトを該当セッションに注入する。
+    /// 宛先セッションを claude://resume?session=<id> のディープリンクで名指しで
+    /// 前面に出してから、キー入力で流し込む。これで最前面でなかったセッションにも
+    /// 送れて、しかも GUI に即反映される（トークンも使わない）。
+    /// sessionId は hooks の session_id（= Claude Desktop の cliSessionId）
     private func runPrompt(sessionId: String, text: String) {
-        // Claude Desktop アプリ（起動中の Claude Code セッションを表示している）に
-        // キー入力で流し込む。claude -p --resume はヘッドレスの別プロセスになり
-        // GUI に即反映されないため（再起動しないと出ない）、こちらに切り替えた。
-        // 注意: 今フォーカスされているセッションに入る（sessionId は特定できない）。
-        // System Events のキー入力にはアクセシビリティ許可が必要
-        typeIntoClaudeApp(text)
-        log("プロンプト送信(キー入力): 「\(Self.truncate(text, 60))」")
+        typeIntoClaudeApp(text, focusCLISessionId: sessionId)
+        log("プロンプト送信(セッション\(sessionId.prefix(8))を前面化→キー入力): 「\(Self.truncate(text, 60))」")
     }
 
     /// Claude アプリを前面に出し、クリップボード経由でテキストを貼り付けて Enter。
-    /// 長文・日本語でも確実に入るよう keystroke ではなくペーストを使う
-    private func typeIntoClaudeApp(_ text: String) {
+    /// 長文・日本語でも確実に入るよう keystroke ではなくペーストを使う。
+    /// focusCLISessionId を渡すと、claude://resume?session=<id> のディープリンクで
+    /// そのセッションを名指しで前面に出してから入力する（最前面でなくても届く）
+    private func typeIntoClaudeApp(_ text: String, focusCLISessionId: String? = nil) {
         func esc(_ s: String) -> String {
             s.replacingOccurrences(of: "\\", with: "\\\\")
                 .replacingOccurrences(of: "\"", with: "\\\"")
+        }
+        // 宛先セッションを名指しで前面化する（指定があれば）。
+        // ディープリンクの反映に少し時間がかかるので長めに待つ
+        let focusScript: String
+        if let cliId = focusCLISessionId,
+           cliId.range(of: "^[0-9a-fA-F-]{36}$", options: .regularExpression) != nil {
+            // 未キャッシュのセッションに切り替える場合、履歴の読み込み・描画に
+            // 1.2秒では足りずコンポーザーにフォーカスが来る前にペーストしてしまい
+            // 何も入力されないことがあったため、安全側に長めに待つ
+            focusScript = """
+            do shell script "open " & quoted form of "claude://resume?session=\(cliId)"
+            delay 2.5
+            """
+        } else {
+            focusScript = "tell application id \"com.anthropic.claudefordesktop\" to activate\ndelay 0.4"
         }
         let script = """
         set prev to ""
@@ -943,11 +1092,26 @@ final class Daemon {
             set prev to the clipboard as text
         end try
         set the clipboard to "\(esc(text))"
-        tell application id "com.anthropic.claudefordesktop" to activate
-        delay 0.4
+        \(focusScript)
         tell application "System Events"
+            tell process "Claude"
+                set frontmost to true
+            end tell
+            -- 既にそのセッションが前面表示されている場合、ディープリンクを
+            -- 開き直しても画面遷移が起きず入力欄にフォーカスが来ないことがあり、
+            -- その状態で貼り付けても何も入力されない不具合があった。
+            -- ウィンドウ下端中央（入力欄がある位置）を直接クリックして
+            -- 確実にフォーカスしてから貼り付ける
+            try
+                set winPos to position of window 1 of process "Claude"
+                set winSize to size of window 1 of process "Claude"
+                set clickX to (item 1 of winPos) + ((item 1 of winSize) / 2)
+                set clickY to (item 2 of winPos) + (item 2 of winSize) - 40
+                click at {clickX, clickY}
+                delay 0.15
+            end try
             keystroke "v" using command down
-            delay 0.15
+            delay 0.3
             key code 36
         end tell
         delay 0.2
@@ -1042,8 +1206,9 @@ final class Daemon {
 
     /// 新規 Claude Code セッションを cwd で開始する（--resume なし）。
     /// ヘッドレスの別プロセスとして走り、SessionStart フックから
-    /// push-to-start でライブアクティビティが立ち上がる
-    private func startNewSession(cwd: String, text: String) {
+    /// push-to-start でライブアクティビティが立ち上がる。
+    /// model 省略時（空文字）は --model を付けず CLI の既定モデルを使う
+    private func startNewSession(cwd: String, text: String, model: String = "") {
         let claudePath = ("~/.local/bin/claude" as NSString).expandingTildeInPath
         guard FileManager.default.fileExists(atPath: claudePath) else {
             log("新規セッション失敗: claude が見つからない")
@@ -1057,13 +1222,18 @@ final class Daemon {
         }
         let process = Process()
         process.executableURL = URL(fileURLWithPath: claudePath)
-        process.arguments = ["-p", text]  // --resume なし = 新規セッション
+        var arguments = ["-p", text]  // --resume なし = 新規セッション
+        if !model.isEmpty {
+            arguments += ["--model", model]
+        }
+        process.arguments = arguments
         process.currentDirectoryURL = URL(fileURLWithPath: cwd)
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
         do {
             try process.run()
-            log("新規セッション開始: \((cwd as NSString).lastPathComponent)「\(Self.truncate(text, 60))」")
+            let modelSuffix = model.isEmpty ? "" : " [\(model)]"
+            log("新規セッション開始: \((cwd as NSString).lastPathComponent)\(modelSuffix)「\(Self.truncate(text, 60))」")
         } catch {
             log("新規セッション失敗: \(error.localizedDescription)")
         }
@@ -1091,7 +1261,25 @@ final class Daemon {
 
     /// 保留中のフック接続に応答して解放する。
     /// answer あり → deny + 理由（Claude が回答として受け取る）、nil → 素通し
-    private func releaseQuestion(sessionId: String, answer: String?, notify: Bool) {
+    /// 質問とその回答をまとめて読める文章にする（複数質問の deny 理由や、
+    /// 保留切れ後にそのままチャットへ貼り付ける文面として共用する）
+    private func composeAnswerText(items: [QuestionItem], answers: [[String]]) -> String {
+        if items.count <= 1 {
+            let selected = answers.first ?? []
+            return selected.joined(separator: "、")
+        }
+        var lines: [String] = []
+        for (i, item) in items.enumerated() {
+            let selected = i < answers.count ? answers[i] : []
+            let answerText = selected.isEmpty ? "(未回答)" : selected.joined(separator: "、")
+            lines.append("質問「\(item.question)」の回答: \(answerText)")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    /// answers は質問ごとの選択結果（multiSelect の質問は複数要素になる）。
+    /// nil または空なら「回答なし＝素通しして Mac 側の質問 UI に任せる」
+    private func releaseQuestion(sessionId: String, answers: [[String]]?, notify: Bool) {
         guard let pending = pendingQuestions.removeValue(forKey: sessionId) else { return }
         pending.timer?.cancel()
         // Mac 側のダイアログが出ていれば閉じる（terminationHandler は
@@ -1100,9 +1288,19 @@ final class Daemon {
             dialog.terminate()
         }
 
-        if let answer {
-            let reason = "ユーザーは選択肢から「\(answer)」を選択しました。"
-                + "これをこの質問への回答として扱い、質問を再表示せずに続行してください。"
+        let items = sessions[sessionId]?.questionItems ?? []
+        let hasAnswer = (answers ?? []).contains { !$0.isEmpty }
+        if let answers, hasAnswer {
+            let reason: String
+            if items.count <= 1 {
+                let joined = (answers.first ?? []).map { "「\($0)」" }.joined(separator: "、")
+                reason = "ユーザーは選択肢から\(joined)を選択しました。"
+                    + "これをこの質問への回答として扱い、質問を再表示せずに続行してください。"
+            } else {
+                reason = "ユーザーは複数の質問に次の通り回答しました。\n"
+                    + composeAnswerText(items: items, answers: answers)
+                    + "\nこれらをそれぞれの質問への回答として扱い、質問を再表示せずに続行してください。"
+            }
             let output: [String: Any] = [
                 "hookSpecificOutput": [
                     "hookEventName": "PreToolUse",
@@ -1117,15 +1315,16 @@ final class Daemon {
         }
 
         guard notify, let session = sessions[sessionId] else { return }
-        if let answer {
+        if let answers, hasAnswer {
             session.status = "working"
-            session.detail = "回答: \(Self.truncate(answer, 60))"
+            session.detail = "回答: \(Self.truncate(composeAnswerText(items: items, answers: answers), 60))"
         } else {
             session.status = "waiting"
             session.detail = "Mac で質問に回答してください"
         }
         session.question = ""
         session.options = []
+        session.questionItems = []
         pushUpdate(session)
     }
 
@@ -1140,7 +1339,7 @@ final class Daemon {
         guard json["agent_id"] == nil else { return }
 
         if event == "SessionEnd" {
-            releaseQuestion(sessionId: sessionId, answer: nil, notify: false)
+            releaseQuestion(sessionId: sessionId, answers: nil, notify: false)
             if let session = sessions[sessionId] {
                 session.settleTimer?.cancel()
                 pushEnd(session)
@@ -1549,7 +1748,7 @@ final class Daemon {
             guard session.status == "working" || session.status == "compacting" else { continue }
             guard now.timeIntervalSince(session.lastHookAt) > disconnectTimeout else { continue }
             log("接続が途切れたと判断してアクティビティを終了: \(session.projectName) (\(session.id.prefix(8)))")
-            releaseQuestion(sessionId: session.id, answer: nil, notify: false)
+            releaseQuestion(sessionId: session.id, answers: nil, notify: false)
             session.settleTimer?.cancel()
             pushEnd(session, status: "error", detail: "接続が途切れたため終了しました", dismissAfter: 60)
             sessions.removeValue(forKey: session.id)
@@ -1585,7 +1784,7 @@ final class Daemon {
         for session in sessions.values {
             guard session.status != "done" else { continue }
             log("\(reason): \(session.projectName) (\(session.id.prefix(8)))")
-            releaseQuestion(sessionId: session.id, answer: nil, notify: false)
+            releaseQuestion(sessionId: session.id, answers: nil, notify: false)
             session.settleTimer?.cancel()
             pushEnd(session, status: "error", detail: reason, dismissAfter: 30)
             if tokens.activityTokens.removeValue(forKey: session.id) != nil {

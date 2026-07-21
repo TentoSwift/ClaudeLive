@@ -54,6 +54,12 @@ struct ClaudeLiveActivityWidget: Widget {
             // 黒背景を付けず LockScreenView 側で iOS のときだけ付ける
             LockScreenView(context: context)
                 .activitySystemActionForegroundColor(.white)
+                // タップでアプリを開き、セッション詳細へ直接遷移させる。
+                // ライブアクティビティは Button(intent:)・Link・widgetURL の
+                // いずれを使っても自アプリ以外は開けない（実機で確認済み）ため、
+                // 外部アプリ（ショートカット）への直接遷移は諦め、
+                // 確実に動く「アプリを開く」方式に統一する
+                .widgetURL(URL(string: "claudelive://session/\(context.attributes.sessionId)"))
         } dynamicIsland: { context in
             let status = ClaudeStatus(context.state.status)
             // 完了時、返答が長くて場所を取るなら他の情報（プロジェクト名・状態ラベル等）は省く
@@ -189,8 +195,8 @@ struct ClaudeLiveActivityWidget: Widget {
                 // 実行中のツール、または完了時は直近ツールのチェックマーク付き
                 // アイコン。どちらも無いときは透明なプレースホルダを置く
                 // （空にすると幅が詰まって Dynamic Island の大きさが変わるため）。
-                // タップで Claude モバイルアプリを開く
-                Link(destination: URL(string: "claude://")!) {
+                // タップでこのセッションの詳細（回答 UI 込み）を開く
+                Link(destination: URL(string: "claudelive://session/\(context.attributes.sessionId)")!) {
                     Group {
                         if status == .question {
                             Image(systemName: "questionmark")
@@ -625,11 +631,15 @@ private struct WatchSmallView: View {
                      : context.state.sessionName)
                     .font(.caption2.bold())
                     .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .layoutPriority(-1)
                 // 状態ラベル（「作業中」など）はセッション名の隣に置く
                 Text(status.label)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .layoutPriority(-1)
                 Spacer(minLength: 0)
                 // 実行中ツール、または直近ツールのチェックマーク付きアイコン。
                 // DI コンパクトの右端と同じ考え方で 1 行目の右端に置く
@@ -766,6 +776,16 @@ struct QuestionView: View {
                     grid
                 }
             }
+
+            // 選択肢にない答えはアプリを開いて自由入力する（システムアラート）
+            Button(intent: OpenSessionIntent(sessionId: sessionId)) {
+                Text("他の答えを入力…")
+                    .font(compact ? .caption2 : .caption)
+                    .foregroundStyle(tint)
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, compact ? 6 : 0)
+            .padding(.bottom, compact ? 4 : 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

@@ -1,10 +1,10 @@
 import Foundation
 import WatchConnectivity
 
-/// Apple Watch のコンパニオンアプリへ Mac デーモンの URL を共有する。
-/// Watch 側はこの URL に直接 HTTP でアクセスして、セッション全文の閲覧や
-/// AskUserQuestion への回答を行う（applicationContext は最新値だけが届く
-/// 揮発的な同期で、この用途にちょうどよい）
+/// Apple Watch のコンパニオンアプリとの窓口。
+/// Watch は Mac デーモンと直接通信せず、必ずこの iPhone アプリを経由する。
+/// Watch からのリクエスト（セッション一覧取得・質問への回答・プロンプト送信など）を
+/// WatchConnectivity 経由で受け取り、AppModel.relayRequest で Mac デーモンへ中継して返す
 final class WatchLink: NSObject {
     static let shared = WatchLink()
 
@@ -14,34 +14,37 @@ final class WatchLink: NSObject {
         WCSession.default.delegate = self
         WCSession.default.activate()
     }
-
-    /// 現在保存されているデーモン URL を Watch に送る。
-    /// applicationContext（最新値のみ保持・Watch アプリ起動時に配送）に加え、
-    /// 到達性のある時は transferUserInfo でも送って取りこぼしを減らす
-    func syncDaemonURL() {
-        guard WCSession.isSupported(),
-              WCSession.default.activationState == .activated,
-              let url = UserDefaults.standard.string(forKey: "lastDaemonURL"),
-              !url.isEmpty else { return }
-        try? WCSession.default.updateApplicationContext(["daemonURL": url])
-        if WCSession.default.isReachable {
-            WCSession.default.sendMessage(["daemonURL": url], replyHandler: nil)
-        }
-    }
 }
 
 extension WatchLink: WCSessionDelegate {
     func session(_ session: WCSession,
                  activationDidCompleteWith activationState: WCSessionActivationState,
-                 error: Error?) {
-        if activationState == .activated {
-            DispatchQueue.main.async { self.syncDaemonURL() }
-        }
-    }
+                 error: Error?) {}
 
     func sessionDidBecomeInactive(_ session: WCSession) {}
 
     func sessionDidDeactivate(_ session: WCSession) {
         session.activate()
+    }
+
+    /// Watch からのリクエストを Mac デーモンへ中継する。
+    /// message: {"path": "/sessions", "method": "GET", "body": "<JSON文字列 省略可>"}
+    /// 返信: 成功時 {"data": "<JSON文字列>"}、失敗時 {"error": "<説明>"}
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any],
+                 replyHandler: @escaping ([String: Any]) -> Void) {
+        guard let path = message["path"] as? String else {
+            replyHandler(["error": "不正なリクエスト"])
+            return
+        }
+        let method = message["method"] as? String ?? "GET"
+        let bodyData = (message["body"] as? String)?.data(using: .utf8)
+        Task { @MainActor in
+            let data = await AppModel.shared.relayRequest(path: path, method: method, bodyData: bodyData)
+            if let data, let text = String(data: data, encoding: .utf8) {
+                replyHandler(["data": text])
+            } else {
+                replyHandler(["error": "Mac に届きませんでした"])
+            }
+        }
     }
 }

@@ -6,24 +6,37 @@ struct ClaudeLiveApp: App {
     // App の初期化時点で共有インスタンスを立ち上げる
     @StateObject private var model = AppModel.shared
     @Environment(\.scenePhase) private var scenePhase
+    // リモート通知のデバイストークン受け取り用（質問への通知返信に必要）
+    @UIApplicationDelegateAdaptor(ClaudeLiveAppDelegate.self) private var appDelegate
 
     init() {
         // ライブアクティビティのプレビュー表示（アプリ内）で同じアニメーションを
         // 使うため、フォントマスク方式の特殊フォントをここでも登録しておく
         FrameAnimation.registerFont()
+        // Watch からの中継リクエストを受けられるよう、起動時に必ず
+        // WatchConnectivity セッションを有効化しておく
+        _ = WatchLink.shared
+        // 質問プッシュ通知（返信アクション付き）のカテゴリ登録と許可要求
+        NotificationManager.shared.setup()
     }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(model)
+                .onOpenURL { url in
+                    // ライブアクティビティのタップ（claudelive://session/<id>）で
+                    // 該当セッションの詳細（回答 UI 込み）を直接開く
+                    guard url.scheme == "claudelive", url.host == "session" else { return }
+                    let sessionId = url.pathComponents.dropFirst().first ?? ""
+                    guard !sessionId.isEmpty else { return }
+                    model.focusSessionId = sessionId
+                }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 model.refresh()
                 model.registerToServer()
-                // Watch へ接続先を再同期（初回インストール直後の取りこぼし対策）
-                WatchLink.shared.syncDaemonURL()
             }
         }
     }
