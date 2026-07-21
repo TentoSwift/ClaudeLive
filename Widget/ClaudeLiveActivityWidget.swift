@@ -482,9 +482,12 @@ private struct LockScreenView: View {
                     ElapsedTimerText(startedAt: context.state.startedAt)
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                         // Text(timerInterval:) は「表示しうる最大幅」を先に確保するため、
-                        // 放置するとモデル名との間に大きな余白ができる。実測に近い幅で固定する
-                        .frame(width: 58, alignment: .trailing)
+                        // 放置するとモデル名との間に大きな余白ができる。実測に近い幅で固定する。
+                        // 1時間以上だと "H:MM:SS" になり幅が増えるので、58pt では折り返して
+                        // 2行になっていた。3桁分の余裕を見て広げる
+                        .frame(width: 74, alignment: .trailing)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 

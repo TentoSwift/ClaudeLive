@@ -44,9 +44,11 @@ struct LiveActivityMirrorView: View {
                     ElapsedTimerText(startedAt: state.startedAt)
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                         // Text(timerInterval:) は「表示しうる最大幅」を先に確保するため、
-                        // 放置するとモデル名との間に大きな余白ができる。実測に近い幅で固定する
-                        .frame(width: 58, alignment: .trailing)
+                        // 放置するとモデル名との間に大きな余白ができる。実測に近い幅で固定する。
+                        // 1時間以上だと "H:MM:SS" になり幅が増えるので広げてある
+                        .frame(width: 74, alignment: .trailing)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
