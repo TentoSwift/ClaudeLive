@@ -379,6 +379,18 @@ final class Daemon {
     }
     private var pendingQuestions: [String: PendingQuestion] = [:]
 
+    /// runPrompt の重複実行を防ぐための直近実行キャッシュ（key: "sessionId|text" → 実行時刻）。
+    /// iPhone 側は Wi-Fi 圏外でも即座に繋がるよう複数の経路（Bonjour サービス名・
+    /// 直近の LAN IP・手動指定）へ同時にリクエストを投げる。Wi-Fi 接続時はそのうち
+    /// 複数が同じ Mac に届いてしまい、同じ指示が2回ペースト＆送信される事故が
+    /// あったため、同一内容の連続実行を短時間だけ弾く
+    private var recentPromptKeys: [String: Date] = [:]
+    // typeIntoClaudeApp 自体が（セッション切り替えを伴う場合）delay の合計で
+    // 3秒以上かかることがあり、重複リクエストは daemon の直列キューで順番待ち
+    // させられてから重複チェックに来る。そのため排除ウィンドウは
+    // typeIntoClaudeApp の最大所要時間より十分長く取る必要がある
+    private let promptDedupeWindow: TimeInterval = 10
+
     init(config: Config) {
         self.config = config
         self.apns = APNSClient(config: config)
@@ -1058,6 +1070,16 @@ final class Daemon {
     /// 送れて、しかも GUI に即反映される（トークンも使わない）。
     /// sessionId は hooks の session_id（= Claude Desktop の cliSessionId）
     private func runPrompt(sessionId: String, text: String) {
+        let key = "\(sessionId)|\(text)"
+        let now = Date()
+        // 直近の候補一掃（メモリに溜め続けない）
+        recentPromptKeys = recentPromptKeys.filter { now.timeIntervalSince($0.value) < promptDedupeWindow }
+        if let last = recentPromptKeys[key], now.timeIntervalSince(last) < promptDedupeWindow {
+            log("プロンプト送信を重複としてスキップ(セッション\(sessionId.prefix(8))): 「\(Self.truncate(text, 60))」")
+            return
+        }
+        recentPromptKeys[key] = now
+
         typeIntoClaudeApp(text, focusCLISessionId: sessionId)
         log("プロンプト送信(セッション\(sessionId.prefix(8))を前面化→キー入力): 「\(Self.truncate(text, 60))」")
     }
