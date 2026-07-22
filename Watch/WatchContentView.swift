@@ -117,12 +117,19 @@ struct WatchSessionDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
                 if let session {
-                    // 状態行 + モデル変更ボタン（watchOS には Menu が無いのでシートで選ぶ）
+                    // 状態行 + モデル変更ボタン（watchOS には Menu が無いのでシートで選ぶ）。
+                    // 作業中は Dynamic Island と同じ Claude マークのモーフィングアニメを添える
                     HStack(spacing: 4) {
+                        if session.status == "working" {
+                            WatchSpinnerView(size: 18)
+                        }
                         Text(statusLabel(session.status))
                             .font(.headline)
                             .foregroundStyle(statusColor(session.status))
                         if !session.currentTool.isEmpty {
+                            watchToolRunningIcon(session.currentTool)
+                                .frame(width: 14, height: 14)
+                                .foregroundStyle(.secondary)
                             Text(session.currentTool)
                                 .font(.caption2.monospaced())
                                 .foregroundStyle(.secondary)

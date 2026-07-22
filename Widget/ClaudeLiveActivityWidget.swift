@@ -11,9 +11,25 @@ func toolSymbolName(_ tool: String) -> String {
     case "Read":                        return "doc.text"
     case "Edit", "Write", "NotebookEdit": return "pencil"
     case "Grep", "Glob":                return "magnifyingglass"
-    case "Task", "Agent":               return "sparkles"
+    case "Task", "Agent":               return "rectangle.stack.fill"
     case "WebFetch", "WebSearch":       return "globe"
     default:                            return "wrench.and.screwdriver"
+    }
+}
+
+/// 実行中ツールのアイコン。Task/Agent（サブエージェント）はカスタムシンボル
+/// （Assets.xcassets の ClaudeTaskRunning）、それ以外は toolSymbolName の SF Symbol
+@ViewBuilder
+func toolRunningIcon(_ tool: String) -> some View {
+    if tool == "Task" || tool == "Agent" {
+        Image("ClaudeTaskRunning")
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+    } else {
+        Image(systemName: toolSymbolName(tool))
+            .resizable()
+            .scaledToFit()
     }
 }
 
@@ -204,9 +220,7 @@ struct ClaudeLiveActivityWidget: Widget {
                                 .scaledToFit()
                                 .foregroundStyle(status.color)
                         } else if !context.state.currentTool.isEmpty {
-                            Image(systemName: toolSymbolName(context.state.currentTool))
-                                .resizable()
-                                .scaledToFit()
+                            toolRunningIcon(context.state.currentTool)
                                 .foregroundStyle(status.color)
                         } else if let name = toolCheckmarkSymbolName(context.state.lastTool) {
                             // ツール実行が終わったら（完了時に限らず作業中の合間も）
@@ -231,9 +245,7 @@ struct ClaudeLiveActivityWidget: Widget {
                 // ツール実行中はそのツールのアイコン、それ以外は状態アイコン
                 // （完了なら Claude の完了マーク）
                 if !context.state.currentTool.isEmpty {
-                    Image(systemName: toolSymbolName(context.state.currentTool))
-                        .resizable()
-                        .scaledToFit()
+                    toolRunningIcon(context.state.currentTool)
                         .frame(width: 18, height: 18)
                         .foregroundStyle(status.color)
                 } else {
@@ -645,9 +657,7 @@ private struct WatchSmallView: View {
                 // DI コンパクトの右端と同じ考え方で 1 行目の右端に置く
                 Group {
                     if !context.state.currentTool.isEmpty {
-                        Image(systemName: toolSymbolName(context.state.currentTool))
-                            .resizable()
-                            .scaledToFit()
+                        toolRunningIcon(context.state.currentTool)
                             // 常時表示(AOD)中も色を変えない（他のアイコンは輝度を落とすが、
                             // これは要望によりそのままにする）
                             .foregroundStyle(status.color)

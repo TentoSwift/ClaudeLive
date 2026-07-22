@@ -70,6 +70,17 @@
 		CB000000000000000006A3 /* WatchContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000006A3 /* WatchContentView.swift */; };
 		CB000000000000000006A4 /* ClaudeLiveWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = CA000000000000000006A0 /* ClaudeLiveWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		CB000000000000000006A5 /* WatchLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000006A5 /* WatchLink.swift */; };
+		CB000000000000000006A6 /* WatchSpinnerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000006A6 /* WatchSpinnerView.swift */; };
+		CB000000000000000006B0 /* WatchToolIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000006B0 /* WatchToolIcon.swift */; };
+		CB000000000000000006A7 /* spinner-frame1.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C0 /* spinner-frame1.png */; };
+		CB000000000000000006A8 /* spinner-frame2.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C1 /* spinner-frame2.png */; };
+		CB000000000000000006A9 /* spinner-frame3.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C2 /* spinner-frame3.png */; };
+		CB000000000000000006AA /* spinner-frame4.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C3 /* spinner-frame4.png */; };
+		CB000000000000000006AB /* spinner-frame5.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C4 /* spinner-frame5.png */; };
+		CB000000000000000006AC /* spinner-frame6.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C5 /* spinner-frame6.png */; };
+		CB000000000000000006AD /* spinner-frame7.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C6 /* spinner-frame7.png */; };
+		CB000000000000000006AE /* spinner-frame8.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C7 /* spinner-frame8.png */; };
+		CB000000000000000006AF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C9 /* Assets.xcassets */; };
 		CB00000000000000000BA0 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000BA0 /* NotificationManager.swift */; };
 		CB00000000000000000007A0 /* OpenAppIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000007A0 /* OpenAppIntent.swift */; };
 		CB00000000000000000007A1 /* OpenAppIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000007A0 /* OpenAppIntent.swift */; };
@@ -174,6 +185,8 @@
 		CA000000000000000006A3 /* WatchContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchContentView.swift; sourceTree = "<group>"; };
 		CA000000000000000006A4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		CA000000000000000006A5 /* WatchLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchLink.swift; sourceTree = "<group>"; };
+		CA000000000000000006A6 /* WatchSpinnerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchSpinnerView.swift; sourceTree = "<group>"; };
+		CA000000000000000006B0 /* WatchToolIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchToolIcon.swift; sourceTree = "<group>"; };
 		CA00000000000000000BA0 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		CA00000000000000000007A0 /* OpenAppIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAppIntent.swift; sourceTree = "<group>"; };
 		CA00000000000000000008A0 /* SendPromptIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendPromptIntent.swift; sourceTree = "<group>"; };
@@ -285,6 +298,8 @@
 				CA000000000000000006A1 /* ClaudeLiveWatchApp.swift */,
 				CA000000000000000006A2 /* WatchModel.swift */,
 				CA000000000000000006A3 /* WatchContentView.swift */,
+				CA000000000000000006A6 /* WatchSpinnerView.swift */,
+				CA000000000000000006B0 /* WatchToolIcon.swift */,
 				CA000000000000000006A4 /* Info.plist */,
 			);
 			path = Watch;
@@ -338,6 +353,7 @@
 			buildConfigurationList = D0000000000000000006A1 /* Build configuration list for PBXNativeTarget "ClaudeLiveWatch" */;
 			buildPhases = (
 				CE000000000000000006A1 /* Sources */,
+				CE000000000000000006A3 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -445,6 +461,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CE000000000000000006A3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CB000000000000000006A7 /* spinner-frame1.png in Resources */,
+				CB000000000000000006A8 /* spinner-frame2.png in Resources */,
+				CB000000000000000006A9 /* spinner-frame3.png in Resources */,
+				CB000000000000000006AA /* spinner-frame4.png in Resources */,
+				CB000000000000000006AB /* spinner-frame5.png in Resources */,
+				CB000000000000000006AC /* spinner-frame6.png in Resources */,
+				CB000000000000000006AD /* spinner-frame7.png in Resources */,
+				CB000000000000000006AE /* spinner-frame8.png in Resources */,
+				CB000000000000000006AF /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -497,6 +529,8 @@
 				CB000000000000000006A1 /* ClaudeLiveWatchApp.swift in Sources */,
 				CB000000000000000006A2 /* WatchModel.swift in Sources */,
 				CB000000000000000006A3 /* WatchContentView.swift in Sources */,
+				CB000000000000000006A6 /* WatchSpinnerView.swift in Sources */,
+				CB000000000000000006B0 /* WatchToolIcon.swift in Sources */,
 				CB00000000000000000008A1 /* SendPromptIntent.swift in Sources */,
 				CB00000000000000000008B1 /* StartNewSessionIntent.swift in Sources */,
 				CB00000000000000000008C1 /* ClaudeModel.swift in Sources */,

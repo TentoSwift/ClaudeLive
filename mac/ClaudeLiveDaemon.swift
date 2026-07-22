@@ -185,15 +185,35 @@ final class APNSClient {
 
 // MARK: - トークン保存
 
-struct TokenStore: Codable {
+/// 1 台のデバイス分のトークン束。iPhone と iPad など複数端末が
+/// それぞれ独立したトークン一式を持てるよう、TokenStore の中に複数保持する
+struct DeviceTokens: Codable {
     var pushToStartToken: String?
     var activityTokens: [String: String] = [:]  // sessionId -> token
-    var deviceName: String?
     /// DI コンパクトの作業中アイコンをコマ送りアニメーションにするか。
-    /// アプリの設定画面からのトグルがここに反映される（既定 false = 静止）
+    /// アプリの設定画面からのトグルがここに反映される（既定 false = 静止）。
+    /// 端末ごとに設定できるようデバイス単位で持つ
     var compactAnimated: Bool = false
     /// 通常のプッシュ通知（質問の返信アクション付き通知）用のデバイストークン
     var remoteDeviceToken: String?
+
+    init() {}
+
+    // TokenStore と同じ理由（キー欠落で decode 全体が失敗しないように）で
+    // decodeIfPresent を使い、キーが足りなくてもデフォルト値で埋める
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        pushToStartToken = try c.decodeIfPresent(String.self, forKey: .pushToStartToken)
+        activityTokens = try c.decodeIfPresent([String: String].self, forKey: .activityTokens) ?? [:]
+        compactAnimated = try c.decodeIfPresent(Bool.self, forKey: .compactAnimated) ?? false
+        remoteDeviceToken = try c.decodeIfPresent(String.self, forKey: .remoteDeviceToken)
+    }
+}
+
+struct TokenStore: Codable {
+    /// deviceName（UIDevice.current.name。例 "iPhone" / "iPad"）をキーに、
+    /// 端末ごとのトークン束を保持する。複数端末に同時にライブアクティビティを出せる
+    var devices: [String: DeviceTokens] = [:]
 
     init() {}
 
@@ -202,14 +222,77 @@ struct TokenStore: Codable {
     // TokenStore() にフォールバックしてしまう（compactAnimated 追加時に、
     // 既存の tokens.json に無いキーのせいで登録済みトークンが消えた実例あり）。
     // decodeIfPresent で個別にフォールバックさせ、旧バージョンの JSON とも
-    // 前方互換にする
+    // 前方互換にする。さらに、旧・単一デバイス形式の tokens.json
+    // （トップレベルに pushToStartToken / activityTokens / deviceName …）を
+    // 読んだら、新形式（devices に 1 デバイス分）へ移行する
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        pushToStartToken = try c.decodeIfPresent(String.self, forKey: .pushToStartToken)
-        activityTokens = try c.decodeIfPresent([String: String].self, forKey: .activityTokens) ?? [:]
-        deviceName = try c.decodeIfPresent(String.self, forKey: .deviceName)
-        compactAnimated = try c.decodeIfPresent(Bool.self, forKey: .compactAnimated) ?? false
-        remoteDeviceToken = try c.decodeIfPresent(String.self, forKey: .remoteDeviceToken)
+        if let devices = try c.decodeIfPresent([String: DeviceTokens].self, forKey: .devices) {
+            self.devices = devices
+            return
+        }
+        // 新形式のキーが無い → 旧・単一デバイス形式として読み、1 デバイス分へ移行する
+        var legacy = DeviceTokens()
+        legacy.pushToStartToken = try c.decodeIfPresent(String.self, forKey: .pushToStartToken)
+        legacy.activityTokens = try c.decodeIfPresent([String: String].self, forKey: .activityTokens) ?? [:]
+        legacy.compactAnimated = try c.decodeIfPresent(Bool.self, forKey: .compactAnimated) ?? false
+        legacy.remoteDeviceToken = try c.decodeIfPresent(String.self, forKey: .remoteDeviceToken)
+        let legacyName = try c.decodeIfPresent(String.self, forKey: .deviceName)
+        // トークンが1つでもあれば移行する（何も無ければ空のまま = 単なる初期状態）
+        let hasAny = legacy.pushToStartToken != nil
+            || !legacy.activityTokens.isEmpty
+            || legacy.remoteDeviceToken != nil
+        if hasAny {
+            let key = (legacyName?.isEmpty == false) ? legacyName! : "旧デバイス"
+            devices[key] = legacy
+        }
+    }
+
+    // 明示的な CodingKeys（旧形式のキーも移行のため列挙する）。
+    // 旧キーは stored property と対応しないので encode(to:) も手書きし、
+    // 書き出しは新形式（devices のみ）にする
+    enum CodingKeys: String, CodingKey {
+        case devices
+        // 旧・単一デバイス形式のトップレベルキー（読み込み時の移行にのみ使う）
+        case pushToStartToken, activityTokens, deviceName, compactAnimated, remoteDeviceToken
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(devices, forKey: .devices)
+    }
+
+    // MARK: 全デバイス横断の集計ヘルパー
+
+    /// いずれかのデバイスがこのセッションのアクティビティトークンを持っているか
+    func hasActivityToken(for sessionId: String) -> Bool {
+        devices.values.contains { $0.activityTokens[sessionId] != nil }
+    }
+
+    /// いずれかのデバイスが push-to-start トークンを持っているか
+    var hasAnyPushToStartToken: Bool {
+        devices.values.contains { $0.pushToStartToken != nil }
+    }
+
+    /// 全デバイス合計のアクティビティトークン数
+    var totalActivityTokenCount: Int {
+        devices.values.reduce(0) { $0 + $1.activityTokens.count }
+    }
+
+    /// 登録済みデバイス名（表示用・安定した順序）
+    var deviceNames: [String] { devices.keys.sorted() }
+
+    /// このセッションのアクティビティトークンを全デバイスから削除する。
+    /// 1つでも消したら true（保存が必要）
+    @discardableResult
+    mutating func removeActivityToken(for sessionId: String) -> Bool {
+        var changed = false
+        for name in devices.keys {
+            if devices[name]?.activityTokens.removeValue(forKey: sessionId) != nil {
+                changed = true
+            }
+        }
+        return changed
     }
 
     static func load() -> TokenStore {
@@ -279,9 +362,11 @@ final class SessionState {
     /// SessionStart だけで即終了する内部的・裏側のプロセス（サブエージェント等）を
     /// 通知しないためのゲート
     var hasSubstantiveActivity = false
-    /// iPhone 側でアクティビティを消された。次の UserPromptSubmit まで再開始しない
+    /// いずれかの端末でアクティビティを消された。次の UserPromptSubmit まで再開始しない
     var dismissedByUser = false
-    var startPushSent = false
+    /// このセッションを開始済み（push-to-start 送信済み or アクティビティトークン
+    /// 取得済み）のデバイス名。端末ごとに独立して開始・再開できるようにする
+    var startedDevices: Set<String> = []
     var lastPushAt = Date.distantPast
     var updateScheduled = false
     /// 直近でフックを受信した時刻。working/compacting のまま長時間これが
@@ -425,7 +510,7 @@ final class Daemon {
         startWatchdog()
         observeSystemPowerEvents()
         log("起動: port \(config.port), APNs \(config.apnsHost), bundle \(config.bundleId)")
-        if tokens.pushToStartToken == nil {
+        if !tokens.hasAnyPushToStartToken {
             log("push-to-start トークン未登録。iPhone で ClaudeLive アプリを開いて登録してください")
         }
     }
@@ -604,10 +689,12 @@ final class Daemon {
         case ("POST", "/reset"):
             // iPhone 側の実態と食い違ったとき（アクティビティを手動で消した等）の脱出口。
             // トークンと開始フラグを捨てて、次のフックから作り直す
-            tokens.activityTokens.removeAll()
+            for name in tokens.devices.keys {
+                tokens.devices[name]?.activityTokens.removeAll()
+            }
             tokens.save()
             for session in sessions.values {
-                session.startPushSent = false
+                session.startedDevices.removeAll()
             }
             recentStartPushes.removeAll()
             log("リセット: アクティビティトークンと開始フラグをクリア")
@@ -621,17 +708,18 @@ final class Daemon {
         let sessionList = sessions.values.map {
             [
                 "sessionId": $0.id, "project": $0.projectName, "status": $0.status,
-                "startPushSent": $0.startPushSent,
-                "hasActivityToken": tokens.activityTokens[$0.id] != nil,
+                "startedDevices": Array($0.startedDevices).sorted(),
+                "hasActivityToken": tokens.hasActivityToken(for: $0.id),
                 "startedAt": Int($0.startedAt.timeIntervalSince1970),
             ] as [String: Any]
         }
         let info: [String: Any] = [
             "ok": true,
             "host": macName,
-            "hasPushToStartToken": tokens.pushToStartToken != nil,
-            "device": tokens.deviceName ?? "",
-            "activityTokenCount": tokens.activityTokens.count,
+            "hasPushToStartToken": tokens.hasAnyPushToStartToken,
+            "device": tokens.deviceNames.joined(separator: ", "),
+            "devices": tokens.deviceNames,
+            "activityTokenCount": tokens.totalActivityTokenCount,
             "sessions": sessionList,
         ]
         let data = (try? JSONSerialization.data(withJSONObject: info)) ?? Data("{}".utf8)
@@ -668,7 +756,7 @@ final class Daemon {
                 "currentTool": session?.currentTool ?? "",
                 "toolCount": session?.toolCount ?? 0,
                 "startedAt": Int((session?.startedAt ?? Date()).timeIntervalSince1970),
-                "hasActivityToken": tokens.activityTokens[sessionId] != nil,
+                "hasActivityToken": tokens.hasActivityToken(for: sessionId),
                 "lastPrompt": session?.lastPrompt ?? "",
                 "lastResponse": session?.lastResponse ?? "",
                 "question": session?.question ?? "",
@@ -819,64 +907,70 @@ final class Daemon {
     // MARK: iPhone からのトークン登録
 
     private func handleRegister(_ json: [String: Any]) {
-        if let device = json["device"] as? String {
-            tokens.deviceName = device
-        }
+        // deviceName（UIDevice.current.name）をトークン束のキーにする。
+        // これで iPhone と iPad が互いのトークンを上書きせず共存できる
+        let deviceName = (json["device"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "不明なデバイス"
+        var device = tokens.devices[deviceName] ?? DeviceTokens()
+
+        var compactChanged = false
         if let compactAnimated = json["compactAnimated"] as? Bool,
-           compactAnimated != tokens.compactAnimated {
-            tokens.compactAnimated = compactAnimated
-            tokens.save()
-            log("コンパクトアニメーション設定: \(compactAnimated ? "オン" : "オフ")")
-            // 表示中のライブアクティビティにもすぐ反映する
-            for session in sessions.values { pushUpdate(session) }
+           compactAnimated != device.compactAnimated {
+            device.compactAnimated = compactAnimated
+            compactChanged = true
+            log("コンパクトアニメーション設定 (\(deviceName)): \(compactAnimated ? "オン" : "オフ")")
         }
         if let remoteToken = json["remoteDeviceToken"] as? String,
-           remoteToken != tokens.remoteDeviceToken {
-            tokens.remoteDeviceToken = remoteToken
-            log("リモート通知トークン登録（質問の返信用）")
+           remoteToken != device.remoteDeviceToken {
+            device.remoteDeviceToken = remoteToken
+            log("リモート通知トークン登録（質問の返信用）(\(deviceName))")
         }
         var newStartToken = false
-        if let token = json["pushToStartToken"] as? String, token != tokens.pushToStartToken {
-            tokens.pushToStartToken = token
+        if let token = json["pushToStartToken"] as? String, token != device.pushToStartToken {
+            device.pushToStartToken = token
             newStartToken = true
-            log("push-to-start トークン登録 (\(tokens.deviceName ?? "?"))")
+            log("push-to-start トークン登録 (\(deviceName))")
         }
         var newActivitySessions: [String] = []
         if let map = json["activityTokens"] as? [String: String] {
-            // iPhone 側の「いま生きているアクティビティ」のスナップショットとして扱う。
-            // 消えたトークンは破棄する
+            // この端末の「いま生きているアクティビティ」のスナップショットとして扱う。
+            // この端末から消えたトークンだけを破棄する（他端末のトークンには触れない）
             // （アクティビティを手動で消されると、古いトークン宛ての update は
             // APNs 200 のまま黙って捨てられ続けるので、Mac 側からは検知できない）
-            for sessionId in tokens.activityTokens.keys where map[sessionId] == nil {
-                tokens.activityTokens.removeValue(forKey: sessionId)
+            for sessionId in device.activityTokens.keys where map[sessionId] == nil {
+                device.activityTokens.removeValue(forKey: sessionId)
                 if let session = sessions[sessionId] {
                     // ユーザーが消したアクティビティを勝手に即再作成しない。
                     // （以前は即 pushStart していたが、テストのたびにスワイプで消す →
                     // 数秒後に自動復活、のループで push-to-start budget を食い潰した）
                     // 次の UserPromptSubmit（ユーザーが再びやり取りした時）だけ再開始を許す
-                    session.startPushSent = false
+                    session.startedDevices.remove(deviceName)
                     session.dismissedByUser = true
                 }
-                log("アクティビティトークン破棄（iPhone 側で終了済み・自動再作成しない）: \(sessionId.prefix(8))")
+                log("アクティビティトークン破棄（\(deviceName) 側で終了済み・自動再作成しない）: \(sessionId.prefix(8))")
             }
-            for (sessionId, token) in map where tokens.activityTokens[sessionId] != token {
-                tokens.activityTokens[sessionId] = token
+            for (sessionId, token) in map where device.activityTokens[sessionId] != token {
+                device.activityTokens[sessionId] = token
                 if let session = sessions[sessionId] {
+                    session.startedDevices.insert(deviceName)
                     session.dismissedByUser = false  // アプリからの取り込み等で復活した
                 }
                 newActivitySessions.append(sessionId)
-                log("アクティビティトークン登録: session \(sessionId.prefix(8))")
+                log("アクティビティトークン登録 (\(deviceName)): session \(sessionId.prefix(8))")
             }
         }
+        tokens.devices[deviceName] = device
         tokens.save()
 
-        // 待たされていたプッシュを流す
-        if newStartToken {
-            for session in sessions.values where !session.startPushSent {
-                pushStart(session)
-            }
+        // コンパクトアニメーション設定が変わったら、表示中のアクティビティにすぐ反映する
+        if compactChanged {
+            for session in sessions.values { pushUpdate(session) }
         }
-        for sessionId in newActivitySessions {
+        // 待たされていたプッシュを流す。pushStart は「まだ開始していないデバイス」
+        // だけに送るので、全セッションに対して呼んでよい
+        if newStartToken {
+            for session in sessions.values { pushStart(session) }
+        }
+        for sessionId in Set(newActivitySessions) {
             if let session = sessions[sessionId] {
                 pushUpdate(session)
             }
@@ -894,7 +988,7 @@ final class Daemon {
               let toolInput = json["tool_input"] as? [String: Any],
               let rawQuestions = toolInput["questions"] as? [[String: Any]],
               !rawQuestions.isEmpty,
-              tokens.activityTokens[sessionId] != nil  // アクティビティが出ていなければ保留する意味がない
+              tokens.hasActivityToken(for: sessionId)  // アクティビティが出ていなければ保留する意味がない
         else {
             respond(connection, json: "{}")
             return
@@ -958,7 +1052,6 @@ final class Daemon {
     /// iOS 側は NotificationManager が CLAUDE_QUESTION カテゴリとして受け、
     /// 通知上のテキスト入力（システム UI）だけで回答を返せる
     private func pushQuestionNotification(_ session: SessionState, questionText: String) {
-        guard let remoteToken = tokens.remoteDeviceToken else { return }
         let payload: [String: Any] = [
             "aps": [
                 "alert": [
@@ -971,8 +1064,12 @@ final class Daemon {
             ],
             "sessionId": session.id,
         ]
-        apns.send(deviceToken: remoteToken, payload: payload,
-                  label: "質問通知 \(session.projectName)", pushType: "alert") { _ in }
+        // 登録済みの全デバイスへ通知を送る
+        for (name, dev) in tokens.devices {
+            guard let remoteToken = dev.remoteDeviceToken else { continue }
+            apns.send(deviceToken: remoteToken, payload: payload,
+                      label: "質問通知 \(session.projectName) (\(name))", pushType: "alert") { _ in }
+        }
     }
 
     /// osascript の「choose from list」で質問ダイアログを表示する（質問が複数
@@ -1366,7 +1463,7 @@ final class Daemon {
                 session.settleTimer?.cancel()
                 pushEnd(session)
                 sessions.removeValue(forKey: sessionId)
-                tokens.activityTokens.removeValue(forKey: sessionId)
+                tokens.removeActivityToken(for: sessionId)
                 tokens.save()
             }
             return
@@ -1475,9 +1572,9 @@ final class Daemon {
                     "sound": "default",
                 ]
                 pushEnd(session, status: "waiting", detail: detail, dismissAfter: 30, alert: waitAlert)
-                tokens.activityTokens.removeValue(forKey: sessionId)
+                tokens.removeActivityToken(for: sessionId)
                 tokens.save()
-                session.startPushSent = false
+                session.startedDevices.removeAll()
                 session.dismissedByUser = true
                 session.status = "waiting"
                 session.detail = detail
@@ -1526,11 +1623,11 @@ final class Daemon {
             session.name = entry.name
         }
         // デーモン再起動でメモリ上のセッションは消えるが、
-        // 既に per-activity トークンがあるなら iPhone 側にアクティビティは生きている。
+        // 既に per-activity トークンがあるなら該当端末にアクティビティは生きている。
         // push-to-start を再送すると重複したアクティビティができてしまうので、
-        // 開始済み扱いにして update から再開する
-        if tokens.activityTokens[sessionId] != nil {
-            session.startPushSent = true
+        // トークンを持つ端末は開始済み扱いにして update から再開する
+        for (name, dev) in tokens.devices where dev.activityTokens[sessionId] != nil {
+            session.startedDevices.insert(name)
         }
         sessions[sessionId] = session
         log("セッション開始: \(projectName) (\(sessionId.prefix(8)))")
@@ -1597,11 +1694,10 @@ final class Daemon {
     /// 状態変化をアクティビティに反映する。
     /// アラート付き（許可待ちなど）は即送信、それ以外は 1 秒間隔でまとめる。
     private func sync(_ session: SessionState, alert: [String: Any]?) {
-        if !session.startPushSent {
-            pushStart(session)
-            return
-        }
-        guard tokens.activityTokens[session.id] != nil else { return }
+        // まだ開始していない端末があれば push-to-start を送る（無ければ何もしない）
+        pushStart(session)
+        // 既にアクティビティトークンを持つ端末には update を送る
+        guard tokens.hasActivityToken(for: session.id) else { return }
         if alert != nil {
             pushUpdate(session, alert: alert)
             return
@@ -1618,7 +1714,9 @@ final class Daemon {
         }
     }
 
-    private func contentState(for session: SessionState) -> [String: Any] {
+    /// content-state は compactAnimated 以外は全端末共通。compactAnimated だけは
+    /// 端末ごとの設定なので引数で受け取る
+    private func contentState(for session: SessionState, compactAnimated: Bool) -> [String: Any] {
         [
             "status": session.status,
             "detail": session.detail,
@@ -1636,7 +1734,7 @@ final class Daemon {
             "options": session.options,
             "textSettled": session.textSettled,
             "model": session.model,
-            "compactAnimated": tokens.compactAnimated,
+            "compactAnimated": compactAnimated,
             "lastTool": session.lastTool,
         ]
     }
@@ -1649,21 +1747,30 @@ final class Daemon {
         }
     }
 
+    /// 登録済みの各端末のうち、まだこのセッションを開始していない端末へ
+    /// push-to-start を送る。既にトークンを持つ端末は開始済み扱いにして update に回す
     private func pushStart(_ session: SessionState) {
-        guard let token = tokens.pushToStartToken else { return }
-        guard !session.startPushSent else { return }
-        // アプリ側でローカル起動済み（トークンあり）なら開始プッシュは不要。
-        // 送ると同じセッションのアクティビティが二重にできてしまう
-        if tokens.activityTokens[session.id] != nil {
-            session.startPushSent = true
-            pushUpdate(session)
-            return
-        }
         // プロンプト送信かツール実行が実際にあるまでは通知しない
         // （SessionStart 直後に終わる裏側の短命プロセスを除外する）
         guard session.hasSubstantiveActivity else { return }
         // ユーザーが消したアクティビティは、次のプロンプト送信まで復活させない
         guard !session.dismissedByUser else { return }
+
+        // 開始対象の端末を集める（push-to-start トークンを持ち、未開始の端末）
+        var targets: [(name: String, token: String, compactAnimated: Bool)] = []
+        for name in tokens.deviceNames {
+            guard let dev = tokens.devices[name], let startToken = dev.pushToStartToken else { continue }
+            // アプリ側でローカル起動済み（トークンあり）なら開始プッシュは不要。
+            // 送ると同じセッションのアクティビティが二重にできてしまう
+            if dev.activityTokens[session.id] != nil {
+                session.startedDevices.insert(name)
+                continue
+            }
+            if session.startedDevices.contains(name) { continue }
+            targets.append((name, startToken, dev.compactAnimated))
+        }
+        guard !targets.isEmpty else { return }
+
         // レジストリで「対話セッション」と確認できたものだけ通知する。
         // サブエージェントや headless 実行はここで確実に落ちる
         guard let entry = loadSessionRegistry()[session.id], entry.kind == "interactive" else {
@@ -1671,6 +1778,7 @@ final class Daemon {
         }
         if session.name.isEmpty { session.name = entry.name }
 
+        // レート制限。1 回の開始（複数端末に送っても）で 1 とカウントする
         let now = Date()
         recentStartPushes.removeAll { now.timeIntervalSince($0) > startPushWindow }
         guard recentStartPushes.count < maxStartsPerWindow else {
@@ -1679,72 +1787,86 @@ final class Daemon {
         }
         recentStartPushes.append(now)
 
-        session.startPushSent = true  // 多重送信防止（失敗したら戻す）
-        let payload: [String: Any] = [
-            "aps": [
-                "timestamp": Int(Date().timeIntervalSince1970),
-                "event": "start",
-                "content-state": contentState(for: session),
-                "attributes-type": "ClaudeActivityAttributes",
-                "attributes": [
-                    "sessionId": session.id,
-                    "projectName": session.projectName,
-                    "hostName": session.hostName,
-                ],
-                "alert": [
-                    "title": session.projectName,
-                    "body": "Claude Code セッション開始",
-                ],
-                "relevance-score": relevance(for: session),
-                "stale-date": Int(Date().timeIntervalSince1970) + 900,
+        for target in targets {
+            session.startedDevices.insert(target.name)  // 多重送信防止（失敗したら戻す）
+            let payload: [String: Any] = [
+                "aps": [
+                    "timestamp": Int(Date().timeIntervalSince1970),
+                    "event": "start",
+                    "content-state": contentState(for: session, compactAnimated: target.compactAnimated),
+                    "attributes-type": "ClaudeActivityAttributes",
+                    "attributes": [
+                        "sessionId": session.id,
+                        "projectName": session.projectName,
+                        "hostName": session.hostName,
+                    ],
+                    "alert": [
+                        "title": session.projectName,
+                        "body": "Claude Code セッション開始",
+                    ],
+                    "relevance-score": relevance(for: session),
+                    "stale-date": Int(Date().timeIntervalSince1970) + 900,
+                ]
             ]
-        ]
-        apns.send(deviceToken: token, payload: payload,
-                  label: "start \(session.projectName)") { [queue] ok in
-            queue.async {
-                if ok {
-                    session.lastPushAt = Date()
-                } else {
-                    session.startPushSent = false
+            let deviceName = target.name
+            apns.send(deviceToken: target.token, payload: payload,
+                      label: "start \(session.projectName) (\(deviceName))") { [queue] ok in
+                queue.async {
+                    if ok {
+                        session.lastPushAt = Date()
+                    } else {
+                        session.startedDevices.remove(deviceName)
+                    }
                 }
             }
         }
     }
 
+    /// アクティビティトークンを持つ全端末へ update を送る
     private func pushUpdate(_ session: SessionState, alert: [String: Any]? = nil) {
-        guard let token = tokens.activityTokens[session.id] else { return }
-        var aps: [String: Any] = [
-            "timestamp": Int(Date().timeIntervalSince1970),
-            "event": "update",
-            "content-state": contentState(for: session),
-            "relevance-score": relevance(for: session),
-            "stale-date": Int(Date().timeIntervalSince1970) + 900,
-        ]
-        if let alert { aps["alert"] = alert }
-        session.lastPushAt = Date()
-        apns.send(deviceToken: token, payload: ["aps": aps],
-                  label: "update \(session.projectName) [\(session.status)]") { _ in }
+        var sent = false
+        for name in tokens.deviceNames {
+            guard let dev = tokens.devices[name], let token = dev.activityTokens[session.id] else { continue }
+            var aps: [String: Any] = [
+                "timestamp": Int(Date().timeIntervalSince1970),
+                "event": "update",
+                "content-state": contentState(for: session, compactAnimated: dev.compactAnimated),
+                "relevance-score": relevance(for: session),
+                "stale-date": Int(Date().timeIntervalSince1970) + 900,
+            ]
+            if let alert { aps["alert"] = alert }
+            apns.send(deviceToken: token, payload: ["aps": aps],
+                      label: "update \(session.projectName) [\(session.status)] (\(name))") { _ in }
+            sent = true
+        }
+        if sent { session.lastPushAt = Date() }
     }
 
+    /// アクティビティトークンを持つ全端末へ end を送る
     private func pushEnd(_ session: SessionState, status: String = "done",
                          detail: String = "セッション終了", dismissAfter: Int = 180,
                          alert: [String: Any]? = nil) {
-        guard let token = tokens.activityTokens[session.id] else { return }
-        var state = contentState(for: session)
-        state["status"] = status
-        state["detail"] = detail
-        state["currentTool"] = ""
-        var aps: [String: Any] = [
-            "timestamp": Int(Date().timeIntervalSince1970),
-            "event": "end",
-            "content-state": state,
-            "dismissal-date": Int(Date().timeIntervalSince1970) + dismissAfter,
-        ]
-        if let alert { aps["alert"] = alert }
-        let payload: [String: Any] = ["aps": aps]
-        apns.send(deviceToken: token, payload: payload,
-                  label: "end \(session.projectName)") { _ in }
-        log("セッション終了 (\(status)): \(session.projectName) (\(session.id.prefix(8)))")
+        var sent = false
+        for name in tokens.deviceNames {
+            guard let dev = tokens.devices[name], let token = dev.activityTokens[session.id] else { continue }
+            var state = contentState(for: session, compactAnimated: dev.compactAnimated)
+            state["status"] = status
+            state["detail"] = detail
+            state["currentTool"] = ""
+            var aps: [String: Any] = [
+                "timestamp": Int(Date().timeIntervalSince1970),
+                "event": "end",
+                "content-state": state,
+                "dismissal-date": Int(Date().timeIntervalSince1970) + dismissAfter,
+            ]
+            if let alert { aps["alert"] = alert }
+            apns.send(deviceToken: token, payload: ["aps": aps],
+                      label: "end \(session.projectName) (\(name))") { _ in }
+            sent = true
+        }
+        if sent {
+            log("セッション終了 (\(status)): \(session.projectName) (\(session.id.prefix(8)))")
+        }
     }
 
     // MARK: 接続断の監視
@@ -1774,7 +1896,7 @@ final class Daemon {
             session.settleTimer?.cancel()
             pushEnd(session, status: "error", detail: "接続が途切れたため終了しました", dismissAfter: 60)
             sessions.removeValue(forKey: session.id)
-            if tokens.activityTokens.removeValue(forKey: session.id) != nil {
+            if tokens.removeActivityToken(for: session.id) {
                 changed = true
             }
         }
@@ -1809,7 +1931,7 @@ final class Daemon {
             releaseQuestion(sessionId: session.id, answers: nil, notify: false)
             session.settleTimer?.cancel()
             pushEnd(session, status: "error", detail: reason, dismissAfter: 30)
-            if tokens.activityTokens.removeValue(forKey: session.id) != nil {
+            if tokens.removeActivityToken(for: session.id) {
                 changed = true
             }
         }
