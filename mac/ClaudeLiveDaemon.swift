@@ -17,6 +17,7 @@
 
 import AppKit
 import CryptoKit
+import CoreGraphics
 import Darwin
 import Foundation
 import Network
@@ -1161,10 +1162,23 @@ final class Daemon {
         releaseQuestion(sessionId: sessionId, answers: answers, notify: true)
     }
 
+    /// Mac の画面がロックされているか（スクリーンセーバ含む）。
+    /// ロック中は System Events によるキー入力・クリックが一切効かない
+    /// （OS のセキュリティ境界で、貫通する方法が無い）ため、その場合は
+    /// runPrompt がヘッドレス送信にフォールバックする判定に使う
+    private func isScreenLocked() -> Bool {
+        guard let info = CGSessionCopyCurrentDictionary() as? [String: Any] else { return false }
+        return (info["CGSSessionScreenIsLocked"] as? Bool) ?? false
+    }
+
     /// Watch / iPhone から送られたプロンプトを該当セッションに注入する。
-    /// 宛先セッションを claude://resume?session=<id> のディープリンクで名指しで
-    /// 前面に出してから、キー入力で流し込む。これで最前面でなかったセッションにも
-    /// 送れて、しかも GUI に即反映される（トークンも使わない）。
+    /// 通常は宛先セッションを claude://resume?session=<id> のディープリンクで
+    /// 名指しで前面に出してから、キー入力で流し込む（GUI に即反映され、
+    /// 最前面でなかったセッションにも送れる）。
+    /// ただし Mac の画面がロックされている間はこの方式が一切効かないため
+    /// （デーモンは "送信成功" を返すのに実際は何も起きない、という不具合の
+    /// 原因だった）、ロック中は `claude -p --resume` によるヘッドレス送信に
+    /// 切り替える。画面操作が要らないのでロック中でも確実に届く
     /// sessionId は hooks の session_id（= Claude Desktop の cliSessionId）
     private func runPrompt(sessionId: String, text: String) {
         let key = "\(sessionId)|\(text)"
@@ -1177,8 +1191,39 @@ final class Daemon {
         }
         recentPromptKeys[key] = now
 
-        typeIntoClaudeApp(text, focusCLISessionId: sessionId)
-        log("プロンプト送信(セッション\(sessionId.prefix(8))を前面化→キー入力): 「\(Self.truncate(text, 60))」")
+        if isScreenLocked() {
+            let cwd = sessions[sessionId]?.cwd ?? ""
+            runPromptHeadless(sessionId: sessionId, text: text, cwd: cwd)
+            log("プロンプト送信(セッション\(sessionId.prefix(8))・画面ロック中のためヘッドレス): 「\(Self.truncate(text, 60))」")
+        } else {
+            typeIntoClaudeApp(text, focusCLISessionId: sessionId)
+            log("プロンプト送信(セッション\(sessionId.prefix(8))を前面化→キー入力): 「\(Self.truncate(text, 60))」")
+        }
+    }
+
+    /// 画面操作なしでプロンプトを送る。`claude -p --resume <id> <text>` を
+    /// そのセッションの cwd でヘッドレス起動する（Desktop の GUI が使えない
+    /// 場合の代替経路。Mac ロック中や、/newsession で作った GUI 画面を
+    /// 持たないセッションへの送信に使う）
+    private func runPromptHeadless(sessionId: String, text: String, cwd: String) {
+        let claudePath = ("~/.local/bin/claude" as NSString).expandingTildeInPath
+        guard FileManager.default.fileExists(atPath: claudePath) else {
+            log("ヘッドレス送信失敗: claude が見つからない")
+            return
+        }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: claudePath)
+        process.arguments = ["-p", "--resume", sessionId, text]
+        if !cwd.isEmpty {
+            process.currentDirectoryURL = URL(fileURLWithPath: cwd)
+        }
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        do {
+            try process.run()
+        } catch {
+            log("ヘッドレス送信失敗: \(error.localizedDescription)")
+        }
     }
 
     /// Claude アプリを前面に出し、クリップボード経由でテキストを貼り付けて Enter。
