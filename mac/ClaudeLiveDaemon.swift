@@ -509,6 +509,7 @@ final class Daemon {
         listener.start(queue: queue)
         self.listener = listener
         startWatchdog()
+        startCoworkWatcher()
         observeSystemPowerEvents()
         log("起動: port \(config.port), APNs \(config.apnsHost), bundle \(config.bundleId)")
         if !tokens.hasAnyPushToStartToken {
@@ -768,6 +769,33 @@ final class Daemon {
                 "model": session?.model ?? "",
             ])
         }
+        // Cowork のタスクは ~/.claude/sessions の PID レジストリに載らない
+        // （VM の中で動くため）ので、上のループでは拾えない。別途足す
+        for (sessionId, session) in sessions where sessionId.hasPrefix(Self.coworkPrefix) {
+            list.append([
+                "sessionId": sessionId,
+                "name": session.name,
+                "title": session.title,
+                "project": session.projectName,
+                "status": session.status,
+                "detail": session.detail,
+                "currentTool": session.currentTool,
+                "toolCount": session.toolCount,
+                "startedAt": Int(session.startedAt.timeIntervalSince1970),
+                "hasActivityToken": tokens.hasActivityToken(for: sessionId),
+                "lastPrompt": session.lastPrompt,
+                "lastResponse": session.lastResponse,
+                "question": session.question,
+                "options": session.options,
+                "questions": session.questionItems.map {
+                    ["question": $0.question, "options": $0.options, "multiSelect": $0.multiSelect]
+                },
+                "model": session.model,
+                // アプリ側が「返信できないセッション」と分かるようにする
+                // （Cowork は VM 内なのでキー入力もヘッドレス送信もできない）
+                "readOnly": true,
+            ])
+        }
         list.sort { ($0["startedAt"] as? Int ?? 0) > ($1["startedAt"] as? Int ?? 0) }
         let data = (try? JSONSerialization.data(withJSONObject: ["ok": true, "host": macName, "sessions": list]))
             ?? Data("{}".utf8)
@@ -777,7 +805,11 @@ final class Daemon {
     /// transcript JSONL から直近の会話（ユーザー入力と Claude の返答テキスト）を抽出する。
     /// 形式は Claude Code 内部仕様でバージョンにより変わりうる。壊れても空を返すだけにする
     private func messagesJSON(sessionId: String, limit: Int) -> String {
-        let path = transcriptPath(for: sessionId)
+        // Cowork は ~/.claude/projects に transcript を作らないが、
+        // audit.jsonl が同じ {type, message:{content}} 形式なのでそのまま流用できる
+        let path = sessionId.hasPrefix(Self.coworkPrefix)
+            ? coworkAuditPath(forSessionId: sessionId)
+            : transcriptPath(for: sessionId)
         var messages: [[String: String]] = []
         if let path, let handle = FileHandle(forReadingAtPath: path) {
             // 長大なファイルは末尾 2MB だけ読む
@@ -1181,6 +1213,13 @@ final class Daemon {
     /// 切り替える。画面操作が要らないのでロック中でも確実に届く
     /// sessionId は hooks の session_id（= Claude Desktop の cliSessionId）
     private func runPrompt(sessionId: String, text: String) {
+        // Cowork のタスクは VM サンドボックスの中で動いていて、Desktop の
+        // GUI にも `claude --resume` にも接続できない（＝送る手段が無い）。
+        // 黙って握りつぶすと「送ったのに反映されない」になるので明示的に弾く
+        if sessionId.hasPrefix(Self.coworkPrefix) {
+            log("Cowork セッションには送信できません（VM 内のため）: \(sessionId)")
+            return
+        }
         let key = "\(sessionId)|\(text)"
         let now = Date()
         // 直近の候補一掃（メモリに溜め続けない）
@@ -1911,6 +1950,311 @@ final class Daemon {
         }
         if sent {
             log("セッション終了 (\(status)): \(session.projectName) (\(session.id.prefix(8)))")
+        }
+    }
+
+    // MARK: Cowork（Claude Desktop のローカルエージェント）の監視
+
+    /// Cowork のタスクは VM サンドボックスの中で走るため、Mac 本体の
+    /// ~/.claude/settings.json に仕込んだ hooks は一切発火しない。
+    /// ただし Claude Desktop がホスト側に進捗のミラーを書き出しているので、
+    /// それをポーリングで読んで通常のセッションと同じ扱いに変換する。
+    ///
+    ///   ~/Library/Application Support/Claude/local-agent-mode-sessions/
+    ///     <workspace>/<conversation>/
+    ///       local_<taskId>.json   … タイトル・最終活動時刻などのメタ情報
+    ///       local_<taskId>/audit.jsonl … hooks 相当の全イベント（下記対応表）
+    ///
+    ///   audit.jsonl のイベント           → 通常の hooks 相当
+    ///   command_lifecycle(started)      → UserPromptSubmit（working）
+    ///   assistant の tool_use           → PreToolUse（working + currentTool）
+    ///   system/permission_request       → Notification(permission) / 質問
+    ///   command_lifecycle(completed)    → Stop（done）
+    private var coworkTimer: DispatchSourceTimer?
+    /// audit.jsonl をどこまで読んだか（パス → バイトオフセット）
+    private var coworkOffsets: [String: UInt64] = [:]
+    /// Cowork のセッション ID には接頭辞を付け、通常セッションと衝突させない
+    private static let coworkPrefix = "cowork:"
+
+    private var coworkRoot: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/Claude/local-agent-mode-sessions",
+                                    isDirectory: true)
+    }
+
+    private func startCoworkWatcher() {
+        guard FileManager.default.fileExists(atPath: coworkRoot.path) else {
+            log("Cowork の監視ディレクトリが無いため監視しない: \(coworkRoot.path)")
+            return
+        }
+        // 起動時点の audit.jsonl は「既読」にしておく（過去のタスクを
+        // 掘り起こして大量のライブアクティビティを出さないため）
+        for task in coworkTaskDirectories() {
+            let path = task.auditPath
+            let attrs = try? FileManager.default.attributesOfItem(atPath: path)
+            coworkOffsets[path] = (attrs?[.size] as? NSNumber)?.uint64Value ?? 0
+        }
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now() + 3, repeating: 3)
+        timer.setEventHandler { [weak self] in
+            self?.pollCowork()
+        }
+        timer.resume()
+        coworkTimer = timer
+        log("Cowork の監視を開始: \(coworkRoot.path)")
+    }
+
+    private struct CoworkTask {
+        let taskId: String       // local_<uuid>
+        let metaPath: String     // local_<uuid>.json
+        let auditPath: String    // local_<uuid>/audit.jsonl
+    }
+
+    /// "cowork:local_<uuid>" 形式のセッション ID から audit.jsonl のパスを引く
+    private func coworkAuditPath(forSessionId sessionId: String) -> String? {
+        let taskId = String(sessionId.dropFirst(Self.coworkPrefix.count))
+        return coworkTaskDirectories().first { $0.taskId == taskId }?.auditPath
+    }
+
+    /// local-agent-mode-sessions 配下から、audit.jsonl を持つタスクを列挙する
+    private func coworkTaskDirectories() -> [CoworkTask] {
+        let fm = FileManager.default
+        var result: [CoworkTask] = []
+        // <root>/<workspace>/<conversation>/local_<uuid>.json という2階層構造
+        guard let workspaces = try? fm.contentsOfDirectory(
+            at: coworkRoot, includingPropertiesForKeys: nil) else { return [] }
+        for workspace in workspaces {
+            guard let conversations = try? fm.contentsOfDirectory(
+                at: workspace, includingPropertiesForKeys: nil) else { continue }
+            for conversation in conversations {
+                guard let entries = try? fm.contentsOfDirectory(
+                    at: conversation, includingPropertiesForKeys: nil) else { continue }
+                for entry in entries {
+                    let name = entry.lastPathComponent
+                    guard name.hasPrefix("local_"), name.hasSuffix(".json") else { continue }
+                    let taskId = String(name.dropLast(".json".count))
+                    let auditPath = conversation
+                        .appendingPathComponent(taskId, isDirectory: true)
+                        .appendingPathComponent("audit.jsonl").path
+                    guard fm.fileExists(atPath: auditPath) else { continue }
+                    result.append(CoworkTask(taskId: taskId, metaPath: entry.path, auditPath: auditPath))
+                }
+            }
+        }
+        return result
+    }
+
+    private func pollCowork() {
+        for task in coworkTaskDirectories() {
+            let previous = coworkOffsets[task.auditPath] ?? 0
+            guard let handle = FileHandle(forReadingAtPath: task.auditPath) else { continue }
+            defer { try? handle.close() }
+            let size = (try? handle.seekToEnd()) ?? 0
+            // ファイルが小さくなっていたら作り直されたとみなして頭から読む
+            let start = size < previous ? 0 : previous
+            guard size > start else { continue }
+            try? handle.seek(toOffset: start)
+            guard let data = try? handle.readToEnd(), !data.isEmpty else { continue }
+            coworkOffsets[task.auditPath] = size
+
+            // 末尾が行の途中で切れている場合、その分は次回に回す
+            var consumed = data
+            if let lastNewline = data.lastIndex(of: UInt8(ascii: "\n")) {
+                consumed = data.subdata(in: data.startIndex..<(lastNewline + 1))
+                coworkOffsets[task.auditPath] = start + UInt64(consumed.count)
+            } else {
+                coworkOffsets[task.auditPath] = start
+                continue
+            }
+            for line in consumed.split(separator: UInt8(ascii: "\n")) {
+                guard let event = (try? JSONSerialization.jsonObject(with: Data(line)))
+                        as? [String: Any] else { continue }
+                handleCoworkEvent(event, task: task)
+            }
+        }
+    }
+
+    /// audit.jsonl の 1 イベントを、通常セッションと同じ SessionState 更新に落とす
+    private func handleCoworkEvent(_ event: [String: Any], task: CoworkTask) {
+        let sessionId = Self.coworkPrefix + task.taskId
+        let type = event["type"] as? String ?? ""
+        let subtype = event["subtype"] as? String ?? ""
+
+        // 完了・進行のどちらでもないノイズは早めに捨てる
+        switch (type, subtype) {
+        case ("command_lifecycle", _), ("assistant", _), ("system", "permission_request"),
+             ("system", "permission_response"), ("result", _):
+            break
+        default:
+            return
+        }
+
+        let session = ensureCoworkSession(sessionId: sessionId, task: task)
+        session.lastHookAt = Date()
+        var alert: [String: Any]? = nil
+
+        switch (type, subtype) {
+        case ("command_lifecycle", _):
+            switch event["state"] as? String {
+            case "started":
+                session.status = "working"
+                session.currentTool = ""
+                session.lastTool = ""
+                session.detail = ""
+                session.lastResponse = ""
+                session.question = ""
+                session.options = []
+                session.hasSubstantiveActivity = true
+                session.dismissedByUser = false
+                markTextChanged(session)
+            case "completed":
+                session.status = "done"
+                session.detail = ""
+                session.currentTool = ""
+                session.question = ""
+                session.options = []
+                markTextChanged(session)
+                alert = [
+                    "title": "\(session.projectName): 完了",
+                    "body": session.lastResponse.isEmpty
+                        ? "Cowork のタスクが完了しました" : session.lastResponse,
+                    "sound": "default",
+                ]
+            default:
+                return  // queued は表示しない
+            }
+
+        case ("assistant", _):
+            guard let content = (event["message"] as? [String: Any])?["content"] as? [[String: Any]]
+            else { return }
+            var updated = false
+            for block in content {
+                switch block["type"] as? String {
+                case "tool_use":
+                    let toolName = Self.coworkToolDisplayName(block["name"] as? String ?? "?")
+                    session.status = "working"
+                    session.currentTool = toolName
+                    session.lastTool = toolName
+                    session.toolCount += 1
+                    session.hasSubstantiveActivity = true
+                    let line = Self.toolLogLine(
+                        name: toolName, input: block["input"] as? [String: Any] ?? [:])
+                    session.logs.insert(line, at: 0)
+                    if session.logs.count > 6 { session.logs.removeLast() }
+                    updated = true
+                case "text":
+                    // ツール呼び出し前後の説明文を途中経過として出す
+                    if let text = block["text"] as? String, !text.isEmpty {
+                        let truncated = Self.truncate(text, 300)
+                        if truncated != session.lastResponse {
+                            session.lastResponse = truncated
+                            markTextChanged(session)
+                            updated = true
+                        }
+                    }
+                default:
+                    continue
+                }
+            }
+            guard updated else { return }
+
+        case ("system", "permission_request"):
+            let toolName = event["tool_name"] as? String ?? ""
+            session.currentTool = ""
+            if toolName == "AskUserQuestion" {
+                // Cowork の質問は Desktop の UI で答えるものなので、
+                // ライブアクティビティには「質問中」として出すだけにする
+                // （iPhone から回答する経路は hooks を保留できないため無い）
+                let questions = (event["tool_input"] as? [String: Any])?["questions"]
+                    as? [[String: Any]] ?? []
+                session.status = "question"
+                session.question = Self.truncate(
+                    questions.first?["question"] as? String ?? "質問があります", 200)
+                session.options = (questions.first?["options"] as? [[String: Any]] ?? [])
+                    .compactMap { $0["label"] as? String }
+                markTextChanged(session)
+                alert = [
+                    "title": "\(session.projectName): 質問",
+                    "body": session.question,
+                    "sound": "default",
+                ]
+            } else {
+                session.status = "permission"
+                session.detail = "\(toolName) の実行許可を求めています"
+                alert = [
+                    "title": "\(session.projectName): 許可待ち",
+                    "body": session.detail,
+                    "sound": "default",
+                ]
+            }
+
+        case ("system", "permission_response"):
+            guard session.status == "permission" || session.status == "question" else { return }
+            session.status = "working"
+            session.detail = ""
+            session.question = ""
+            session.options = []
+            markTextChanged(session)
+
+        case ("result", _):
+            // 最終結果テキスト。command_lifecycle(completed) と前後しうるので
+            // ここでは本文だけ拾い、状態は completed 側に任せる
+            if let text = event["result"] as? String, !text.isEmpty {
+                session.lastResponse = Self.truncate(text, 300)
+                markTextChanged(session)
+            } else {
+                return
+            }
+
+        default:
+            return
+        }
+
+        sync(session, alert: alert)
+    }
+
+    private func ensureCoworkSession(sessionId: String, task: CoworkTask) -> SessionState {
+        if let existing = sessions[sessionId] { return existing }
+        // メタ情報からタイトル（Desktop の会話タイトル）を拾う
+        var title = ""
+        if let data = FileManager.default.contents(atPath: task.metaPath),
+           let meta = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+            title = meta["title"] as? String ?? ""
+        }
+        // 通知のタイトルに使う projectName は、複数タスクを見分けられるよう
+        // 会話タイトルを短く詰めたものにする（無ければ "Cowork"）
+        let label = title.isEmpty ? "Cowork" : Self.truncate(title, 24)
+        let session = SessionState(id: sessionId, projectName: label, hostName: macName)
+        session.title = title
+        session.name = title.isEmpty ? "Cowork" : title
+        // Cowork のタスクは VM 内で動くので、Mac 側から送信できる cwd は無い
+        session.cwd = ""
+        for (name, dev) in tokens.devices where dev.activityTokens[sessionId] != nil {
+            session.startedDevices.insert(name)
+        }
+        sessions[sessionId] = session
+        log("Cowork タスク開始: \(title.isEmpty ? task.taskId : title)")
+        return session
+    }
+
+    /// Cowork のツール名は mcp__workspace__bash のような内部名なので、
+    /// 表示とアイコン選択のために通常のツール名へ寄せる
+    private static func coworkToolDisplayName(_ raw: String) -> String {
+        switch raw {
+        case "mcp__workspace__bash":            return "Bash"
+        case "mcp__workspace__read_file":       return "Read"
+        case "mcp__workspace__write_file",
+             "mcp__workspace__edit_file":       return "Edit"
+        case "mcp__workspace__glob",
+             "mcp__workspace__grep":            return "Grep"
+        case "mcp__cowork__present_files":      return "成果物を共有"
+        case "mcp__cowork__request_cowork_directory": return "フォルダを要求"
+        default:
+            // mcp__foo__bar → bar、それ以外はそのまま
+            if raw.hasPrefix("mcp__"), let last = raw.components(separatedBy: "__").last {
+                return last
+            }
+            return raw
         }
     }
 

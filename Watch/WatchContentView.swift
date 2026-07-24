@@ -135,18 +135,21 @@ struct WatchSessionDetailView: View {
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Button {
-                            showCommandPicker = true
-                        } label: {
-                            Image(systemName: "terminal")
+                        // 閲覧専用（Cowork）はコマンド送信・モデル変更ができないので出さない
+                        if !session.readOnly {
+                            Button {
+                                showCommandPicker = true
+                            } label: {
+                                Image(systemName: "terminal")
+                            }
+                            .buttonStyle(.plain)
+                            Button {
+                                showModelPicker = true
+                            } label: {
+                                Image(systemName: "cpu")
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
-                        Button {
-                            showModelPicker = true
-                        } label: {
-                            Image(systemName: "cpu")
-                        }
-                        .buttonStyle(.plain)
                     }
                     .sheet(isPresented: $showModelPicker) {
                         WatchModelPickerView(sessionId: sessionId)
@@ -155,7 +158,15 @@ struct WatchSessionDetailView: View {
                         WatchCommandPickerView(sessionId: sessionId)
                     }
 
-                    // プロンプト送信（音声ディクテーション対応の標準 TextField）
+                    if session.readOnly {
+                        Label("閲覧のみ (Cowork)", systemImage: "eye")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    // プロンプト送信（音声ディクテーション対応の標準 TextField）。
+                    // 閲覧専用セッションでは送っても届かないので出さない
+                    if !session.readOnly {
                     HStack(spacing: 4) {
                         TextField("指示を送る…", text: $promptInput)
                             .font(.footnote)
@@ -252,6 +263,7 @@ struct WatchSessionDetailView: View {
                             }
                         }
                     }
+                    }  // if !session.readOnly（プロンプト送信＋質問回答をまとめて隠す）
 
                     // 直近のやり取り（省略なしの全文）
                     if !session.lastPrompt.isEmpty {

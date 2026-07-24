@@ -193,8 +193,18 @@ struct SessionDetailView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 10) {
-                    promptSection
-                    if let session, !session.question.isEmpty {
+                    // Cowork のタスクなど閲覧専用（Mac 側から送信できない）
+                    // セッションでは、送っても届かない入力欄・回答欄を出さない
+                    let readOnly = session?.readOnly ?? false
+                    if readOnly {
+                        Label("このセッションは閲覧のみ（Cowork）", systemImage: "eye")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 12)
+                    } else {
+                        promptSection
+                    }
+                    if let session, !readOnly, !session.question.isEmpty {
                         questionSection(session)
                     }
                     if !loaded {
@@ -226,32 +236,35 @@ struct SessionDetailView: View {
         } ?? "セッション")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    ForEach(ClaudeQuickCommand.allCases) { command in
-                        Button(command.label) {
-                            Task {
-                                _ = await SendCommandIntent.sendCommand(
-                                    sessionId: sessionId, command: command.rawValue)
+            // 閲覧専用（Cowork）はコマンド送信・モデル変更ができないので出さない
+            if !(session?.readOnly ?? false) {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        ForEach(ClaudeQuickCommand.allCases) { command in
+                            Button(command.label) {
+                                Task {
+                                    _ = await SendCommandIntent.sendCommand(
+                                        sessionId: sessionId, command: command.rawValue)
+                                }
                             }
                         }
+                    } label: {
+                        Image(systemName: "terminal")
                     }
-                } label: {
-                    Image(systemName: "terminal")
                 }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    ForEach(ClaudeModelChoice.allCases) { choice in
-                        Button(choice.label) {
-                            Task {
-                                _ = await ChangeModelIntent.changeModel(
-                                    sessionId: sessionId, model: choice.rawValue)
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        ForEach(ClaudeModelChoice.allCases) { choice in
+                            Button(choice.label) {
+                                Task {
+                                    _ = await ChangeModelIntent.changeModel(
+                                        sessionId: sessionId, model: choice.rawValue)
+                                }
                             }
                         }
+                    } label: {
+                        Image(systemName: "cpu")
                     }
-                } label: {
-                    Image(systemName: "cpu")
                 }
             }
         }

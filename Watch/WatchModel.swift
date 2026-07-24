@@ -32,6 +32,8 @@ final class WatchModel: NSObject, ObservableObject {
         var model: String
         /// 質問がすべて入る（1回の AskUserQuestion に複数問あることがある）
         var questions: [QuestionItem]
+        /// 閲覧専用（Cowork のタスクなど、送信できないセッション）
+        var readOnly: Bool
     }
 
     struct Message: Identifiable {
@@ -122,7 +124,8 @@ final class WatchModel: NSObject, ObservableObject {
                         question: q["question"] as? String ?? "",
                         options: q["options"] as? [String] ?? [],
                         multiSelect: q["multiSelect"] as? Bool ?? false)
-                })
+                },
+                readOnly: entry["readOnly"] as? Bool ?? false)
         }
     }
 
