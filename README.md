@@ -72,17 +72,51 @@ Mac で動いている **Claude Code の状態を iPhone のライブアクテ�
 
 ## 事前準備（fork する場合）
 
-このプロジェクトは Apple Developer アカウント（実機ビルド + APNs 用）が必要です。
 自分の環境用に以下を書き換えてください：
 
-- `ClaudeLive.xcodeproj` の **DEVELOPMENT_TEAM**（現状 `LV3H7Q68W6`）→ 自分の Team ID
+- `ClaudeLive.xcodeproj` の **DEVELOPMENT_TEAM** → 自分の Team ID
 - バンドル ID **`com.tento.ClaudeLive`** / **`com.tento.ClaudeLive.Widget`** → 自分のものに
 - `mac/com.tento.claudelive.plist` の launchd ラベルはそのままでも動くが、変えるなら
   `install.sh` 内の参照も合わせる
 
+### Apple Developer Program に登録していない場合
+
+**ライブアクティビティの自動表示だけは使えませんが、それ以外はすべて使えます。**
+
+APNs キー（`.p8`）の作成には**有料の Apple Developer Program（年 $99）が必須**で、
+無料の Apple ID（Personal Team）では Push Notifications の capability を
+プロビジョニングできません。ただしこのアプリの機能のうち、Mac との通信は
+すべて素の HTTP なので **APNs とは独立して動きます**。
+
+| 機能 | 無料アカウント |
+|---|---|
+| セッション一覧・会話の閲覧 | ✅ 使える |
+| 指示・スラッシュコマンドの送信、モデル変更、新規セッション | ✅ 使える |
+| Apple Watch アプリ | ✅ 使える |
+| ライブアクティビティ（アプリを開いている間） | ⚠️ アプリから手動で開始する形なら可 |
+| **push-to-start**（Claude Code の開始と同時に自動で出る） | ❌ 使えない |
+| **バックグラウンド更新**（アプリを閉じていても更新され続ける） | ❌ 使えない |
+
+無料アカウントで使う場合の変更点：
+
+1. `App/ClaudeLive.entitlements` から `aps-environment` を削除する
+   （残したままだと Xcode がプロビジョニングに失敗する）
+2. `~/.claudelive/config.json` の `keyId` / `teamId` / `p8Path` は未設定のままでよい。
+   デーモンは APNs の送信に失敗してもログに残すだけで動き続ける（HTTP API は正常）
+3. Xcode の Signing で **Personal Team** を選ぶ。無料プロビジョニングは
+   **7 日で失効する**ため、週に一度 Xcode から入れ直す必要がある
+
+> 「Claude Code が止まったのに気づける」という本アプリの主目的は push-to-start と
+> バックグラウンド更新に依存しているため、無料アカウントでは
+> 「iPhone から Mac の Claude Code を見る・操作するリモコン」として使う形になります。
+
 ## セットアップ
 
 ### 1. APNs 認証キー（.p8）を用意
+
+> ライブアクティビティを自動表示・自動更新するために必要。
+> 有料の Apple Developer Program が要る（無料アカウントの場合は
+> 「Apple Developer Program に登録していない場合」を参照し、この手順は飛ばす）。
 
 1. [Apple Developer → Keys](https://developer.apple.com/account/resources/authkeys/list) で **Apple Push Notifications service (APNs)** を有効にしたキーを作成
 2. `.p8` をダウンロードして `~/.claudelive/AuthKey.p8` に置く
