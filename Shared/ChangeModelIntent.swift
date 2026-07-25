@@ -21,6 +21,10 @@ struct ChangeModelIntent: AppIntent {
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        // 操作モードがオフなら実行しない（Mac 上の Claude Code を動かす機能のため）
+        guard isControlModeEnabled else {
+            return .result(dialog: "\(controlModeDisabledMessage)")
+        }
         let ok = await Self.changeModel(sessionId: session.id, model: model.rawValue)
         return .result(dialog: ok ? "\(model.label) に変更しました" : "Mac に届きませんでした")
     }

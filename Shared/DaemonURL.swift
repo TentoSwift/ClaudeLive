@@ -53,6 +53,21 @@ var daemonAuthToken: String {
     UserDefaults.standard.string(forKey: daemonAuthTokenKey) ?? ""
 }
 
+/// 操作モード（指示の送信・質問への回答・コマンド送信・新規セッション）の有効フラグ。
+/// 既定はオフ＝閲覧と通知のみ。Mac 上の Claude Code を動かす機能なので、
+/// 接続先と接続トークンを設定したうえで、ユーザーが明示的にオンにしたときだけ使える
+let controlModeKey = "controlModeEnabled"
+
+var isControlModeEnabled: Bool {
+    UserDefaults.standard.bool(forKey: controlModeKey)
+}
+
+/// 操作モードがオフのときに App Intent が返す説明文。
+/// ショートカットやライブアクティビティのボタンから実行されたときに、
+/// 黙って失敗せず「どこで有効にするか」を伝えるために使う
+let controlModeDisabledMessage =
+    "操作モードがオフです。ClaudeLive アプリの設定で「操作モード」をオンにしてください"
+
 func daemonRequest(path: String, method: String = "GET", body: Data? = nil,
                     timeout: TimeInterval = 5) async -> Data? {
     let defaults = UserDefaults.standard

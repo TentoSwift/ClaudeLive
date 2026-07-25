@@ -58,6 +58,10 @@ struct SendCommandIntent: AppIntent {
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        // 操作モードがオフなら実行しない（Mac 上の Claude Code を動かす機能のため）
+        guard isControlModeEnabled else {
+            return .result(dialog: "\(controlModeDisabledMessage)")
+        }
         if command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             throw $command.needsValueError("送るコマンドを入力してください")
         }

@@ -32,6 +32,9 @@ struct AnswerQuestionIntent: LiveActivityIntent {
     }
 
     func perform() async throws -> some IntentResult {
+        // 質問への回答も Mac 上の Claude Code を進める操作なので、
+        // 操作モードがオフのあいだは行わない
+        guard isControlModeEnabled else { return .result() }
         _ = await Self.sendAnswer(sessionId: sessionId, answer: answer, pass: pass)
         return .result()
     }

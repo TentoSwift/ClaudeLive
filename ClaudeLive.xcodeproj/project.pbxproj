@@ -82,6 +82,8 @@
 		CB000000000000000006AE /* spinner-frame8.png in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C7 /* spinner-frame8.png */; };
 		CB000000000000000006AF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C9 /* Assets.xcassets */; };
 		CB00000000000000000BA0 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000BA0 /* NotificationManager.swift */; };
+		CB00000000000000000BB0 /* ManualPairingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000BB0 /* ManualPairingView.swift */; };
+		CB00000000000000000BC0 /* ControlModeGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000BC0 /* ControlModeGuideView.swift */; };
 		CB00000000000000000007A0 /* OpenAppIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000007A0 /* OpenAppIntent.swift */; };
 		CB00000000000000000007A1 /* OpenAppIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000007A0 /* OpenAppIntent.swift */; };
 		CB00000000000000000008A0 /* SendPromptIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000008A0 /* SendPromptIntent.swift */; };
@@ -188,6 +190,8 @@
 		CA000000000000000006A6 /* WatchSpinnerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchSpinnerView.swift; sourceTree = "<group>"; };
 		CA000000000000000006B0 /* WatchToolIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchToolIcon.swift; sourceTree = "<group>"; };
 		CA00000000000000000BA0 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		CA00000000000000000BB0 /* ManualPairingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManualPairingView.swift; sourceTree = "<group>"; };
+		CA00000000000000000BC0 /* ControlModeGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControlModeGuideView.swift; sourceTree = "<group>"; };
 		CA00000000000000000007A0 /* OpenAppIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAppIntent.swift; sourceTree = "<group>"; };
 		CA00000000000000000008A0 /* SendPromptIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendPromptIntent.swift; sourceTree = "<group>"; };
 		CA00000000000000000008B0 /* StartNewSessionIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartNewSessionIntent.swift; sourceTree = "<group>"; };
@@ -208,6 +212,8 @@
 				CA00000000000000000000AB /* MarkdownText.swift */,
 				CA000000000000000006A5 /* WatchLink.swift */,
 				CA00000000000000000BA0 /* NotificationManager.swift */,
+				CA00000000000000000BB0 /* ManualPairingView.swift */,
+				CA00000000000000000BC0 /* ControlModeGuideView.swift */,
 				CA00000000000000000000EE /* LiveActivityMirrorView.swift */,
 				CA00000000000000000000A7 /* Info.plist */,
 				CA00000000000000000000A9 /* ClaudeLive.entitlements */,
@@ -504,6 +510,8 @@
 				CB00000000000000000000EE /* LiveActivityMirrorView.swift in Sources */,
 				CB000000000000000006A5 /* WatchLink.swift in Sources */,
 				CB00000000000000000BA0 /* NotificationManager.swift in Sources */,
+				CB00000000000000000BB0 /* ManualPairingView.swift in Sources */,
+				CB00000000000000000BC0 /* ControlModeGuideView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

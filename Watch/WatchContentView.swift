@@ -4,6 +4,8 @@ import SwiftUI
 struct WatchContentView: View {
     @EnvironmentObject private var model: WatchModel
     @State private var path: [String] = []
+    /// 操作モード（iPhone アプリの設定と同じ既定値。Watch 単独では変更しない）
+    @AppStorage(controlModeKey) private var controlMode = false
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -18,11 +20,13 @@ struct WatchContentView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                // 新規セッション開始
-                NavigationLink(value: "__new__") {
-                    Label("新規セッション", systemImage: "plus.circle.fill")
-                        .font(.headline)
-                        .foregroundStyle(Color(red: 0.85, green: 0.47, blue: 0.34))
+                // 新規セッション開始（操作モードのときだけ）
+                if controlMode {
+                    NavigationLink(value: "__new__") {
+                        Label("新規セッション", systemImage: "plus.circle.fill")
+                            .font(.headline)
+                            .foregroundStyle(Color(red: 0.85, green: 0.47, blue: 0.34))
+                    }
                 }
                 ForEach(model.sessions) { session in
                     NavigationLink(value: session.id) {
@@ -98,6 +102,8 @@ struct WatchSessionDetailView: View {
     @State private var showCommandPicker = false
     /// 複数質問・複数選択(multiSelect)のときの選択状態。質問のインデックス → 選んだ選択肢
     @State private var selections: [Int: Set<String>] = [:]
+    /// 操作モード。オフのあいだは送信系の UI を出さない（既定オフ）
+    @AppStorage(controlModeKey) private var controlMode = false
 
     private var session: WatchModel.Session? {
         model.sessions.first { $0.id == sessionId }
@@ -135,18 +141,21 @@ struct WatchSessionDetailView: View {
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Button {
-                            showCommandPicker = true
-                        } label: {
-                            Image(systemName: "terminal")
+                        // コマンド送信・モデル変更は操作モードのときだけ
+                        if controlMode {
+                            Button {
+                                showCommandPicker = true
+                            } label: {
+                                Image(systemName: "terminal")
+                            }
+                            .buttonStyle(.plain)
+                            Button {
+                                showModelPicker = true
+                            } label: {
+                                Image(systemName: "cpu")
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
-                        Button {
-                            showModelPicker = true
-                        } label: {
-                            Image(systemName: "cpu")
-                        }
-                        .buttonStyle(.plain)
                     }
                     .sheet(isPresented: $showModelPicker) {
                         WatchModelPickerView(sessionId: sessionId)
@@ -155,6 +164,8 @@ struct WatchSessionDetailView: View {
                         WatchCommandPickerView(sessionId: sessionId)
                     }
 
+                    // プロンプト送信・質問への回答は操作モードのときだけ出す
+                    if controlMode {
                     // プロンプト送信（音声ディクテーション対応の標準 TextField）
                     HStack(spacing: 4) {
                         TextField("指示を送る…", text: $promptInput)
@@ -252,6 +263,7 @@ struct WatchSessionDetailView: View {
                             }
                         }
                     }
+                    }  // if controlMode（プロンプト送信＋質問回答をまとめて隠す）
 
                     // 直近のやり取り（省略なしの全文）
                     if !session.lastPrompt.isEmpty {

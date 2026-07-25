@@ -76,6 +76,10 @@ struct SendPromptIntent: AppIntent {
         // ショートカットで text に空（「指定入力」の誤配線など）が渡ると、
         // 以前は無言で失敗していた。空ならその場で指示を尋ね直す。
         // session は先に宣言しているので、この再入力は必ずセッション選択の後になる
+        // 操作モードがオフなら実行しない（Mac 上の Claude Code を動かす機能のため）
+        guard isControlModeEnabled else {
+            return .result(dialog: "\(controlModeDisabledMessage)")
+        }
         if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             throw $text.needsValueError("送る指示を入力してください")
         }

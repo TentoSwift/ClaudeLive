@@ -4,13 +4,17 @@ import SwiftUI
 struct SessionsSection: View {
     @EnvironmentObject private var model: AppModel
     @State private var showNewSession = false
+    /// 操作モード。オフのあいだは新規セッション開始も出さない（既定オフ）
+    @AppStorage(controlModeKey) private var controlMode = false
 
     var body: some View {
         Section("Mac のセッション") {
-            Button {
-                showNewSession = true
-            } label: {
-                Label("新規セッション", systemImage: "plus.circle.fill")
+            if controlMode {
+                Button {
+                    showNewSession = true
+                } label: {
+                    Label("新規セッション", systemImage: "plus.circle.fill")
+                }
             }
             if model.remoteSessions.isEmpty {
                 Text("セッションなし（Mac に接続できているか確認）")
@@ -184,6 +188,8 @@ struct SessionDetailView: View {
     @State private var sendingPrompt = false
     /// 複数質問・複数選択(multiSelect)のときの選択状態。質問のインデックス → 選んだ選択肢
     @State private var selections: [Int: Set<String>] = [:]
+    /// 操作モード。オフのあいだは送信系の UI を出さない（既定オフ）
+    @AppStorage(controlModeKey) private var controlMode = false
 
     private var session: AppModel.RemoteSession? {
         model.remoteSessions.first { $0.id == sessionId }
@@ -193,9 +199,13 @@ struct SessionDetailView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 10) {
-                    promptSection
-                    if let session, !session.question.isEmpty {
-                        questionSection(session)
+                    // 操作モードがオフのときは、送っても届かない／届いてほしくない
+                    // 入力欄と回答ボタンを出さない（設定画面でオンにできる）
+                    if controlMode {
+                        promptSection
+                        if let session, !session.question.isEmpty {
+                            questionSection(session)
+                        }
                     }
                     if !loaded {
                         ProgressView()
@@ -226,32 +236,35 @@ struct SessionDetailView: View {
         } ?? "セッション")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    ForEach(ClaudeQuickCommand.allCases) { command in
-                        Button(command.label) {
-                            Task {
-                                _ = await SendCommandIntent.sendCommand(
-                                    sessionId: sessionId, command: command.rawValue)
+            // コマンド送信・モデル変更も操作モードのときだけ
+            if controlMode {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        ForEach(ClaudeQuickCommand.allCases) { command in
+                            Button(command.label) {
+                                Task {
+                                    _ = await SendCommandIntent.sendCommand(
+                                        sessionId: sessionId, command: command.rawValue)
+                                }
                             }
                         }
+                    } label: {
+                        Image(systemName: "terminal")
                     }
-                } label: {
-                    Image(systemName: "terminal")
                 }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    ForEach(ClaudeModelChoice.allCases) { choice in
-                        Button(choice.label) {
-                            Task {
-                                _ = await ChangeModelIntent.changeModel(
-                                    sessionId: sessionId, model: choice.rawValue)
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        ForEach(ClaudeModelChoice.allCases) { choice in
+                            Button(choice.label) {
+                                Task {
+                                    _ = await ChangeModelIntent.changeModel(
+                                        sessionId: sessionId, model: choice.rawValue)
+                                }
                             }
                         }
+                    } label: {
+                        Image(systemName: "cpu")
                     }
-                } label: {
-                    Image(systemName: "cpu")
                 }
             }
         }

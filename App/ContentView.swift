@@ -6,6 +6,11 @@ struct ContentView: View {
     @AppStorage("manualHost") private var manualHost = ""
     /// Mac デーモンが要求する共有シークレット（config.json の authToken）
     @AppStorage(daemonAuthTokenKey) private var daemonToken = ""
+    /// 操作モード。オンにすると指示の送信・質問への回答・コマンド送信ができる。
+    /// 既定オフ（＝閲覧と通知のみ）で、オンにするには Mac 側の設定が要る
+    @AppStorage(controlModeKey) private var controlMode = false
+    @State private var showManualPairing = false
+    @State private var showControlGuide = false
     @State private var path: [String] = []
 
     // ライブアクティビティのタップから開いた質問への回答。
@@ -24,6 +29,7 @@ struct ContentView: View {
                 statusSection
                 SessionsSection()
                 serverSection
+                controlModeSection
                 experimentalSection
                 tokenSection
                 activitiesSection
@@ -114,28 +120,69 @@ struct ContentView: View {
                     Label(name, systemImage: "desktopcomputer")
                 }
             }
-            TextField("手動指定 例: 192.168.1.10:53536", text: $manualHost)
-                .keyboardType(.URL)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-            SecureField("接続トークン", text: $daemonToken)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
             LabeledContent("最終登録", value: model.lastRegistration)
             Button("いま登録する") {
                 model.registerToServer()
+            }
+            Button {
+                showManualPairing = true
+            } label: {
+                Label("通信を使わずに登録する", systemImage: "doc.on.doc")
             }
         } header: {
             Text("Mac との接続")
         } footer: {
             Text("""
                 同じ Wi-Fi 上の Mac（claudelive-daemon）を Bonjour で自動発見し、プッシュ用トークンを登録します。\
-                見つからないときは Mac の IP アドレスを手動指定してください。
+                これができるとライブアクティビティが自動で出るようになります\
+                （更新は APNs 経由なので、以降は Mac に到達できなくても届きます）。
 
-                接続トークンは Mac の `~/.claudelive/config.json` の `authToken` の値です。\
-                デーモンはこのトークンが一致しないリクエストを拒否します\
-                （同じネットワークの第三者に会話を読まれたり、操作されるのを防ぐため）。
+                同じ Wi-Fi に繋げない場合や、ネットワーク越しの通信を避けたい場合は\
+                「通信を使わずに登録する」から、Mac で 1 行実行するだけで登録できます。
                 """)
+        }
+        .sheet(isPresented: $showManualPairing) {
+            ManualPairingView()
+        }
+    }
+
+    /// 操作モード。既定オフで、オンにすると送信系の UI が現れる。
+    /// オンにする前に必要な設定（接続先・トークン）をここに集約する
+    private var controlModeSection: some View {
+        Section {
+            Toggle("操作モード", isOn: $controlMode)
+            Button {
+                showControlGuide = true
+            } label: {
+                Label("操作モードとは / 設定のしかた", systemImage: "info.circle")
+            }
+            if controlMode {
+                TextField("接続先 例: 100.x.x.x（Tailscale の IP）", text: $manualHost)
+                    .keyboardType(.URL)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                SecureField("接続トークン", text: $daemonToken)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                if manualHost.isEmpty || daemonToken.isEmpty {
+                    Label("接続先とトークンの両方が必要です", systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+            }
+        } header: {
+            Text("操作モード（任意）")
+        } footer: {
+            Text("""
+                オンにすると、iPhone から指示の送信・質問への回答・コマンド送信・\
+                新規セッションの開始ができるようになります。
+
+                これは Mac 上の Claude Code を動かす機能です。安全のため既定はオフで、\
+                接続先と接続トークンを設定したときだけ有効になります。
+                """)
+        }
+        .sheet(isPresented: $showControlGuide) {
+            ControlModeGuideView()
         }
     }
 

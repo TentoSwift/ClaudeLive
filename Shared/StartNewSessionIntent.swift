@@ -60,6 +60,10 @@ struct StartNewSessionIntent: AppIntent {
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        // 操作モードがオフなら実行しない（Mac 上の Claude Code を動かす機能のため）
+        guard isControlModeEnabled else {
+            return .result(dialog: "\(controlModeDisabledMessage)")
+        }
         if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             throw $text.needsValueError("最初の指示を入力してください")
         }

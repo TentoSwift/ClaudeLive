@@ -38,6 +38,13 @@ extension WatchLink: WCSessionDelegate {
         }
         let method = message["method"] as? String ?? "GET"
         let bodyData = (message["body"] as? String)?.data(using: .utf8)
+        // 操作モードの判定は iPhone 側で行う。Watch は独立した UserDefaults を
+        // 持つためトグルが同期されず、Watch 側の UI 制御だけでは当てにできない。
+        // 全リクエストがこの中継を通るので、ここで止めれば確実に効く
+        if Self.isControlPath(path), !isControlModeEnabled {
+            replyHandler(["error": "操作モードがオフです（iPhone の ClaudeLive で設定）"])
+            return
+        }
         Task { @MainActor in
             let data = await AppModel.shared.relayRequest(path: path, method: method, bodyData: bodyData)
             if let data, let text = String(data: data, encoding: .utf8) {
@@ -46,5 +53,12 @@ extension WatchLink: WCSessionDelegate {
                 replyHandler(["error": "Mac に届きませんでした"])
             }
         }
+    }
+
+    /// Mac 上の Claude Code を動かす（＝操作モードを要する）エンドポイントか。
+    /// 閲覧系（/sessions・/messages・/projects）は操作モードなしでも通す
+    private static func isControlPath(_ path: String) -> Bool {
+        let controlPaths = ["/prompt", "/command", "/changemodel", "/newsession", "/answer"]
+        return controlPaths.contains { path.hasPrefix($0) }
     }
 }
