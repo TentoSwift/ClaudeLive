@@ -8,7 +8,7 @@ Mac で動いている **Claude Code の状態を iPhone のライブアクテ�
 │   └ hooks ─curl→ claudelive-daemon ─┼─────→│  APNs   │─────→│   └ ライブアクティビティ │
 │              (port 53536, launchd) │      │         │      │     (Dynamic Island) │
 └────────────────────────────────────┘      └─────────┘      └─────────────────────┘
-                 ↑ トークン登録（同一 Wi-Fi / Bonjour: _claudelive._tcp）│
+                 ↑ トークン登録・操作（同一 Wi-Fi の Bonjour、または Tailscale）│
                  └──────────────────────────────────────────────────────┘
 ```
 
@@ -127,6 +127,32 @@ curl -s http://127.0.0.1:53536/status | python3 -m json.tool
 tail -f ~/.claudelive/daemon.log
 ```
 
+### 5. （任意）Tailscale で外出先・モバイル回線から使う
+
+Bonjour は同一 LAN でしか効かないため、Wi-Fi を離れると Mac に到達できず
+セッション一覧の取得や指示の送信ができなくなる（**ライブアクティビティの更新自体は
+APNs 経由なので外出先でも届く** — 届かないのは iPhone → Mac の操作系）。
+
+[Tailscale](https://tailscale.com/) で Mac と iPhone を同じ tailnet に入れると、
+モバイル回線からでも操作できるようになる。
+
+1. Mac と iPhone の両方に Tailscale を入れ、**同じアカウントでログイン**する
+2. Mac 側の設定で **「Allow incoming connections」を有効**にする
+   （オフだと tailnet 内からの接続が全て拒否され、繋がらない）
+3. Mac の Tailscale IP（`100.x.x.x`）を調べる
+
+   ```bash
+   /Applications/Tailscale.app/Contents/MacOS/Tailscale ip -4
+   ```
+
+4. iPhone アプリの「Mac との接続 → 手動指定」にその IP を入力する
+   （ポートは省略可。`100.x.x.x` だけでよい）
+
+アプリは Bonjour・直近の LAN IP・手動指定の3経路を**同時に**試して最初に成功したものを使うので、
+自宅 Wi-Fi では Bonjour、外ではこの手動指定が自動的に効く（切り替え操作は不要）。
+
+⚠️ Tailscale 経由でも**通信は平文 HTTP** のままなので、[セキュリティ](#セキュリティ)も読むこと。
+
 ## 仕組みのメモ
 
 - hooks（SessionStart / UserPromptSubmit / PreToolUse / PostToolUse / Notification / Stop / PreCompact / SessionEnd）が
@@ -178,8 +204,9 @@ tail -f ~/.claudelive/daemon.log
 - **per-activity トークンの登録に iPhone ⇔ Mac の疎通が必要**。
   アクティビティが push-to-start で立ち上がった直後、iOS がアプリをバックグラウンド起動して
   更新用トークンを発行する。これを Mac に届けられないと更新が送れないので、
-  実質「セッション開始時に iPhone が Mac と同じネットワークにいる」ことが前提
-  （その後の update / end は APNs 経由なのでどこにいても届く）
+  セッション開始の時点で **iPhone が Mac に到達できる**必要がある
+  （同一 Wi-Fi、またはセットアップ手順 5 の Tailscale が繋がっていること。
+  その後の update / end は APNs 経由なのでどこにいても届く）
 - push-to-start には OS 側のレート制限（budget）がある。短時間に大量のセッションを
   作ると開始プッシュが抑制されることがある
 - ライブアクティビティは最長 8 時間で OS に終了される
