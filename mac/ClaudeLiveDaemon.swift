@@ -652,7 +652,19 @@ final class Daemon {
 
     private func route(_ request: HTTPRequest, on connection: NWConnection) {
         guard isAuthorized(request, on: connection) else {
-            log("認証されていないリクエストを拒否: \(request.method) \(request.path)")
+            // 「トークン未送信（アプリが古い / 未入力）」と「値が違う」を区別できるようにする
+            let reason: String
+            if let got = request.bearerToken {
+                // 値そのものは出さず、長さと先頭・末尾だけで食い違いを切り分ける
+                let expected = config.authToken ?? ""
+                func fingerprint(_ s: String) -> String {
+                    s.count >= 8 ? "長さ\(s.count) \(s.prefix(4))…\(s.suffix(4))" : "長さ\(s.count) 「\(s)」"
+                }
+                reason = "トークンが一致しない（受信: \(fingerprint(got)) / 期待: \(fingerprint(expected))）"
+            } else {
+                reason = "トークンが送られていない（アプリが未更新か、接続トークン未入力）"
+            }
+            log("認証されていないリクエストを拒否: \(request.method) \(request.path) — \(reason)")
             respond(connection, status: "401 Unauthorized",
                     json: #"{"ok":false,"error":"unauthorized"}"#)
             return
