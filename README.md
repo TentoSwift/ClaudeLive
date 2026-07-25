@@ -28,9 +28,10 @@ Mac で動いている **Claude Code の状態を iPhone のライブアクテ�
 - **スリープ・シャットダウンの即時検知**: 上記の 15 分待ちとは別に、`NSWorkspace` の `willSleepNotification`/`willPowerOffNotification` を監視し、**Mac がスリープ／シャットダウンする瞬間**に全セッションのライブアクティビティを即座に終了させる（`done` 以外の状態が対象）
 - アプリ内の会話表示は **Markdown レンダリング**対応（見出し・箇条書き・番号リスト・コードブロック・引用・強調・インラインコード。表は非対応で段落として表示）
 - アプリから **セッション一覧・会話の閲覧**ができる（同一 Wi-Fi、または Tailscale 経由で外出先からも）
-- **iPhone / Apple Watch からセッションを操作できる**：指示の送信、スラッシュコマンド送信、
-  モデル変更、新規セッションの開始。⚠️ これは Mac 上の Claude Code に任意の指示を実行させる機能なので、
-  必ず[セキュリティ](#セキュリティ)を読んでから使うこと
+- **iPhone / Apple Watch からセッションを操作できる**（**操作モード**・任意・既定オフ）：
+  指示の送信、スラッシュコマンド送信、モデル変更、新規セッションの開始。
+  ⚠️ Mac 上の Claude Code に任意の指示を実行させる機能なので既定では無効。
+  有効にする前に[セキュリティ](#セキュリティ)を読むこと
 - **Claude からの質問（AskUserQuestion）に iPhone から回答できる**：
   質問が来ると選択肢ボタンがライブアクティビティに表示され、タップで回答が Mac へ届く。
   仕組みは hooks の公式 decision 機構のみ — AskUserQuestion の PreToolUse フックをデーモンが
@@ -57,8 +58,9 @@ Mac で動いている **Claude Code の状態を iPhone のライブアクテ�
 | `POST /reset` | トークン・開始フラグを全クリア（表示が壊れたときの脱出口） |
 | `GET /status` | デバッグ用状態 |
 
-`/hook` `/question` を除く全エンドポイントは、**loopback 以外からのアクセスに
-`Authorization: Bearer <authToken>` を要求**する（[セキュリティ](#セキュリティ)参照）。
+**すべてのエンドポイント**が、loopback 以外からのアクセスに
+`Authorization: Bearer <authToken>` を要求する（[セキュリティ](#セキュリティ)参照）。
+`/hook` と `/question` は Claude Code が `127.0.0.1` に投げるので、この免除に該当する。
 
 ## 構成
 
@@ -81,7 +83,7 @@ Mac で動いている **Claude Code の状態を iPhone のライブアクテ�
 
 ### Apple Developer Program に登録していない場合
 
-**ライブアクティビティの自動表示だけは使えませんが、それ以外はすべて使えます。**
+**ライブアクティビティ関連は使えませんが、閲覧と操作は使えます。**
 
 APNs キー（`.p8`）の作成には**有料の Apple Developer Program（年 $99）が必須**で、
 無料の Apple ID（Personal Team）では Push Notifications の capability を
@@ -93,9 +95,8 @@ APNs キー（`.p8`）の作成には**有料の Apple Developer Program（年 $
 | セッション一覧・会話の閲覧 | ✅ 使える |
 | 指示・スラッシュコマンドの送信、モデル変更、新規セッション | ✅ 使える |
 | Apple Watch アプリ | ✅ 使える |
-| ライブアクティビティ（アプリを開いている間） | ⚠️ アプリから手動で開始する形なら可 |
 | **push-to-start**（Claude Code の開始と同時に自動で出る） | ❌ 使えない |
-| **バックグラウンド更新**（アプリを閉じていても更新され続ける） | ❌ 使えない |
+| **ライブアクティビティの更新**（APNs 経由のため） | ❌ 使えない |
 
 無料アカウントで使う場合の変更点：
 
@@ -142,31 +143,39 @@ python3 -c "import json;print(json.load(open('$HOME/.claudelive/config.json'))['
 
 ### 3. iPhone 側
 
-アプリの機能は 2 段階に分かれている：
+`ClaudeLive.xcodeproj` を Xcode で開き（`xed ClaudeLive.xcodeproj`）、実機を選んで Run
+（自動署名。App ID の Push Notifications capability は entitlements から自動で付く）。
+
+アプリの機能は 2 段階に分かれている。**まず 3-a だけ済ませれば表示は動く。**
 
 | | できること | 必要な設定 |
 |---|---|---|
-| **既定** | ライブアクティビティの表示、セッション一覧・会話の閲覧 | 登録（下記）だけ |
-| **操作モード**（任意・既定オフ） | 指示の送信、質問への回答、コマンド送信、モデル変更、新規セッション | 接続先 + 接続トークン |
+| **既定** | ライブアクティビティの表示、セッション一覧・会話の閲覧 | 3-a の登録だけ |
+| **操作モード**（任意・既定オフ） | 指示の送信、質問への回答、コマンド送信、モデル変更、新規セッション | 3-b の接続先 + トークン |
 
-操作モードは Mac 上の Claude Code を実際に動かすため、既定ではオフになっている。
-アプリの「操作モード → 操作モードとは / 設定のしかた」に、手順の説明が入っている。
+#### 3-a. 登録（ライブアクティビティを出すのに必要）
 
-
-`ClaudeLive.xcodeproj` を Xcode で開く（`xed ClaudeLive.xcodeproj`）。
-実機を選んで Run（自動署名。App ID の Push Notifications capability は entitlements から自動で付く）。
-
-**登録**（ライブアクティビティを出すのに必要）:
-アプリを開くと Bonjour で Mac を自動発見してプッシュ用トークンを登録する（「登録成功」表示を確認）。
+アプリを開くと Bonjour で Mac を自動発見し、プッシュ用トークンを登録する
+（「登録成功」表示を確認）。
 
 同じ Wi-Fi に繋げない場合や、ネットワーク越しの通信を避けたい場合は
 「**通信を使わずに登録する**」を使う。表示されたコマンドをコピーして Mac のターミナルで
-実行するだけで登録できる（デーモンの `/register` は loopback からなら認証不要のため）。
+実行するだけで登録できる（`/register` は loopback からなら認証不要なため）。
 同じ Apple ID なら、iPhone でコピーしてそのまま Mac に貼り付けられる。
 
-**操作モード**（指示の送信などを使う場合のみ）:
-アプリの「操作モード」をオンにし、**接続先**（Tailscale の IP など）と
-**接続トークン**（手順 2 で控えた `authToken`）を入力する。
+> 登録は一度成功すれば `~/.claudelive/tokens.json` に保存される。
+> 以降のライブアクティビティは APNs 経由なので、Mac に到達できない場所でも届く。
+
+#### 3-b. 操作モード（指示の送信などを使う場合のみ）
+
+Mac 上の Claude Code を実際に動かす機能なので、**既定はオフ**。使うには：
+
+1. アプリの「操作モード」をオンにする
+2. **接続先** に Mac のアドレスを入れる（Tailscale の IP 推奨。手順 5 参照）
+3. **接続トークン** に手順 2 で控えた `authToken` を貼り付ける
+
+アプリ内の「操作モードとは / 設定のしかた」に同じ手順とセキュリティ上の注意が入っているので、
+README を見なくても設定できる。
 
 ### 4. 動作確認
 
@@ -178,6 +187,9 @@ curl -s http://127.0.0.1:53536/status | python3 -m json.tool
 # ログ
 tail -f ~/.claudelive/daemon.log
 ```
+
+> `~/.claudelive/` には launchd が拾った `daemon.stdout.log` / `daemon.stderr.log` も
+> できるが、こちらは**バッファされて遅れる**ので追いかけるなら `daemon.log` を見ること。
 
 ### 5. （任意）Tailscale で外出先・モバイル回線から使う
 
@@ -197,7 +209,7 @@ APNs 経由なので外出先でも届く** — 届かないのは iPhone → Ma
    /Applications/Tailscale.app/Contents/MacOS/Tailscale ip -4
    ```
 
-4. iPhone アプリの「Mac との接続 → 手動指定」にその IP を入力する
+4. iPhone アプリの「操作モード」をオンにし、**接続先**にその IP を入力する
    （ポートは省略可。`100.x.x.x` だけでよい）
 
 アプリは Bonjour・直近の LAN IP・手動指定の3経路を**同時に**試して最初に成功したものを使うので、
@@ -229,7 +241,8 @@ APNs 経由なので外出先でも届く** — 届かないのは iPhone → Ma
 
 - **loopback (127.0.0.1) は免除** — Claude Code の hooks が `curl` で叩くため
 - **それ以外（LAN / Tailscale）はトークン必須** — 無い・違う場合は `401 Unauthorized`
-- iPhone 側はアプリの「Mac との接続 → 接続トークン」に同じ値を入力する
+- iPhone 側はアプリの「操作モード → 接続トークン」に同じ値を入力する
+  （閲覧だけなら Bonjour 経由の登録で足りるので、トークンの入力は要らない）
 
 トークンを変えたいときは `config.json` の `authToken` を書き換えて
 `launchctl kickstart -k gui/$(id -u)/com.tento.claudelive` で再起動する。
@@ -248,8 +261,9 @@ APNs 経由なので外出先でも届く** — 届かないのは iPhone → Ma
 正しいトークンを持っていても LAN 側からは一切繋がらなくなるので、
 信頼できない Wi-Fi（カフェ・学内など）に繋ぐ端末ではこちらを推奨。
 
-**前提**: iPhone アプリの「手動指定」に Mac の Tailscale IP が入っていること。
+**前提**: iPhone アプリの「操作モード → 接続先」に Mac の Tailscale IP が入っていること。
 Bonjour が止まるため、これが未設定だとアプリから到達できなくなる。
+初回登録だけは「通信を使わずに登録する」（セットアップ手順 3）で済ませられる。
 
 ### 残っている弱点
 
@@ -288,3 +302,8 @@ Bonjour が止まるため、これが未設定だとアプリから到達でき
 | `APNs 400 BadDeviceToken` | `apnsEnvironment` とアプリの配布経路（Xcode= development）が一致しているか |
 | 開始は出るが更新されない | アプリの「実行中のライブアクティビティ」で鍵アイコンが緑か（per-activity トークン登録済みか） |
 | hooks が発火していない | `~/.claude/settings.json` の hooks 設定と `daemon.log` を確認 |
+| アプリから繋がらない（登録失敗・一覧が空） | `daemon.log` に「認証されていないリクエストを拒否」が出ていないか。理由が併記される（トークン未送信＝アプリ側未入力／不一致＝値の間違い） |
+| 同上・ログに「許可されない接続元を切断」 | `tailscaleOnly` が有効。Tailscale 経由で繋ぐか、設定を外す |
+| 送信欄やコマンドのボタンが出ない | 操作モードがオフ。アプリの設定でオンにする（既定はオフ） |
+| Watch から送ると「操作モードがオフです」 | iPhone 側の操作モードがオフ。Watch は iPhone 経由で中継するため iPhone の設定が効く |
+| 指示を送っても Mac に入力されない | Mac がロックされていないか（ロック中は `claude -p --resume` に自動で切り替わる）。`daemon.log` に「キー入力失敗」が出ていればアクセシビリティ権限を再付与する |
