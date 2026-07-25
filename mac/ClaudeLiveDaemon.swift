@@ -68,6 +68,11 @@ struct Config: Codable {
     /// 初回起動時に自動生成して config.json に書き戻す（既存 config にも追記される）。
     /// loopback (127.0.0.1) からのリクエストは Claude Code の hooks 用に免除する
     var authToken: String?
+    /// true にすると loopback と Tailscale (100.64.0.0/10) 以外からの接続を
+    /// トークン検証より前に切断し、Bonjour の広告も止める。
+    /// 信頼できない Wi-Fi（カフェ・学内など）に繋ぐ端末で LAN 側の攻撃面をなくす用途。
+    /// 既存 config との互換のため Optional（未設定なら false = 従来どおり LAN も許可）
+    var tailscaleOnly: Bool?
 
     static let template = Config(
         teamId: "APPLE_TEAM_ID_HERE",
@@ -77,7 +82,10 @@ struct Config: Codable {
         apnsEnvironment: "development",
         port: 53536,
         questionHoldSeconds: 60,
-        authToken: nil)
+        authToken: nil,
+        tailscaleOnly: false)
+
+    var isTailscaleOnly: Bool { tailscaleOnly ?? false }
 
     var questionHold: TimeInterval { TimeInterval(questionHoldSeconds ?? 60) }
 
@@ -470,6 +478,8 @@ final class Daemon {
     private var sessions: [String: SessionState] = [:]
     private var listener: NWListener?
     private var connections: [ObjectIdentifier: NWConnection] = [:]
+    /// 直近にログした接続元。同じアドレスの連投でログを埋めないため
+    private var lastLoggedRemote: String?
     private let macName = Host.current().localizedName ?? "Mac"
 
     /// 更新プッシュの最小間隔（PreToolUse の連打をまとめる）
@@ -524,7 +534,13 @@ final class Daemon {
             log("ポート \(config.port) で待ち受けできません: \(error)")
             exit(1)
         }
-        listener.service = NWListener.Service(name: macName, type: "_claudelive._tcp")
+        // Tailscale 限定モードでは LAN に自分の存在を広告しない
+        // （Bonjour は同一 LAN 専用なので、この設定では役に立たない）
+        if config.isTailscaleOnly {
+            log("Tailscale 限定モード: loopback と 100.64.0.0/10 以外からの接続を拒否し、Bonjour 広告も行いません")
+        } else {
+            listener.service = NWListener.Service(name: macName, type: "_claudelive._tcp")
+        }
         listener.newConnectionHandler = { [weak self] connection in
             self?.accept(connection)
         }
@@ -544,7 +560,53 @@ final class Daemon {
         }
     }
 
+    /// 接続元アドレスを文字列で得る。
+    /// accept 直後は connection.start() 前で currentPath がまだ nil のことがあるため、
+    /// listener が渡してくる connection.endpoint も見る（受信接続では相手側が入る）
+    private static func remoteHostText(_ connection: NWConnection) -> String? {
+        let candidates: [NWEndpoint?] = [connection.currentPath?.remoteEndpoint, connection.endpoint]
+        for case let .hostPort(host, _)? in candidates {
+            let text: String
+            switch host {
+            case .ipv4(let addr): text = "\(addr)"
+            case .ipv6(let addr): text = "\(addr)"
+            default: text = "\(host)"
+            }
+            // "100.64.1.2%en0" のようにスコープ ID が付くことがあるので落とす
+            return text.components(separatedBy: "%").first ?? text
+        }
+        return nil
+    }
+
+    /// Tailscale (100.64.0.0/10 の CGNAT レンジ) からの接続か。
+    /// Tailscale はこのレンジを自分の tailnet 専用に使う
+    private static func isTailscaleAddress(_ connection: NWConnection) -> Bool {
+        guard let plain = remoteHostText(connection) else { return false }
+        let parts = plain.split(separator: ".")
+        guard parts.count == 4, parts[0] == "100",
+              let second = Int(parts[1]) else { return false }
+        return (64...127).contains(second)
+    }
+
     private func accept(_ connection: NWConnection) {
+        // Tailscale 限定モードでは、トークン検証にも進ませず接続段階で切る。
+        // これで LAN 側からは（ポートスキャンで見えても）何も引き出せない
+        if config.isTailscaleOnly,
+           !Self.isLoopback(connection), !Self.isTailscaleAddress(connection) {
+            let from = connection.currentPath?.remoteEndpoint.map { "\($0)" } ?? "?"
+            log("Tailscale 限定モード: 許可されない接続元を切断: \(from)")
+            connection.cancel()
+            return
+        }
+        // 接続元を控えておく（Tailscale 限定モードに切り替えて大丈夫かの判断材料）。
+        // loopback は hooks が大量に来るので出さない
+        if !Self.isLoopback(connection), let from = Self.remoteHostText(connection) {
+            let kind = Self.isTailscaleAddress(connection) ? "Tailscale" : "LAN"
+            if from != lastLoggedRemote {
+                lastLoggedRemote = from
+                log("接続元: \(from) (\(kind))")
+            }
+        }
         let key = ObjectIdentifier(connection)
         connections[key] = connection
         var buffer = Data()
@@ -619,17 +681,9 @@ final class Daemon {
     /// 接続元が同一マシン（loopback）か。Claude Code の hooks は
     /// 127.0.0.1 宛ての curl なので、そこだけトークンを免除する
     private static func isLoopback(_ connection: NWConnection) -> Bool {
-        guard case let .hostPort(host, _)? = connection.currentPath?.remoteEndpoint else {
-            return false
-        }
-        switch host {
-        case .ipv4(let addr): return addr.isLoopback
-        case .ipv6(let addr): return addr.isLoopback
-        default:
-            // 名前で来た場合は文字列で判定（スコープ ID が付くことがある）
-            let text = "\(host)".components(separatedBy: "%").first ?? "\(host)"
-            return text == "127.0.0.1" || text == "::1" || text == "localhost"
-        }
+        guard let text = remoteHostText(connection) else { return false }
+        return text == "127.0.0.1" || text == "::1" || text == "localhost"
+            || text.hasPrefix("127.")
     }
 
     /// LAN / Tailscale からのリクエストに共有シークレットを要求する。

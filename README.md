@@ -182,13 +182,29 @@ APNs 経由なので外出先でも届く** — 届かないのは iPhone → Ma
 トークンを変えたいときは `config.json` の `authToken` を書き換えて
 `launchctl kickstart -k gui/$(id -u)/com.tento.claudelive` で再起動する。
 
+### Tailscale 限定モード（推奨）
+
+`config.json` に `"tailscaleOnly": true` を入れて再起動すると、
+**loopback と Tailscale (100.64.0.0/10) 以外からの接続を、トークン検証より前に切断**する。
+あわせて Bonjour の広告も止める（LAN 専用の仕組みなのでこのモードでは無意味なため）。
+
+```jsonc
+// ~/.claudelive/config.json
+{ "tailscaleOnly": true }
+```
+
+正しいトークンを持っていても LAN 側からは一切繋がらなくなるので、
+信頼できない Wi-Fi（カフェ・学内など）に繋ぐ端末ではこちらを推奨。
+
+**前提**: iPhone アプリの「手動指定」に Mac の Tailscale IP が入っていること。
+Bonjour が止まるため、これが未設定だとアプリから到達できなくなる。
+
 ### 残っている弱点
 
 - **通信は平文 HTTP**（TLS なし）。APNs への送信だけが HTTPS。
   同一ネットワークで通信を傍受できる相手には、会話の内容とトークンが見える。
-  信頼できないネットワーク（カフェ・学内 Wi-Fi など）では **Tailscale 経由のみで使い、
-  LAN 側からは触らせない**運用が望ましい
-- **待ち受けは全インターフェース**（loopback 限定ではない）。さらに Bonjour で
+  Tailscale 経由なら WireGuard で暗号化されるため、上記の限定モードを使うとこの弱点も緩和される
+- `tailscaleOnly` が false のときは**全インターフェースで待ち受け**、さらに Bonjour で
   `_claudelive._tcp` として自分の存在を LAN に広告している
 - `.p8` 秘密鍵と APNs トークンは `~/.claudelive/` に平文で置かれる
 
