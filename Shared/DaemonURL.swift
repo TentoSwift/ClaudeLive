@@ -44,9 +44,19 @@ func normalizedManualHostPort(_ raw: String) -> String {
 ///   - Bonjour サービス名へ直接接続（IP に依存しない最も確実な経路。同一 LAN 限定）
 ///   - 直近成功した LAN の IP（lastDaemonURL）
 ///   - 手動指定（Tailscale の IP など。Wi-Fi 外からの唯一の経路になりうる）
+/// Mac デーモンが要求する共有シークレット（Mac の ~/.claudelive/config.json の
+/// authToken と同じ値）。アプリの設定画面で入力して保存する。
+/// これが一致しないとデーモンは 401 を返す（loopback からの hooks だけは免除）
+let daemonAuthTokenKey = "daemonAuthToken"
+
+var daemonAuthToken: String {
+    UserDefaults.standard.string(forKey: daemonAuthTokenKey) ?? ""
+}
+
 func daemonRequest(path: String, method: String = "GET", body: Data? = nil,
                     timeout: TimeInterval = 5) async -> Data? {
     let defaults = UserDefaults.standard
+    let token = daemonAuthToken
 
     var urls: [URL] = []
     if let saved = defaults.string(forKey: "lastDaemonURL"),
@@ -67,7 +77,8 @@ func daemonRequest(path: String, method: String = "GET", body: Data? = nil,
         if let serviceName {
             group.addTask {
                 guard let raw = await requestOverBonjourService(
-                    name: serviceName, path: path, method: method, body: body, timeout: timeout)
+                    name: serviceName, path: path, method: method, body: body,
+                    timeout: timeout, token: token)
                 else { return nil }
                 return httpResponseBody(raw)
             }
@@ -76,6 +87,9 @@ func daemonRequest(path: String, method: String = "GET", body: Data? = nil,
             group.addTask {
                 var request = URLRequest(url: url, timeoutInterval: timeout)
                 request.httpMethod = method
+                if !token.isEmpty {
+                    request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+                }
                 if let body {
                     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
                     request.httpBody = body
@@ -103,7 +117,8 @@ func daemonRequestOK(path: String, method: String = "POST", body: Data? = nil) a
 /// Bonjour サービスエンドポイントへ TCP 接続して素の HTTP/1.1 を話す
 /// （IP 解決を Network.framework に任せられるので、IP が変わっていても確実に届く）
 private func requestOverBonjourService(name: String, path: String, method: String,
-                                        body: Data?, timeout: TimeInterval) async -> Data? {
+                                        body: Data?, timeout: TimeInterval,
+                                        token: String) async -> Data? {
     let endpoint = NWEndpoint.service(name: name, type: "_claudelive._tcp", domain: "local", interface: nil)
     return await withCheckedContinuation { continuation in
         let queue = DispatchQueue(label: "claudelive.daemonrequest")
@@ -136,6 +151,9 @@ private func requestOverBonjourService(name: String, path: String, method: Strin
             switch state {
             case .ready:
                 var request = Data("\(method) \(path) HTTP/1.1\r\nHost: claudelive\r\nConnection: close\r\n".utf8)
+                if !token.isEmpty {
+                    request.append(Data("Authorization: Bearer \(token)\r\n".utf8))
+                }
                 if let body {
                     request.append(Data(
                         "Content-Type: application/json\r\nContent-Length: \(body.count)\r\n\r\n".utf8))

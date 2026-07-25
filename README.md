@@ -27,8 +27,10 @@ Mac で動いている **Claude Code の状態を iPhone のライブアクテ�
 - **接続断の自動検知**: `working`/`compacting` のまま 15 分フックが届かなければ（ネットワーク断・Claude Code のクラッシュ等）、Mac 側から能動的にライブアクティビティを終了させる。長時間のビルド等を誤検知しないよう余裕を持たせている
 - **スリープ・シャットダウンの即時検知**: 上記の 15 分待ちとは別に、`NSWorkspace` の `willSleepNotification`/`willPowerOffNotification` を監視し、**Mac がスリープ／シャットダウンする瞬間**に全セッションのライブアクティビティを即座に終了させる（`done` 以外の状態が対象）
 - アプリ内の会話表示は **Markdown レンダリング**対応（見出し・箇条書き・番号リスト・コードブロック・引用・強調・インラインコード。表は非対応で段落として表示）
-- アプリから **セッション一覧・会話の閲覧（読み取り専用）** を確認できる（同一 Wi-Fi 時のみ）。
-  セッションへの自由な返信・書き込みはできない（安全のため意図的に非搭載）
+- アプリから **セッション一覧・会話の閲覧**ができる（同一 Wi-Fi、または Tailscale 経由で外出先からも）
+- **iPhone / Apple Watch からセッションを操作できる**：指示の送信、スラッシュコマンド送信、
+  モデル変更、新規セッションの開始。⚠️ これは Mac 上の Claude Code に任意の指示を実行させる機能なので、
+  必ず[セキュリティ](#セキュリティ)を読んでから使うこと
 - **Claude からの質問（AskUserQuestion）に iPhone から回答できる**：
   質問が来ると選択肢ボタンがライブアクティビティに表示され、タップで回答が Mac へ届く。
   仕組みは hooks の公式 decision 機構のみ — AskUserQuestion の PreToolUse フックをデーモンが
@@ -46,9 +48,17 @@ Mac で動いている **Claude Code の状態を iPhone のライブアクテ�
 | `GET /sessions` | 対話セッション一覧（`~/.claude/sessions` レジストリ + フック状態のマージ） |
 | `GET /messages?session=<id>&limit=N` | transcript JSONL から会話テキストを抽出（読み取り専用） |
 | `POST /question` | AskUserQuestion の PreToolUse フック専用。iPhone 回答待ちで保留 |
-| `POST /answer` | iPhone の回答ボタン（App Intent）からの `{sessionId, answer, pass}` |
+| `POST /answer` | iPhone の回答ボタン（App Intent）からの `{sessionId, answers, pass}` |
+| `POST /prompt` | **セッションに指示を送る**（画面ロック中は `claude -p --resume`、通常は Claude アプリへキー入力） |
+| `POST /command` | **スラッシュコマンドを送る**（`/compact` など） |
+| `POST /changemodel` | **モデルを変更**（`/model <id>` の送信） |
+| `POST /newsession` | **新規セッションを開始**（指定 cwd で `claude -p`） |
+| `GET /projects` | 新規セッションを開始できるプロジェクト（過去に使った cwd）一覧 |
 | `POST /reset` | トークン・開始フラグを全クリア（表示が壊れたときの脱出口） |
 | `GET /status` | デバッグ用状態 |
+
+`/hook` `/question` を除く全エンドポイントは、**loopback 以外からのアクセスに
+`Authorization: Bearer <authToken>` を要求**する（[セキュリティ](#セキュリティ)参照）。
 
 ## 構成
 
@@ -84,17 +94,26 @@ Mac で動いている **Claude Code の状態を iPhone のライブアクテ�
 cd ClaudeLive/mac && ./install.sh
 ```
 
-その後 `~/.claudelive/config.json` の `keyId` を実際の Key ID に書き換え、デーモンを再起動：
+その後 `~/.claudelive/config.json` の `teamId` / `keyId` を実際の値に書き換え、デーモンを再起動：
 
 ```bash
 launchctl kickstart -k gui/$(id -u)/com.tento.claudelive
+```
+
+`authToken` は初回起動時に自動生成される。次の手順で使うので控えておく：
+
+```bash
+python3 -c "import json;print(json.load(open('$HOME/.claudelive/config.json'))['authToken'])"
 ```
 
 ### 3. iPhone 側
 
 `ClaudeLive.xcodeproj` を Xcode で開く（`xed ClaudeLive.xcodeproj`）。
 実機を選んで Run（自動署名。App ID の Push Notifications capability は entitlements から自動で付く）。
-アプリを開くと Bonjour で Mac を自動発見してトークンを登録する（「登録成功」表示を確認）。
+
+アプリの「Mac との接続」で、**接続トークン**に上で控えた `authToken` を入力する
+（これが無いとデーモンに 401 で弾かれる）。
+Bonjour で Mac を自動発見してトークンを登録する（「登録成功」表示を確認）。
 見つからない場合は Mac の IP を手動指定。
 
 ### 4. 動作確認
@@ -118,6 +137,41 @@ tail -f ~/.claudelive/daemon.log
   **2001-01-01 基準の秒数**で送る（`timeIntervalSinceReferenceDate`）
 - `apnsEnvironment` は Xcode から入れたビルドなら `development`（サンドボックス）、
   TestFlight / App Store 配布なら `production`。**環境が合わないと `BadDeviceToken` になる**
+
+## セキュリティ
+
+このデーモンは **Mac 上の Claude Code を操作できる API** を持つ。Claude Code は設定次第で
+ファイル書き込みやシェル実行を行うため、**この API に到達できる＝その Mac でほぼ任意の操作ができる**
+と考えて扱うこと。
+
+### 認証
+
+`~/.claudelive/config.json` の `authToken`（初回起動時に自動生成、`chmod 600`）による
+共有シークレット認証がある。
+
+- **loopback (127.0.0.1) は免除** — Claude Code の hooks が `curl` で叩くため
+- **それ以外（LAN / Tailscale）はトークン必須** — 無い・違う場合は `401 Unauthorized`
+- iPhone 側はアプリの「Mac との接続 → 接続トークン」に同じ値を入力する
+
+トークンを変えたいときは `config.json` の `authToken` を書き換えて
+`launchctl kickstart -k gui/$(id -u)/com.tento.claudelive` で再起動する。
+
+### 残っている弱点
+
+- **通信は平文 HTTP**（TLS なし）。APNs への送信だけが HTTPS。
+  同一ネットワークで通信を傍受できる相手には、会話の内容とトークンが見える。
+  信頼できないネットワーク（カフェ・学内 Wi-Fi など）では **Tailscale 経由のみで使い、
+  LAN 側からは触らせない**運用が望ましい
+- **待ち受けは全インターフェース**（loopback 限定ではない）。さらに Bonjour で
+  `_claudelive._tcp` として自分の存在を LAN に広告している
+- `.p8` 秘密鍵と APNs トークンは `~/.claudelive/` に平文で置かれる
+
+### デーモンが Mac 上で行う操作
+
+- `osascript` でクリップボードの読み書き、Claude アプリの前面化、⌘V / Enter のキー入力
+  （そのためアクセシビリティ権限が必要）
+- `claude -p` / `claude -p --resume` のプロセス起動
+- `~/.claude/` 配下の transcript / セッションレジストリの読み取り
 
 ## 制約・注意
 

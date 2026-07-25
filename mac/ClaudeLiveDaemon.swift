@@ -64,30 +64,58 @@ struct Config: Codable {
     /// この間 Mac 側には質問が表示されない（タイムアウトで通常表示に戻る）。
     /// 既存 config との互換のため Optional（未設定なら 60 秒）
     var questionHoldSeconds: Int?
+    /// LAN / Tailscale からのリクエストに要求する共有シークレット。
+    /// 初回起動時に自動生成して config.json に書き戻す（既存 config にも追記される）。
+    /// loopback (127.0.0.1) からのリクエストは Claude Code の hooks 用に免除する
+    var authToken: String?
 
     static let template = Config(
-        teamId: "LV3H7Q68W6",
+        teamId: "APPLE_TEAM_ID_HERE",
         keyId: "APNS_KEY_ID_HERE",
         p8Path: "~/.claudelive/AuthKey.p8",
         bundleId: "com.tento.ClaudeLive",
         apnsEnvironment: "development",
         port: 53536,
-        questionHoldSeconds: 60)
+        questionHoldSeconds: 60,
+        authToken: nil)
 
     var questionHold: TimeInterval { TimeInterval(questionHoldSeconds ?? 60) }
 
-    static func load() -> Config {
-        try? FileManager.default.createDirectory(at: baseDir, withIntermediateDirectories: true)
-        if let data = try? Data(contentsOf: configPath),
-           let config = try? JSONDecoder().decode(Config.self, from: data) {
-            return config
-        }
+    /// 暗号学的に安全な乱数から 32 文字の 16 進トークンを作る
+    /// （Swift の SystemRandomNumberGenerator は Apple 環境では CSPRNG）
+    static func generateAuthToken() -> String {
+        (0..<16).map { _ in String(format: "%02x", UInt8.random(in: 0...255)) }.joined()
+    }
+
+    func save() {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try? (try? encoder.encode(template))?.write(to: configPath)
-        log("config.json が無かったのでテンプレートを作成しました: \(configPath.path)")
-        log("APNs キー ID と .p8 のパスを設定してください")
-        return template
+        guard let data = try? encoder.encode(self) else { return }
+        try? data.write(to: configPath)
+        // 秘密情報なので本人だけが読めるようにする
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600],
+                                               ofItemAtPath: configPath.path)
+    }
+
+    static func load() -> Config {
+        try? FileManager.default.createDirectory(at: baseDir, withIntermediateDirectories: true)
+        var config: Config
+        if let data = try? Data(contentsOf: configPath),
+           let loaded = try? JSONDecoder().decode(Config.self, from: data) {
+            config = loaded
+        } else {
+            config = template
+            log("config.json が無かったのでテンプレートを作成しました: \(configPath.path)")
+            log("APNs キー ID と .p8 のパスを設定してください")
+        }
+        // 認証トークンが未設定（旧バージョンからの移行を含む）なら生成して保存
+        if (config.authToken ?? "").isEmpty {
+            config.authToken = generateAuthToken()
+            log("認証トークンを生成しました。iPhone アプリの「接続トークン」に入力してください:")
+            log("    \(config.authToken ?? "")")
+        }
+        config.save()
+        return config
     }
 
     var apnsHost: String {
@@ -548,6 +576,8 @@ final class Daemon {
         var method: String
         var path: String
         var body: Data
+        /// Authorization: Bearer <token> の値（無ければ nil）
+        var bearerToken: String?
     }
 
     private static func parseHTTP(_ data: Data) -> HTTPRequest? {
@@ -559,15 +589,23 @@ final class Daemon {
         let parts = lines[0].components(separatedBy: " ")
         guard parts.count >= 2 else { return nil }
         var contentLength = 0
+        var bearerToken: String?
         for line in lines.dropFirst() {
             let kv = line.split(separator: ":", maxSplits: 1)
-            if kv.count == 2, kv[0].lowercased() == "content-length" {
-                contentLength = Int(kv[1].trimmingCharacters(in: .whitespaces)) ?? 0
+            guard kv.count == 2 else { continue }
+            let name = kv[0].lowercased()
+            let value = kv[1].trimmingCharacters(in: .whitespaces)
+            if name == "content-length" {
+                contentLength = Int(value) ?? 0
+            } else if name == "authorization", value.lowercased().hasPrefix("bearer ") {
+                bearerToken = String(value.dropFirst("bearer ".count))
+                    .trimmingCharacters(in: .whitespaces)
             }
         }
         let body = data[headerEnd.upperBound...]
         guard body.count >= contentLength else { return nil }
-        return HTTPRequest(method: parts[0], path: parts[1], body: Data(body.prefix(contentLength)))
+        return HTTPRequest(method: parts[0], path: parts[1],
+                           body: Data(body.prefix(contentLength)), bearerToken: bearerToken)
     }
 
     private func respond(_ connection: NWConnection, status: String = "200 OK",
@@ -578,7 +616,47 @@ final class Daemon {
         })
     }
 
+    /// 接続元が同一マシン（loopback）か。Claude Code の hooks は
+    /// 127.0.0.1 宛ての curl なので、そこだけトークンを免除する
+    private static func isLoopback(_ connection: NWConnection) -> Bool {
+        guard case let .hostPort(host, _)? = connection.currentPath?.remoteEndpoint else {
+            return false
+        }
+        switch host {
+        case .ipv4(let addr): return addr.isLoopback
+        case .ipv6(let addr): return addr.isLoopback
+        default:
+            // 名前で来た場合は文字列で判定（スコープ ID が付くことがある）
+            let text = "\(host)".components(separatedBy: "%").first ?? "\(host)"
+            return text == "127.0.0.1" || text == "::1" || text == "localhost"
+        }
+    }
+
+    /// LAN / Tailscale からのリクエストに共有シークレットを要求する。
+    /// これが無いと、同一ネットワークの第三者が認証なしで会話を読んだり
+    /// /prompt や /newsession で Claude Code に任意の指示を実行させられる
+    private func isAuthorized(_ request: HTTPRequest, on connection: NWConnection) -> Bool {
+        if Self.isLoopback(connection) { return true }
+        guard let expected = config.authToken, !expected.isEmpty else {
+            // トークン未設定（生成に失敗した異常時）は安全側に倒して拒否する
+            return false
+        }
+        guard let provided = request.bearerToken else { return false }
+        // タイミング攻撃を避けるため長さと内容を定数時間で比較する
+        let a = Array(provided.utf8), b = Array(expected.utf8)
+        guard a.count == b.count else { return false }
+        var diff: UInt8 = 0
+        for i in 0..<a.count { diff |= a[i] ^ b[i] }
+        return diff == 0
+    }
+
     private func route(_ request: HTTPRequest, on connection: NWConnection) {
+        guard isAuthorized(request, on: connection) else {
+            log("認証されていないリクエストを拒否: \(request.method) \(request.path)")
+            respond(connection, status: "401 Unauthorized",
+                    json: #"{"ok":false,"error":"unauthorized"}"#)
+            return
+        }
         let (path, query) = Self.splitQuery(request.path)
         switch (request.method, path) {
         case ("GET", "/sessions"):

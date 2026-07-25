@@ -4,6 +4,8 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject private var model: AppModel
     @AppStorage("manualHost") private var manualHost = ""
+    /// Mac デーモンが要求する共有シークレット（config.json の authToken）
+    @AppStorage(daemonAuthTokenKey) private var daemonToken = ""
     @State private var path: [String] = []
 
     // ライブアクティビティのタップから開いた質問への回答。
@@ -116,6 +118,9 @@ struct ContentView: View {
                 .keyboardType(.URL)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
+            SecureField("接続トークン", text: $daemonToken)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
             LabeledContent("最終登録", value: model.lastRegistration)
             Button("いま登録する") {
                 model.registerToServer()
@@ -123,7 +128,14 @@ struct ContentView: View {
         } header: {
             Text("Mac との接続")
         } footer: {
-            Text("同じ Wi-Fi 上の Mac（claudelive-daemon）を Bonjour で自動発見し、プッシュ用トークンを登録します。見つからないときは Mac の IP アドレスを手動指定してください。")
+            Text("""
+                同じ Wi-Fi 上の Mac（claudelive-daemon）を Bonjour で自動発見し、プッシュ用トークンを登録します。\
+                見つからないときは Mac の IP アドレスを手動指定してください。
+
+                接続トークンは Mac の `~/.claudelive/config.json` の `authToken` の値です。\
+                デーモンはこのトークンが一致しないリクエストを拒否します\
+                （同じネットワークの第三者に会話を読まれたり、操作されるのを防ぐため）。
+                """)
         }
     }
 

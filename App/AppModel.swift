@@ -203,8 +203,16 @@ final class AppModel: ObservableObject {
             }
             if let url = manualURL(path: path) {
                 group.addTask {
-                    try? await URLSession.shared.data(
-                        for: URLRequest(url: url, timeoutInterval: 5)).0
+                    var request = URLRequest(url: url, timeoutInterval: 5)
+                    if !daemonAuthToken.isEmpty {
+                        request.setValue("Bearer \(daemonAuthToken)",
+                                         forHTTPHeaderField: "Authorization")
+                    }
+                    // ステータスコードを見ないと 401 の本文を「成功」として返してしまい、
+                    // 並行して走っている正しい経路の結果を打ち消してしまう
+                    guard let (data, response) = try? await URLSession.shared.data(for: request),
+                          (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+                    return data
                 }
             }
             for await result in group {
@@ -324,6 +332,9 @@ final class AppModel: ObservableObject {
                     var request = URLRequest(url: url, timeoutInterval: 8)
                     request.httpMethod = method
                     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    if !daemonAuthToken.isEmpty {
+                        request.setValue("Bearer \(daemonAuthToken)", forHTTPHeaderField: "Authorization")
+                    }
                     request.httpBody = bodyData
                     guard let (data, response) = try? await URLSession.shared.data(for: request),
                           (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
@@ -547,6 +558,11 @@ final class AppModel: ObservableObject {
                     }
                     var request = Data(
                         "\(method) \(path) HTTP/1.1\r\nHost: claudelive\r\nConnection: close\r\n".utf8)
+                    // デーモンは LAN / Tailscale からのリクエストに共有シークレットを要求する
+                    let token = daemonAuthToken
+                    if !token.isEmpty {
+                        request.append(Data("Authorization: Bearer \(token)\r\n".utf8))
+                    }
                     if let body {
                         request.append(Data(
                             "Content-Type: application/json\r\nContent-Length: \(body.count)\r\n\r\n".utf8))
@@ -584,6 +600,9 @@ final class AppModel: ObservableObject {
         var request = URLRequest(url: url, timeoutInterval: 5)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if !daemonAuthToken.isEmpty {
+            request.setValue("Bearer \(daemonAuthToken)", forHTTPHeaderField: "Authorization")
+        }
         request.httpBody = body
         guard let (_, response) = try? await URLSession.shared.data(for: request),
               let http = response as? HTTPURLResponse else { return false }
