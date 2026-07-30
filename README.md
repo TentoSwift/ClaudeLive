@@ -1,5 +1,30 @@
 # ClaudeLive
 
+> **English summary** — full documentation below is in Japanese.
+>
+> Shows the status of **Claude Code running on your Mac** on your **iPhone Live Activity**
+> (Dynamic Island / Lock Screen): working / waiting for permission / waiting for input / done,
+> the running tool, elapsed time, and the latest prompt and reply.
+> A Mac daemon receives Claude Code hooks and pushes updates via APNs, so updates arrive
+> anywhere — no need to stay on the same network. There is also an Apple Watch app.
+>
+> Optionally (**off by default**), a "control mode" lets you send prompts, answer Claude's
+> questions, run slash commands, change the model, and start new sessions from the phone.
+>
+> **Requirements**: macOS, iOS 18+ (watchOS 11+ for the Watch app), and a
+> **paid Apple Developer Program** membership
+> (an APNs `.p8` key is required for Live Activities). With a free Apple ID you can still
+> browse sessions and use control mode, but Live Activities will not work — see
+> [the Japanese section on free accounts](#apple-developer-program-に登録していない場合).
+>
+> **Security, please read**: the daemon exposes an API that can *drive Claude Code on your
+> Mac*, which can write files and run shell commands. It is protected by a shared secret
+> (`authToken`, auto-generated), but **traffic is plain HTTP with no TLS**. Prefer the
+> `tailscaleOnly` mode, which refuses any connection that is not loopback or Tailscale.
+> Details in [セキュリティ](#セキュリティ).
+>
+> Not affiliated with or endorsed by Anthropic. MIT licensed.
+
 Mac で動いている **Claude Code の状態を iPhone のライブアクティビティ**（Dynamic Island / ロック画面）に表示するアプリ。
 
 ```
