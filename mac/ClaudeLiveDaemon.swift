@@ -2046,11 +2046,25 @@ final class Daemon {
         ]
     }
 
+    /// 複数セッションが同時にライブアクティビティを持つとき、iOS が
+    /// Dynamic Island に出す1つを選ぶのに使うスコア。
+    ///
+    /// 以前は working が default（0.5）に落ちていて done と同点、しかも
+    /// waiting（0.8）より低かった。SessionStart は status を waiting にするため、
+    /// 「始まっただけで何もしていないセッション」が実際に作業中のものを
+    /// 押しのけて表示される状態だった。
+    ///
+    /// 意図した順位は「ユーザーの操作を待っているもの > 進行中のもの > 済んだもの」。
+    /// default に頼らず全ステータスを明示し、新しい状態を足したときに
+    /// 黙って間違ったスコアにならないようにしている
     private func relevance(for session: SessionState) -> Double {
         switch session.status {
-        case "permission", "question": return 1.0
-        case "waiting": return 0.8
-        default: return 0.5
+        case "question": return 1.0      // 回答しないと Claude が進めない
+        case "permission": return 0.95   // 許可を待っている
+        case "working", "compacting": return 0.8  // 進行中＝いちばん見たいもの
+        case "done": return 0.5          // 終わっている（返答は読む価値がある）
+        case "waiting": return 0.3       // 何も起きていない（セッション開始直後など）
+        default: return 0.4
         }
     }
 
