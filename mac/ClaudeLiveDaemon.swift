@@ -891,6 +891,11 @@ final class Daemon {
         var list: [[String: Any]] = []
         for (sessionId, entry) in registry where entry.kind == "interactive" {
             let session = sessions[sessionId]
+            // in-memory の lastPrompt は UserPromptSubmit フックでしか埋まらないため、
+            // デーモン再起動直後などまだ空のときは transcript から復元する
+            // （呼ぶのはここで足りないときだけ＝毎回 transcript を読むわけではない）
+            let lastPrompt = (session?.lastPrompt).flatMap { $0.isEmpty ? nil : $0 }
+                ?? latestUserPrompt(forSessionId: sessionId) ?? ""
             list.append([
                 "sessionId": sessionId,
                 "name": entry.name,
@@ -902,7 +907,7 @@ final class Daemon {
                 "toolCount": session?.toolCount ?? 0,
                 "startedAt": Int((session?.startedAt ?? Date()).timeIntervalSince1970),
                 "hasActivityToken": tokens.hasActivityToken(for: sessionId),
-                "lastPrompt": session?.lastPrompt ?? "",
+                "lastPrompt": lastPrompt,
                 "lastResponse": session?.lastResponse ?? "",
                 "question": session?.question ?? "",
                 "options": session?.options ?? [],
@@ -1032,6 +1037,56 @@ final class Daemon {
             if !text.isEmpty { return (text, latestModel) }
         }
         return (nil, latestModel)
+    }
+
+    /// transcript 末尾から直近のユーザー発言（実際のプロンプト文）を拾う。
+    /// `session.lastPrompt` は UserPromptSubmit フックでのみ埋まる in-memory な値
+    /// なので、デーモン再起動後にまだそのセッションへ一度もプロンプトを送っていない
+    /// 間は空のまま——その間 ClaudeSessionEntity の表示名が `title` も空なので
+    /// ランダムな内部名（"claud-9b" 等）まで落ち、ショートカットのセッション選択で
+    /// 「どれが今の会話か分からない」原因になっていた。sessionsJSON からのフォール
+    /// バック用に、必要になった時だけ transcript を読んで直近の発言を復元する
+    private func latestUserPrompt(forSessionId sessionId: String) -> String? {
+        guard let path = transcriptPath(for: sessionId),
+              let handle = FileHandle(forReadingAtPath: path) else { return nil }
+        defer { try? handle.close() }
+        // ツール実行の多いセッションだと直近のやり取りが tool_result で埋まり、
+        // 64KB 程度では実際のプロンプト文まで遡れないことがある。messagesJSON と
+        // 同じ 2MB を使う（このフォールバックは in-memory が空のときだけ呼ばれるので、
+        // 毎 tick 発生する処理ではない）
+        let maxBytes: UInt64 = 2 * 1024 * 1024
+        let size = (try? handle.seekToEnd()) ?? 0
+        let offset = size > maxBytes ? size - maxBytes : 0
+        try? handle.seek(toOffset: offset)
+        let data = (try? handle.readToEnd()) ?? Data()
+        var lines = data.split(separator: UInt8(ascii: "\n"))
+        if offset > 0, !lines.isEmpty { lines.removeFirst() }
+
+        for line in lines.reversed() {
+            guard let obj = (try? JSONSerialization.jsonObject(with: Data(line))) as? [String: Any],
+                  obj["type"] as? String == "user",
+                  obj["isSidechain"] as? Bool != true,
+                  obj["isMeta"] as? Bool != true,
+                  let message = obj["message"] as? [String: Any] else { continue }
+            var text = ""
+            if let content = message["content"] as? String {
+                text = content
+            } else if let content = message["content"] as? [[String: Any]] {
+                text = content.compactMap { item in
+                    (item["type"] as? String) == "text" ? item["text"] as? String : nil
+                }.joined(separator: "\n")
+            }
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            // tool_result のみの行やシステム的な行は messagesJSON と同じ基準で除く。
+            // 加えて、コンテキスト圧縮時に自動挿入される要約継続メッセージも、
+            // ユーザーが実際に打った文言ではないので除外する
+            guard !trimmed.isEmpty, !trimmed.hasPrefix("<"),
+                  !trimmed.hasPrefix("[Request interrupted"),
+                  !trimmed.hasPrefix("This session is being continued from a previous conversation")
+            else { continue }
+            return Self.truncate(trimmed, 180)
+        }
+        return nil
     }
 
     private func transcriptPath(for sessionId: String) -> String? {
