@@ -373,6 +373,14 @@ final class SessionState {
     var status = "waiting"
     var detail = "セッション開始"
     var currentTool = ""
+    /// currentTool の PreToolUse を受け取った時刻。PostToolUse が来ないまま
+    /// これが古くなっていくと「許可ダイアログで止まっている」推定に使う
+    var toolStartedAt = Date()
+    /// 直近の PreToolUse が報告した permission_mode。
+    /// bypassPermissions / acceptEdits のときは許可を求められないので推定しない
+    var permissionMode = ""
+    /// 許可待ちの推定を既に通知したか（同じ停止で何度も push しないため）
+    var permissionGuessed = false
     /// 直近に使ったツール名。currentTool と違い PostToolUse で空にしない。
     /// 完了時、最後に使ったツールのチェックマーク付きアイコンを出すのに使う
     var lastTool = ""
@@ -1775,6 +1783,9 @@ final class Daemon {
             session.question = ""
             session.options = []
             session.currentTool = toolName
+            session.toolStartedAt = Date()
+            session.permissionMode = json["permission_mode"] as? String ?? ""
+            session.permissionGuessed = false
             session.lastTool = toolName
             session.toolCount += 1
             let line = Self.toolLogLine(
@@ -1786,12 +1797,20 @@ final class Daemon {
             // 反映する（transcript の非同期書き込みにより 1 手遅れになることがある）
             let turn = latestAssistantTurn(forSessionId: session.id)
             if let text = turn.text, text != session.lastResponse {
-                session.lastResponse = Self.truncate(text, 300)
+                session.lastResponse = Self.truncateResponse(text, 300)
                 markTextChanged(session)
             }
 
         case "PostToolUse":
             session.currentTool = ""
+            // ツールが動き出した＝許可されたので、推定した許可待ち表示を解除する
+            if session.permissionGuessed {
+                session.permissionGuessed = false
+                if session.status == "permission" {
+                    session.status = "working"
+                    session.detail = ""
+                }
+            }
             // Mac 側で質問に回答された（保留素通し後）ケースの後片付け
             if (json["tool_name"] as? String) == "AskUserQuestion" {
                 session.status = "working"
@@ -1893,21 +1912,55 @@ final class Daemon {
         return flattened.count <= max ? flattened : String(flattened.prefix(max)) + "…"
     }
 
+    /// Markdown の表（パイプ記法）を含むか。
+    /// 「パイプを含む行の次が区切り行（|---|）」が現れることを条件にする。
+    /// iOS 側 MarkdownTable.segments の判定と揃えてあるので、
+    /// ここで真になった本文は必ず iOS 側でも表として描ける
+    private static func containsMarkdownTable(_ text: String) -> Bool {
+        let lines = text.components(separatedBy: "\n")
+        guard lines.count >= 2 else { return false }
+        for index in 0..<(lines.count - 1) {
+            guard lines[index].contains("|") else { continue }
+            var separator = lines[index + 1].trimmingCharacters(in: .whitespaces)
+            guard separator.contains("|") else { continue }
+            if separator.hasPrefix("|") { separator.removeFirst() }
+            if separator.hasSuffix("|") { separator.removeLast() }
+            let cells = separator.components(separatedBy: "|")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+            guard !cells.isEmpty else { continue }
+            if cells.allSatisfy({ cell in
+                !cell.isEmpty && cell.allSatisfy { $0 == "-" || $0 == ":" || $0 == " " }
+            }) {
+                return true
+            }
+        }
+        return false
+    }
+
+    /// 返答テキスト用の切り詰め。
+    /// 通常は truncate と同じく改行を空白に潰す（ライブアクティビティの
+    /// 1 行マーキー表示が改行で崩れるため）。ただし表を含むときだけは改行を
+    /// 保持する——潰すとヘッダ行と区切り行が繋がって表として描けなくなる
+    private static func truncateResponse(_ text: String, _ max: Int) -> String {
+        guard containsMarkdownTable(text) else { return truncate(text, max) }
+        return text.count <= max ? text : String(text.prefix(max)) + "…"
+    }
+
     /// Stop フックの `last_assistant_message` から返答テキストを取り出す。
     /// ドキュメントに厳密な型の記載がないため、素の文字列と
     /// `{text:...}` / `{content:[{text:...}]}` 形の両方を受け付ける。
     private static func extractLastResponse(_ json: [String: Any]) -> String? {
         guard let raw = json["last_assistant_message"] else { return nil }
         if let text = raw as? String {
-            return text.isEmpty ? nil : truncate(text, 300)
+            return text.isEmpty ? nil : truncateResponse(text, 300)
         }
         if let obj = raw as? [String: Any] {
             if let text = obj["text"] as? String {
-                return truncate(text, 300)
+                return truncateResponse(text, 300)
             }
             if let content = obj["content"] as? [[String: Any]] {
                 let text = content.compactMap { $0["text"] as? String }.joined(separator: " ")
-                return text.isEmpty ? nil : truncate(text, 300)
+                return text.isEmpty ? nil : truncateResponse(text, 300)
             }
         }
         return nil
@@ -2131,12 +2184,64 @@ final class Daemon {
 
     private func startWatchdog() {
         let timer = DispatchSource.makeTimerSource(queue: queue)
-        timer.schedule(deadline: .now() + 60, repeating: 60)
+        // 許可待ちの推定は数秒で気づきたいので短い間隔で回す。
+        // 接続断の判定（15分）は毎回やる必要がないので回数を数えて間引く
+        var tick = 0
+        timer.schedule(deadline: .now() + 2, repeating: 2)
         timer.setEventHandler { [weak self] in
-            self?.checkForDisconnectedSessions()
+            guard let self else { return }
+            self.checkForPendingPermission()
+            tick += 1
+            if tick >= 30 {  // 2秒 × 30 = 60秒ごと
+                tick = 0
+                self.checkForDisconnectedSessions()
+            }
         }
         timer.resume()
         watchdogTimer = timer
+    }
+
+    // MARK: 許可待ちの推定
+
+    /// 本来は一瞬で終わるツール。これらが止まっていれば許可ダイアログの可能性が高い。
+    /// Bash / WebFetch / Task は正当に何分もかかることがあるので対象外にしている
+    /// （ビルドやテストの実行中を「許可待ち」と誤表示しないため）
+    private let instantTools: Set<String> = [
+        "Write", "Edit", "NotebookEdit", "Read", "Grep", "Glob", "WebSearch",
+    ]
+
+    /// PreToolUse からこの時間 PostToolUse が来なければ許可待ちと推定する
+    private let permissionGuessDelay: TimeInterval = 4
+
+    /// Claude Code は許可ダイアログを出すときフックを発火しない（Notification
+    /// フックは実測で一度も飛ばなかった）。そのため「一瞬で終わるはずのツールの
+    /// PreToolUse が来たのに PostToolUse が来ない」ことから許可待ちを推定する。
+    ///
+    /// あくまで推定なので、detail に「可能性」と書いて断定しない。
+    /// permission_mode が bypassPermissions / acceptEdits のときは
+    /// そもそも許可を求められないので推定しない
+    private func checkForPendingPermission() {
+        let now = Date()
+        for session in sessions.values.sorted(by: { $0.id < $1.id }) {
+            guard session.status == "working",
+                  !session.permissionGuessed,
+                  instantTools.contains(session.currentTool),
+                  session.permissionMode != "bypassPermissions",
+                  session.permissionMode != "acceptEdits",
+                  now.timeIntervalSince(session.toolStartedAt) > permissionGuessDelay
+            else { continue }
+
+            session.permissionGuessed = true
+            session.status = "permission"
+            session.detail = "\(session.currentTool) の許可を求められている可能性があります"
+            log("許可待ちと推定 (tool=\(session.currentTool) mode=\(session.permissionMode)): "
+                + "\(session.id.prefix(8))")
+            sync(session, alert: [
+                "title": "\(session.projectName): 許可待ちかもしれません",
+                "body": session.detail,
+                "sound": "default",
+            ])
+        }
     }
 
     private func checkForDisconnectedSessions() {

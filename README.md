@@ -46,6 +46,18 @@ Mac で動いている **Claude Code の状態を iPhone のライブアクテ�
   （[Kyome22/AnimationLimitBreaker](https://github.com/Kyome22/AnimationLimitBreaker) を移植。原理は `Widget/Animation/FrameAnimation.swift` のコメント参照）。
   **1周流したら静止表示に切り替わり**、新しいテキストが来ると再び1周流れる。
   ウィジェット側は時間経過を自力監視できないため、この切り替え判断は Mac 側デーモンがタイマー（`marqueeSettleDelay`, 既定2.6秒）で行い、専用の軽い push で伝える
+- **許可待ちの検知は推定（ヒューリスティック）**。Claude Code は許可ダイアログを出すとき
+  フックを発火しない（`Notification` フックは実測で一度も飛ばなかった）ため、
+  「一瞬で終わるはずのツールの `PreToolUse` が来たのに `PostToolUse` が 4 秒来ない」
+  ことから推定している。誤検知を抑えるため、
+  - 対象は本来即座に終わるツールのみ（`Write` / `Edit` / `NotebookEdit` / `Read` / `Grep` / `Glob` / `WebSearch`）。
+    `Bash` は正当に何分もかかるので対象外（ビルド中を「許可待ち」と誤表示しないため）
+  - `permission_mode` が `bypassPermissions` / `acceptEdits` のときは推定しない
+  - 表示は「〜の許可を求められている可能性があります」と断定しない書き方にしている
+  - `PostToolUse` が届いた（＝許可された）時点で表示を戻す
+
+  ⚠️ 承認そのものは iPhone からできない。フックが発火しないため公式の decision 機構が使えず、
+  キー入力での代行は Mac がロック中に動かないため採用していない
 - 許可待ち・入力待ち・完了時はアラート付きプッシュ（サウンドあり）。
   **入力待ちはライブアクティビティを残さない**——通知だけ送って終了し、次に実際のやり取り
   （UserPromptSubmit）があるまで再表示しない（許可待ちは引き続き表示され続ける）
