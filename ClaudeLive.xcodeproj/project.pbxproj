@@ -11,7 +11,10 @@
 		CB00000000000000000000A2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A2 /* ContentView.swift */; };
 		CB00000000000000000000A3 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A3 /* AppModel.swift */; };
 		CB00000000000000000000A4 /* ClaudeActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A4 /* ClaudeActivityAttributes.swift */; };
+
+		CB000000000000000BD00 /* MarkdownTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000BD0 /* MarkdownTable.swift */; };
 		CB00000000000000000000A5 /* ClaudeActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A4 /* ClaudeActivityAttributes.swift */; };
+		CB000000000000000BD10 /* MarkdownTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000BD0 /* MarkdownTable.swift */; };
 		CB00000000000000000000A6 /* ClaudeLiveWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A5 /* ClaudeLiveWidgetBundle.swift */; };
 		CB00000000000000000000A7 /* ClaudeLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A6 /* ClaudeLiveActivityWidget.swift */; };
 		CB00000000000000000000A8 /* ClaudeLiveWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000B0 /* ClaudeLiveWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -148,6 +151,8 @@
 		CA00000000000000000000A2 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		CA00000000000000000000A3 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		CA00000000000000000000A4 /* ClaudeActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeActivityAttributes.swift; sourceTree = "<group>"; };
+
+		CA00000000000000000BD0 /* MarkdownTable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownTable.swift; sourceTree = "<group>"; };
 		CA00000000000000000000A5 /* ClaudeLiveWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLiveWidgetBundle.swift; sourceTree = "<group>"; };
 		CA00000000000000000000A6 /* ClaudeLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLiveActivityWidget.swift; sourceTree = "<group>"; };
 		CA00000000000000000000A7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -225,6 +230,7 @@
 			isa = PBXGroup;
 			children = (
 				CA00000000000000000000A4 /* ClaudeActivityAttributes.swift */,
+				CA00000000000000000BD0 /* MarkdownTable.swift */,
 				CA00000000000000000000AC /* AnswerIntent.swift */,
 				CA00000000000000000009A0 /* DaemonURL.swift */,
 				CA00000000000000000008A0 /* SendPromptIntent.swift */,
@@ -496,6 +502,7 @@
 				CB00000000000000000000A9 /* SessionsView.swift in Sources */,
 				CB00000000000000000000AB /* MarkdownText.swift in Sources */,
 				CB00000000000000000000A4 /* ClaudeActivityAttributes.swift in Sources */,
+				CB000000000000000BD00 /* MarkdownTable.swift in Sources */,
 				CB00000000000000000000AC /* AnswerIntent.swift in Sources */,
 				CB00000000000000000009A0 /* DaemonURL.swift in Sources */,
 				CB00000000000000000008A0 /* SendPromptIntent.swift in Sources */,
@@ -520,6 +527,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CB00000000000000000000A5 /* ClaudeActivityAttributes.swift in Sources */,
+				CB000000000000000BD10 /* MarkdownTable.swift in Sources */,
 				CB00000000000000000000AD /* AnswerIntent.swift in Sources */,
 				CB00000000000000000009A1 /* DaemonURL.swift in Sources */,
 				CB00000000000000000007A1 /* OpenAppIntent.swift in Sources */,

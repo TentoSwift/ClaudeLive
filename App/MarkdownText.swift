@@ -26,6 +26,7 @@ struct MarkdownText: View {
         case numbered([String])
         case quote(String)
         case divider
+        case table(MarkdownTable)
     }
 
     static func parse(_ text: String) -> [Block] {
@@ -36,6 +37,8 @@ struct MarkdownText: View {
         var numbers: [String] = []
         var quotes: [String] = []
         var inCode = false
+        /// 表として消費した行の次の位置。ここより前の行は読み飛ばす
+        var consumedUpTo = 0
 
         func flush() {
             if !paragraph.isEmpty {
@@ -56,8 +59,35 @@ struct MarkdownText: View {
             }
         }
 
-        for rawLine in text.components(separatedBy: "\n") {
+        let allLines = text.components(separatedBy: "\n")
+        var lineIndex = -1
+        for rawLine in allLines {
+            lineIndex += 1
+            // 表はヘッダ行の位置でまとめて消費するので、消費済みの行は読み飛ばす
+            if lineIndex < consumedUpTo { continue }
             let line = rawLine.trimmingCharacters(in: .whitespaces)
+
+            // コードブロックの中でなければ、表の開始（ヘッダ + 区切り行）を探す
+            if !inCode, line.contains("|") {
+                let next = lineIndex + 1 < allLines.count
+                    ? allLines[lineIndex + 1].trimmingCharacters(in: .whitespaces) : ""
+                if MarkdownTable.isSeparator(next) {
+                    flush()
+                    var cursor = lineIndex + 2
+                    var rows: [[String]] = []
+                    while cursor < allLines.count {
+                        let row = allLines[cursor].trimmingCharacters(in: .whitespaces)
+                        guard !row.isEmpty, row.contains("|"),
+                              !MarkdownTable.isSeparator(row) else { break }
+                        rows.append(MarkdownTable.splitRow(row))
+                        cursor += 1
+                    }
+                    blocks.append(.table(MarkdownTable(
+                        headers: MarkdownTable.splitRow(line), rows: rows)))
+                    consumedUpTo = cursor
+                    continue
+                }
+            }
 
             if line.hasPrefix("```") {
                 if inCode {
@@ -188,6 +218,15 @@ struct MarkdownText: View {
 
         case .divider:
             Divider()
+
+        case .table(let table):
+            // アプリ内は領域に余裕があるので、列も行も削らずセルは折り返す
+            MarkdownTableView(
+                table: table,
+                maxColumns: max(table.columnCount, 1),
+                maxRows: max(table.rows.count, 1),
+                font: .caption,
+                cellLineLimit: 4)
         }
     }
 

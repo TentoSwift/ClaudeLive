@@ -148,10 +148,8 @@ struct ClaudeLiveActivityWidget: Widget {
                                 }
                                 HStack(alignment: .top, spacing: 6) {
                                     ReplyIcon(size: 24, color: Color.claudeBrand, status: status, changeTrigger: context.state.lastResponse)
-                                    Text(styledMarkdown(context.state.lastResponse))
-                                        .font(.footnote)
+                                    ResponseBodyView(text: context.state.lastResponse, lineLimit: 10)
                                         .foregroundStyle(.primary)
-                                        .lineLimit(10)
                                 }
                             } else {
                                 // プロンプトと返答、両方あれば両方表示する（完了時も入力を残す）
@@ -170,10 +168,8 @@ struct ClaudeLiveActivityWidget: Widget {
                                         // 完了時、16文字以上の返答はマーキーにせず2行まで折り返す
                                         HStack(alignment: .top, spacing: 6) {
                                             ReplyIcon(size: 24, color: Color.claudeBrand, status: status, changeTrigger: context.state.lastResponse)
-                                            Text(styledMarkdown(context.state.lastResponse))
-                                                .font(.footnote)
+                                            ResponseBodyView(text: context.state.lastResponse, lineLimit: 2)
                                                 .foregroundStyle(.primary)
-                                                .lineLimit(2)
                                         }
                                     } else {
                                         // マーキーは 1 行なのでアイコンは中央揃え（.top だと浮く）
@@ -538,10 +534,8 @@ private struct LockScreenView: View {
                     }
                     HStack(alignment: .top, spacing: 6) {
                         ReplyIcon(size: 26, color: Color.claudeBrand, status: status, changeTrigger: context.state.lastResponse)
-                        Text(styledMarkdown(context.state.lastResponse))
-                            .font(.footnote)
+                        ResponseBodyView(text: context.state.lastResponse, lineLimit: 10)
                             .foregroundStyle(.primary)
-                            .lineLimit(10)
                     }
                 } else {
                     // 直近のやり取り: ユーザー入力 → Claude の返答
@@ -561,10 +555,8 @@ private struct LockScreenView: View {
                             // 完了時、16文字以上の返答はマーキーにせず2行まで折り返す
                             HStack(alignment: .top, spacing: 6) {
                                 ReplyIcon(size: 26, color: Color.claudeBrand, status: status, changeTrigger: context.state.lastResponse)
-                                Text(styledMarkdown(context.state.lastResponse))
-                                    .font(.footnote)
+                                ResponseBodyView(text: context.state.lastResponse, lineLimit: 2)
                                     .foregroundStyle(.primary)
-                                    .lineLimit(2)
                             }
                         } else {
                             HStack(alignment: .center, spacing: 6) {
