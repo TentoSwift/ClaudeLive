@@ -103,22 +103,19 @@ struct ClaudeLiveActivityWidget: Widget {
                         // 内容の表示に最大限スペースを譲る
                         EmptyView()
                     } else {
-                        VStack(spacing: 2) {
-                            // セッション名（"claud-9b" のような自動生成の内部名）は
-                            // 見て意味が取れず狭い DI の幅を食うだけなので出さない
-                            Text(context.attributes.projectName)
-                                .font(.caption.bold())
-                                .lineLimit(1)
-                            HStack(spacing: 4) {
-                                Text(status.label)
-                                    .font(.caption2)
-                                    .foregroundStyle(status.color)
-                                if !context.state.currentTool.isEmpty {
-                                    Text(context.state.currentTool)
-                                        .font(.caption2.monospaced())
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-                                }
+                        // DI では何のセッションかを示す行（プロジェクト名 "Claud" や
+                        // "claud-9b" のような自動生成のセッション名）を出さない。
+                        // 狭い幅を食うわりに読み取れる情報が少ないため、
+                        // 状態と実行中ツールだけにする（識別はロック画面側にある）
+                        HStack(spacing: 4) {
+                            Text(status.label)
+                                .font(.caption2)
+                                .foregroundStyle(status.color)
+                            if !context.state.currentTool.isEmpty {
+                                Text(context.state.currentTool)
+                                    .font(.caption2.monospaced())
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
                             }
                         }
                     }
