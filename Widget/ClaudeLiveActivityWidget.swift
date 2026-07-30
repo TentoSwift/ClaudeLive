@@ -104,9 +104,9 @@ struct ClaudeLiveActivityWidget: Widget {
                         EmptyView()
                     } else {
                         VStack(spacing: 2) {
-                            Text(context.state.sessionName.isEmpty
-                                 ? context.attributes.projectName
-                                 : "\(context.attributes.projectName) · \(context.state.sessionName)")
+                            // セッション名（"claud-9b" のような自動生成の内部名）は
+                            // 見て意味が取れず狭い DI の幅を食うだけなので出さない
+                            Text(context.attributes.projectName)
                                 .font(.caption.bold())
                                 .lineLimit(1)
                             HStack(spacing: 4) {
