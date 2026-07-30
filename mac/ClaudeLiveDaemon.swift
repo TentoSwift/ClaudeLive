@@ -1672,6 +1672,16 @@ final class Daemon {
 
         switch event {
         case "SessionStart":
+            // SessionStart は新規起動時だけでなく、既存セッションに対しても飛ぶ
+            // （/clear・/compact・resume のほか、デーモン自身が画面ロック中に使う
+            // `claude -p --resume` でも発火する）。それを無条件に waiting へ
+            // 落としていたため、作業中なのに「入力待ち」と表示される不具合があった。
+            // 進行中の状態は上書きしない
+            if session.status == "working" || session.status == "compacting" {
+                log("作業中のため SessionStart を無視 (source=\(json["source"] as? String ?? "?")): "
+                    + "\(sessionId.prefix(8))")
+                return
+            }
             session.status = "waiting"
             session.detail = "セッション開始"
 
