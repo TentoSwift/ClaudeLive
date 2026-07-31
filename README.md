@@ -85,7 +85,11 @@ Mac で動いている **Claude Code の状態を iPhone のライブアクテ�
   最大 `questionHoldSeconds`（既定 60 秒。`config.json` で変更可）保留し、iPhone のボタン（App Intent）からの回答を
   `permissionDecision: deny` + 理由として返すと、Claude はそれを回答として続行する。
   タイムアウトか「Macで回答する」ボタンで即座に通常の Mac 表示に戻る。
-  ⚠️ 保留中は Mac 側に質問が出ない（最大でその秒数待たされる）trade-off がある。
+  保留中は Claude Desktop 本来の質問 UI（チャット内の選択肢カード）は出ないが、
+  **その代わりにデーモンが選択肢ダイアログを Mac に表示する**ので、Mac からも待たずに
+  回答できる（選べば iPhone のボタンと同じ扱い、キャンセルすれば即座に素通しして
+  Claude Desktop の質問 UI に切り替わる）。
+  ⚠️ ダイアログもライブアクティビティも無視した場合のみ、タイムアウトまで待たされる。
   ⚠️ `questionHoldSeconds` を延ばすときは、`~/.claude/settings.json` の質問フックの
   `-m`（curl のタイムアウト）と `timeout`（Claude Code 側の打ち切り）**より短くすること**。
   どちらかが先に切れると、デーモンがまだ回答を待っている最中でも Claude が先に進んでしまう
