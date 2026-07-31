@@ -64,6 +64,12 @@ struct Config: Codable {
     /// この間 Mac 側には質問が表示されない（タイムアウトで通常表示に戻る）。
     /// 既存 config との互換のため Optional（未設定なら 60 秒）
     var questionHoldSeconds: Int?
+    /// マーキーを何周流してから静止表示に切り替えるか（周回数）。
+    /// ウィジェットは時間経過を自力で監視できないため、この判断は Mac 側が
+    /// タイマーで肩代わりし、静止に切り替える push を送っている。
+    /// 増やすと同じ文章が複数回流れるので、長文を読み逃したときに拾いやすい。
+    /// 未設定なら 1 周（従来と同じ挙動）
+    var marqueeLoops: Int?
     /// LAN / Tailscale からのリクエストに要求する共有シークレット。
     /// 初回起動時に自動生成して config.json に書き戻す（既存 config にも追記される）。
     /// loopback (127.0.0.1) からのリクエストは Claude Code の hooks 用に免除する
@@ -82,12 +88,22 @@ struct Config: Codable {
         apnsEnvironment: "development",
         port: 53536,
         questionHoldSeconds: 60,
+        marqueeLoops: nil,
         authToken: nil,
         tailscaleOnly: false)
 
     var isTailscaleOnly: Bool { tailscaleOnly ?? false }
 
     var questionHold: TimeInterval { TimeInterval(questionHoldSeconds ?? 60) }
+
+    /// マーキーを静止に切り替えるまでの秒数。
+    /// ループ長は 2 秒固定（特殊フォントの明滅周期に依存しているため変えられない）。
+    /// push の往復ぶん少し余裕を持たせないと最後の一周が途中で切れるので +0.6 する。
+    /// 極端な値で永久に流れ続けないよう 1〜10 周に収める
+    var marqueeSettleDelay: TimeInterval {
+        let loops = min(max(marqueeLoops ?? 1, 1), 10)
+        return 2.0 * Double(loops) + 0.6
+    }
 
     /// 暗号学的に安全な乱数から 32 文字の 16 進トークンを作る
     /// （Swift の SystemRandomNumberGenerator は Apple 環境では CSPRNG）
@@ -1614,12 +1630,13 @@ final class Daemon {
     /// 静止段階を解除して1周分アニメさせ、少し待ってから静止表示に切り替える
     /// push を送る。ウィジェット側は時間経過を自力で監視できないため、
     /// この「いつ静止に切り替えるか」の判断は Mac 側が肩代わりする
-    private let marqueeSettleDelay: TimeInterval = 2.6  // ループ長(2秒)より少し長く
+    /// 何周流してから静止させるかは config.json の marqueeLoops で変えられる
+    /// （未設定なら 1 周＝従来どおり）
     private func markTextChanged(_ session: SessionState) {
         session.textSettled = false
         session.settleTimer?.cancel()
         let timer = DispatchSource.makeTimerSource(queue: queue)
-        timer.schedule(deadline: .now() + marqueeSettleDelay)
+        timer.schedule(deadline: .now() + config.marqueeSettleDelay)
         timer.setEventHandler { [weak self] in
             guard let self else { return }
             session.textSettled = true
