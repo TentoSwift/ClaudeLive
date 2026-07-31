@@ -104,6 +104,9 @@ struct WatchSessionDetailView: View {
     @State private var selections: [Int: Set<String>] = [:]
     /// 選択肢に無い答えを質問ごとに書いたもの。質問のインデックス → 入力文字列
     @State private var customAnswers: [Int: String] = [:]
+    /// 最下部（最新）付近を表示中か。下ほど新しい並びなので、上（過去）へ
+    /// スクロールしたときだけ「最下部へ戻る」ボタンを出す判定に使う
+    @State private var isNearBottom = true
     /// 操作モード。オフのあいだは送信系の UI を出さない（既定オフ）
     @AppStorage(controlModeKey) private var controlMode = false
 
@@ -388,6 +391,29 @@ struct WatchSessionDetailView: View {
         }
         .onChange(of: messages.count) { _, _ in
             withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
+        }
+        // 最下部（最新）付近にいるかを監視する。50pt の余裕は、慣性スクロールの
+        // 端の揺れでボタンがちらつかないようにするため
+        .onScrollGeometryChange(for: Bool.self) { geo in
+            geo.contentOffset.y + geo.containerSize.height >= geo.contentSize.height - 50
+        } action: { _, nearBottom in
+            isNearBottom = nearBottom
+        }
+        .toolbar {
+            // 上（過去）へスクロールしたときだけ、最下部（最新）へ戻るボタンを
+            // 画面下中央に出す
+            if !isNearBottom {
+                ToolbarItemGroup(placement: .bottomBar) {
+                    Spacer()
+                    Button {
+                        withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
+                    } label: {
+                        Image(systemName: "arrow.down.to.line")
+                    }
+                    .tint(Color.claudeBrand)
+                    Spacer()
+                }
+            }
         }
         }  // ScrollViewReader
     }
