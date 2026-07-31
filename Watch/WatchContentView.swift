@@ -392,12 +392,17 @@ struct WatchSessionDetailView: View {
         .onChange(of: messages.count) { _, _ in
             withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
         }
-        // 最下部（最新）付近にいるかを監視する。50pt の余裕は、慣性スクロールの
-        // 端の揺れでボタンがちらつかないようにするため
+        // 最下部（最新）付近にいるかを監視する。判定の余裕を画面の高さぶん
+        // 持たせ、少し遡っただけで出ないように（＝表示が始まる位置を上に）する
         .onScrollGeometryChange(for: Bool.self) { geo in
-            geo.contentOffset.y + geo.containerSize.height >= geo.contentSize.height - 50
+            geo.contentOffset.y + geo.containerSize.height
+                >= geo.contentSize.height - geo.containerSize.height
         } action: { _, nearBottom in
-            isNearBottom = nearBottom
+            // withAnimation で状態を変えることで、ツールバーの
+            // 出現・消滅がフェードする
+            withAnimation(.easeInOut(duration: 0.25)) {
+                isNearBottom = nearBottom
+            }
         }
         .toolbar {
             // 上（過去）へスクロールしたときだけ、最下部（最新）へ戻るボタンを
@@ -409,8 +414,11 @@ struct WatchSessionDetailView: View {
                         withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
                     } label: {
                         Image(systemName: "arrow.down.to.line")
+                            .foregroundStyle(Color.claudeBrand)
                     }
-                    .tint(Color.claudeBrand)
+                    // ボタンの背景（すりガラスのカプセル）を消して
+                    // Claude カラーの矢印だけを見せる
+                    .tint(.clear)
                     Spacer()
                 }
             }
