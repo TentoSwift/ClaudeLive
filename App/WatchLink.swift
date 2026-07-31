@@ -48,9 +48,14 @@ extension WatchLink: WCSessionDelegate {
         Task { @MainActor in
             let data = await AppModel.shared.relayRequest(path: path, method: method, bodyData: bodyData)
             if let data, let text = String(data: data, encoding: .utf8) {
-                replyHandler(["data": text])
+                // 操作モードの状態を応答に同乗させて Watch へ同期する。
+                // Watch は iPhone と別の UserDefaults を持つため、これを
+                // 送らないと Watch 側の controlMode は永遠に false のままで、
+                // 質問への回答 UI などが一切表示されない
+                replyHandler(["data": text, "controlMode": isControlModeEnabled])
             } else {
-                replyHandler(["error": "Mac に届きませんでした"])
+                replyHandler(["error": "Mac に届きませんでした",
+                              "controlMode": isControlModeEnabled])
             }
         }
     }

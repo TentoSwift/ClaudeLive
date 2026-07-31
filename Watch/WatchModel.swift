@@ -75,6 +75,12 @@ final class WatchModel: NSObject, ObservableObject {
         return await withCheckedContinuation { continuation in
             WCSession.default.sendMessage(message, replyHandler: { reply in
                 Task { @MainActor in
+                    // iPhone 側の操作モードを UserDefaults へ書き戻す。
+                    // Watch の @AppStorage(controlModeKey) はこれで自動更新され、
+                    // 質問回答・送信系 UI の表示が iPhone の設定に追従する
+                    if let mode = reply["controlMode"] as? Bool {
+                        UserDefaults.standard.set(mode, forKey: controlModeKey)
+                    }
                     let stamp = Date().formatted(date: .omitted, time: .standard)
                     if let text = reply["data"] as? String {
                         self.lastError = nil

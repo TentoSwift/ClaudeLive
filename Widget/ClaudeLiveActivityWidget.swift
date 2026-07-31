@@ -681,28 +681,14 @@ private struct WatchSmallView: View {
                     Text(count > 1 ? "質問 \(count)件" : "質問")
                         .font(.caption2.bold())
                 }
-                if count > 1 {
-                    // 1 問目だけ答えて残りが未回答のまま返る事故を防ぐため、
-                    // 複数質問のときは選択肢を出さない（カードのタップで
-                    // アプリが開き、そこで全問に答えられる）
-                    Text("アプリで回答してください")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                } else {
-                    // Smart Stack の中でも回答できるようにする（アプリを開かなくてよい）
-                    ForEach(Array(context.state.options.prefix(4).enumerated()), id: \.offset) { _, option in
-                        Button(intent: AnswerQuestionIntent(
-                            sessionId: context.attributes.sessionId, answer: option)) {
-                            Text(option)
-                                .font(.caption2.bold())
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.7)
-                                .frame(maxWidth: .infinity)
-                        }
-                        .tint(Color.claudeBrand)
-                    }
-                }
+                // Smart Stack では単一質問でも選択肢を出さない。
+                // カードのタップで Watch アプリが開き、そこで回答する
+                // （選択肢の全文や自由入力はアプリでしか扱えないため、
+                // 狭いカードに切り詰めたボタンを並べるより一貫していて誤答も防げる）
+                Text("アプリで回答してください")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             } else {
                 if !context.state.currentTool.isEmpty {
                     Text(context.state.currentTool)
