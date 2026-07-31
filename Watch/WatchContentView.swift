@@ -284,8 +284,10 @@ struct WatchSessionDetailView: View {
                             Text(message.role == "user" ? "あなた" : "Claude")
                                 .font(.caption2.bold())
                                 .foregroundStyle(.secondary)
-                            Text(message.text)
-                                .font(.footnote)
+                            // 素の Text だと表がパイプの羅列、見出しが "## " のまま
+                            // 出てしまうので、iPhone 側と同じ Markdown 描画にする。
+                            // compact は Watch の狭い横幅に表を詰めるため
+                            MarkdownText(text: message.text, compact: true)
                         }
                         .padding(.bottom, 3)
                     }

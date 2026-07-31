@@ -695,7 +695,10 @@ private struct WatchSmallView: View {
                 // 状態の一言だけでなく、Claude が実際に何を言った/何を頼まれたかを
                 // 一番情報量の多い内容として表示する（返答 > 入力 > detail の優先順）
                 if !context.state.lastResponse.isEmpty {
-                    Text(styled(context.state.lastResponse))
+                    // Smart Stack は 3 行しかないので表は描かない。ただし表を含む
+                    // 返答は改行付きで届くため、素のまま出すとパイプ記法が
+                    // 表示行を埋めてしまう。「（表）」に畳んで文章にスペースを譲る
+                    Text(styled(MarkdownTable.flattenedWithoutTables(context.state.lastResponse)))
                         .font(.caption2)
                         .lineLimit(3)
                 } else if !context.state.lastPrompt.isEmpty {

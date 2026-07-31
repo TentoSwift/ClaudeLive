@@ -7,6 +7,9 @@ import SwiftUI
 /// 会話の閲覧用なので、表など未対応の要素はそのまま段落として出す
 struct MarkdownText: View {
     let text: String
+    /// 画面が狭い環境（Apple Watch）向けに表を詰めるか。
+    /// iPhone では列も行も省略せず、セルも折り返して全部見せる
+    var compact: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
@@ -180,7 +183,9 @@ struct MarkdownText: View {
                     .font(.caption.monospaced())
                     .padding(8)
             }
-            .background(Color(.systemBackground).opacity(0.6),
+            // watchOS には systemBackground が無いので、
+            // プラットフォーム非依存の primary の薄塗りで代用する
+            .background(Color.primary.opacity(0.08),
                         in: RoundedRectangle(cornerRadius: 8))
 
         case .bullet(let items):
@@ -220,13 +225,15 @@ struct MarkdownText: View {
             Divider()
 
         case .table(let table):
-            // アプリ内は領域に余裕があるので、列も行も削らずセルは折り返す
+            // iPhone は領域に余裕があるので列も行も削らずセルは折り返す。
+            // Watch は横幅が足りないので 2 列までに絞り、溢れた分は
+            // MarkdownTableView 側が「…」列と「ほか n 行」で示す
             MarkdownTableView(
                 table: table,
-                maxColumns: max(table.columnCount, 1),
-                maxRows: max(table.rows.count, 1),
-                font: .caption,
-                cellLineLimit: 4)
+                maxColumns: compact ? 2 : max(table.columnCount, 1),
+                maxRows: compact ? 6 : max(table.rows.count, 1),
+                font: compact ? .caption2 : .caption,
+                cellLineLimit: compact ? 2 : 4)
         }
     }
 

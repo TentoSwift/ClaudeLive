@@ -99,6 +99,29 @@ extension MarkdownTable {
         return result
     }
 
+    /// 表を描かない狭い場所（Watch の Smart Stack など）向けに、表を
+    /// 「（表）」に畳んだ 1 行のテキストを返す。
+    ///
+    /// 表を含む返答では改行が保持されて届くため、素のまま出すと
+    /// `| 項目 | 結果 |` `|---|---|` といったパイプ記法が表示行を埋めてしまう。
+    /// 表そのものは iPhone やアプリ内で見られるので、ここでは畳んで
+    /// 前後の文章にスペースを譲る
+    static func flattenedWithoutTables(_ text: String) -> String {
+        let parts: [String] = segments(text).map { segment in
+            switch segment {
+            case .text(let body):
+                return body.replacingOccurrences(of: "\n", with: " ")
+            case .table:
+                return "（表）"
+            }
+        }
+        return parts
+            .joined(separator: " ")
+            .components(separatedBy: " ")
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
+
     /// 本文に表が含まれるか（描画側で分岐を省くための軽い判定）
     static func containsTable(_ text: String) -> Bool {
         segments(text).contains {

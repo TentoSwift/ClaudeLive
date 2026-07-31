@@ -13,6 +13,10 @@
 		CB00000000000000000000A4 /* ClaudeActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A4 /* ClaudeActivityAttributes.swift */; };
 
 		CB000000000000000BD00 /* MarkdownTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000BD0 /* MarkdownTable.swift */; };
+
+		CB000000000000000BD20 /* MarkdownTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000BD0 /* MarkdownTable.swift */; };
+
+		CB000000000000000BD30 /* MarkdownText.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000AB /* MarkdownText.swift */; };
 		CB00000000000000000000A5 /* ClaudeActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A4 /* ClaudeActivityAttributes.swift */; };
 		CB000000000000000BD10 /* MarkdownTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000BD0 /* MarkdownTable.swift */; };
 		CB00000000000000000000A6 /* ClaudeLiveWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A5 /* ClaudeLiveWidgetBundle.swift */; };
@@ -214,7 +218,6 @@
 				CA00000000000000000000A2 /* ContentView.swift */,
 				CA00000000000000000000A3 /* AppModel.swift */,
 				CA00000000000000000000AA /* SessionsView.swift */,
-				CA00000000000000000000AB /* MarkdownText.swift */,
 				CA000000000000000006A5 /* WatchLink.swift */,
 				CA00000000000000000BA0 /* NotificationManager.swift */,
 				CA00000000000000000BB0 /* ManualPairingView.swift */,
@@ -231,6 +234,7 @@
 			children = (
 				CA00000000000000000000A4 /* ClaudeActivityAttributes.swift */,
 				CA00000000000000000BD0 /* MarkdownTable.swift */,
+				CA00000000000000000000AB /* MarkdownText.swift */,
 				CA00000000000000000000AC /* AnswerIntent.swift */,
 				CA00000000000000000009A0 /* DaemonURL.swift */,
 				CA00000000000000000008A0 /* SendPromptIntent.swift */,
@@ -542,6 +546,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CB000000000000000BD20 /* MarkdownTable.swift in Sources */,
+				CB000000000000000BD30 /* MarkdownText.swift in Sources */,
 				CB000000000000000006A1 /* ClaudeLiveWatchApp.swift in Sources */,
 				CB000000000000000006A2 /* WatchModel.swift in Sources */,
 				CB000000000000000006A3 /* WatchContentView.swift in Sources */,
