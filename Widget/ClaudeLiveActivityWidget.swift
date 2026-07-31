@@ -128,7 +128,8 @@ struct ClaudeLiveActivityWidget: Widget {
                                          options: context.state.options,
                                          tint: status.color,
                                          compact: true,
-                                         isSettled: context.state.textSettled)
+                                         isSettled: context.state.textSettled,
+                              questionCount: context.state.questionCount)
                         } else {
                             // 完了時、返答が長くて場所を取るならツールログ・実行回数は省いて
                             // 返答を複数行で優先表示する（マーキーは1行しか流せないため）
@@ -469,7 +470,8 @@ private struct LockScreenView: View {
                              options: context.state.options,
                              tint: status.color,
                              compact: false,
-                             isSettled: context.state.textSettled)
+                             isSettled: context.state.textSettled,
+                              questionCount: context.state.questionCount)
             } else {
                 // ヘッダ: 状態アイコン（作業中はアニメーション）・状態ラベル・経過時間
                 HStack(spacing: 6) {
@@ -669,20 +671,37 @@ private struct WatchSmallView: View {
             }
 
             if !context.state.question.isEmpty {
-                Text(styled(context.state.question))
-                    .font(.caption2)
-                    .lineLimit(2)
-                // Smart Stack の中でも回答できるようにする（アプリを開かなくてよい）
-                ForEach(Array(context.state.options.prefix(4).enumerated()), id: \.offset) { _, option in
-                    Button(intent: AnswerQuestionIntent(
-                        sessionId: context.attributes.sessionId, answer: option)) {
-                        Text(option)
-                            .font(.caption2.bold())
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                            .frame(maxWidth: .infinity)
+                let count = context.state.questionCount ?? 1
+                // Smart Stack は行数が限られるので質問文そのものは出さず、
+                // 「質問が来ている」ことだけをアイコンと短い見出しで示して、
+                // 空いた行を選択肢ボタンに回す（全文はアプリで読める）
+                HStack(spacing: 4) {
+                    Image(systemName: "questionmark.circle.fill")
+                        .foregroundStyle(Color.claudeBrand)
+                    Text(count > 1 ? "質問 \(count)件" : "質問")
+                        .font(.caption2.bold())
+                }
+                if count > 1 {
+                    // 1 問目だけ答えて残りが未回答のまま返る事故を防ぐため、
+                    // 複数質問のときは選択肢を出さない（カードのタップで
+                    // アプリが開き、そこで全問に答えられる）
+                    Text("アプリで回答してください")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                } else {
+                    // Smart Stack の中でも回答できるようにする（アプリを開かなくてよい）
+                    ForEach(Array(context.state.options.prefix(4).enumerated()), id: \.offset) { _, option in
+                        Button(intent: AnswerQuestionIntent(
+                            sessionId: context.attributes.sessionId, answer: option)) {
+                            Text(option)
+                                .font(.caption2.bold())
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                                .frame(maxWidth: .infinity)
+                        }
+                        .tint(Color.claudeBrand)
                     }
-                    .tint(Color.claudeBrand)
                 }
             } else {
                 if !context.state.currentTool.isEmpty {
@@ -731,6 +750,12 @@ struct QuestionView: View {
     let tint: Color
     let compact: Bool
     var isSettled: Bool = false
+    /// AskUserQuestion に含まれる質問の総数（nil / 1 は単一質問）
+    var questionCount: Int? = nil
+
+    /// 2 問以上あるか。ライブアクティビティは 1 問目しか描けないので、
+    /// このときは選択肢を出さずアプリへ誘導する
+    private var isMultiQuestion: Bool { (questionCount ?? 1) > 1 }
 
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 5 : 8) {
@@ -747,8 +772,25 @@ struct QuestionView: View {
                 // ずっと流し続ける（isSettled を無視する）
                 isSettled: false)
 
-            let items = Array(options.prefix(4))
-            if compact && items.count <= 3 {
+            let items = isMultiQuestion ? [] : Array(options.prefix(4))
+            if isMultiQuestion {
+                // 選択肢を出すと 1 問目だけ答えて残りが未回答のまま
+                // Claude に返ってしまうため、アプリで答えてもらう
+                Link(destination: URL(string: "claudelive://session/\(sessionId)")!) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "list.bullet.rectangle")
+                        Text("\(questionCount ?? 0)件の質問 — アプリで回答")
+                            .font(compact ? .caption2.weight(.semibold) : .footnote.weight(.semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, compact ? 5 : 7)
+                    .background(tint.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
+                }
+                .padding(.horizontal, 6)
+                .padding(.bottom, 4)
+            } else if compact && items.count <= 3 {
                 // Dynamic Island・選択肢 3 個以下: 1 行に横並び。
                 // 3 個までは横幅に余裕があり折り返さない（4 個だけが問題になる）
                 HStack(spacing: 5) {

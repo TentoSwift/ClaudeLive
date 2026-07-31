@@ -2093,6 +2093,9 @@ final class Daemon {
             "sessionTitle": session.title,
             "question": session.question,
             "options": session.options,
+            // ライブアクティビティは 1 問目しか出せないので、複数あることを
+            // iOS 側に伝えてアプリへ誘導させる
+            "questionCount": session.questionItems.count,
             "textSettled": session.textSettled,
             "model": session.model,
             "compactAnimated": compactAnimated,

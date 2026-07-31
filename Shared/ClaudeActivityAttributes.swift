@@ -37,6 +37,13 @@ struct ClaudeActivityAttributes: ActivityAttributes {
         var question: String
         /// 質問の選択肢ラベル（最大 4）。タップすると Mac へ回答が送られる
         var options: [String]
+        /// AskUserQuestion に含まれていた質問の総数。
+        /// ライブアクティビティは領域の都合で 1 問目しか出せないため、
+        /// 2 問以上あるときは選択肢を出さずアプリへ誘導する
+        /// （1 問目だけ答えて残りが未回答のまま Claude に返る事故を防ぐ）。
+        /// 旧バージョンのデーモンから届いた content-state でもデコードが
+        /// 落ちないよう Optional にしてある（nil は 1 問として扱う）
+        var questionCount: Int?
         /// true = マーキーを1周流し終えて静止表示に切り替える段階。
         /// 新しいテキストが来ると false に戻り、また1周流れる。
         /// ウィジェット側は時間経過を自力監視できないため、この判断は
