@@ -209,17 +209,18 @@ struct WatchSessionDetailView: View {
                     label("会話")
                     ForEach(messages) { message in
                         VStack(alignment: .leading, spacing: 1) {
-                            // Claude の発言は文字ラベルではなくブランドのマークで示す
+                            // Claude の発言は文字ラベルではなく、DI の返答表示と同じ
+                            // 吹き出しマーク（ClaudeBubbleReply）で示す
                             if message.role == "user" {
                                 Text("あなた")
                                     .font(.caption2.bold())
                                     .foregroundStyle(.secondary)
                             } else {
-                                Image("ClaudeMark")
+                                Image("ClaudeBubbleReply")
                                     .renderingMode(.template)
                                     .resizable()
                                     .scaledToFit()
-                                    .frame(width: 12, height: 12)
+                                    .frame(width: 14, height: 14)
                                     .foregroundStyle(Color.claudeBrand)
                             }
                             // 素の Text だと表がパイプの羅列、見出しが "## " のまま
