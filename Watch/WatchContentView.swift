@@ -102,8 +102,6 @@ struct WatchSessionDetailView: View {
     @EnvironmentObject private var model: WatchModel
     let sessionId: String
     @State private var messages: [WatchModel.Message] = []
-    @State private var promptInput = ""
-    @State private var sending = false
     @State private var answerInput = ""
     @State private var answering = false
     @State private var showModelPicker = false
@@ -259,29 +257,9 @@ struct WatchSessionDetailView: View {
                         label("返答")
                         MarkdownText(text: fullLastResponse(session), compact: true)
                     }
-                    // プロンプト送信・質問への回答は操作モードのときだけ出す
+                    // 質問への回答は操作モードのときだけ出す
+                    // （指示の送信は下部ツールバー右端の text.append ボタンへ移した）
                     if controlMode {
-                    // プロンプト送信（音声ディクテーション対応の標準 TextField）
-                    HStack(spacing: 4) {
-                        TextField("指示を送る…", text: $promptInput)
-                            .font(.footnote)
-                        if !promptInput.isEmpty {
-                            Button {
-                                let text = promptInput
-                                promptInput = ""
-                                sending = true
-                                Task {
-                                    await model.sendPrompt(sessionId: sessionId, text: text)
-                                    sending = false
-                                }
-                            } label: {
-                                Image(systemName: sending ? "hourglass" : "arrow.up.circle.fill")
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(sending)
-                        }
-                    }
-
                     // 質問 + 回答ボタン。単一質問・単一選択はタップで即送信、
                     // 複数質問や multiSelect の質問があるときは選んでからまとめて送信する
                     if !session.question.isEmpty {
@@ -414,11 +392,12 @@ struct WatchSessionDetailView: View {
             }
         }
         .toolbar {
-            // 上（過去）へスクロールしたときだけ、最下部（最新）へ戻るボタンを
-            // 画面下中央に出す
-            if !isNearBottom {
-                ToolbarItemGroup(placement: .bottomBar) {
-                    Spacer()
+            ToolbarItemGroup(placement: .bottomBar) {
+                // 左端: 右端の送信ボタンと釣り合いを取り、矢印を中央に保つ
+                Color.clear.frame(width: 28, height: 1)
+                Spacer()
+                // 上（過去）へスクロールしたときだけ、最下部（最新）へ戻る矢印を中央に出す
+                if !isNearBottom {
                     Button {
                         withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
                     } label: {
@@ -428,7 +407,20 @@ struct WatchSessionDetailView: View {
                     // ボタンの背景（すりガラスのカプセル）を消して
                     // Claude カラーの矢印だけを見せる
                     .tint(.clear)
-                    Spacer()
+                }
+                Spacer()
+                // 右端: 指示の送信。タップでシステムのテキスト入力
+                // （音声ディクテーション込み）が開き、確定で送信する
+                if controlMode {
+                    TextFieldLink(prompt: Text("指示を送る…")) {
+                        Image(systemName: "text.append")
+                            .foregroundStyle(.white)
+                    } onSubmit: { text in
+                        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !trimmed.isEmpty else { return }
+                        Task { await model.sendPrompt(sessionId: sessionId, text: trimmed) }
+                    }
+                    .tint(Color.claudeBrand)
                 }
             }
         }
