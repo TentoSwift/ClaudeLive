@@ -413,7 +413,7 @@ struct WatchSessionDetailView: View {
                     Button {
                         withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
                     } label: {
-                        Image(systemName: "arrow.down.to.line")
+                        Image(systemName: "arrow.down")
                             .foregroundStyle(Color.claudeBrand)
                     }
                     // ボタンの背景（すりガラスのカプセル）を消して
