@@ -297,14 +297,17 @@ struct WatchSessionDetailView: View {
                     }
                     }  // if controlMode（プロンプト送信＋質問回答をまとめて隠す）
 
-                    // 直近のやり取り（省略なしの全文）
+                    // 直近のやり取り（省略なしの全文）。
+                    // 会話履歴と同じく Markdown で描く——素の Text のままだと
+                    // 表がパイプの羅列、見出しが "## " のまま出てしまう
+                    // （会話履歴だけ Markdown 化してここが漏れていた）
                     if !session.lastPrompt.isEmpty {
                         label("入力")
                         Text(session.lastPrompt).font(.footnote)
                     }
                     if !session.lastResponse.isEmpty {
                         label("返答")
-                        Text(session.lastResponse).font(.footnote)
+                        MarkdownText(text: session.lastResponse, compact: true)
                     }
                 }
 
