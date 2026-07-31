@@ -224,6 +224,16 @@ struct WatchSessionDetailView: View {
                             }
                         }
                         if accumulate {
+                            // iPhone 側と同じく、全問に選択があるまで送らせない
+                            // （1問だけ答えて残りが未回答で返る事故を防ぐ）
+                            let answeredCount = (0..<questions.count)
+                                .filter { !(selections[$0] ?? []).isEmpty }.count
+                            let allAnswered = answeredCount == questions.count
+                            if questions.count > 1 {
+                                Text("\(questions.count)問中 \(answeredCount)問")
+                                    .font(.caption2)
+                                    .foregroundStyle(allAnswered ? .secondary : Color.orange)
+                            }
                             Button {
                                 let answers = (0..<questions.count).map { Array(selections[$0] ?? []) }
                                 answering = true
@@ -233,13 +243,14 @@ struct WatchSessionDetailView: View {
                                     selections = [:]
                                 }
                             } label: {
-                                Text(answering ? "送信中…" : "回答する")
+                                Text(answering ? "送信中…"
+                                     : (allAnswered ? "回答する" : "全問選んでください"))
                                     .font(.footnote.bold())
                                     .frame(maxWidth: .infinity)
                             }
                             .buttonStyle(.borderedProminent)
                             .tint(Color.claudeBrand)
-                            .disabled(answering || selections.values.allSatisfy(\.isEmpty))
+                            .disabled(answering || !allAnswered)
                         } else {
                             // 選択肢にない答えを自由入力できるようにする
                             HStack(spacing: 4) {

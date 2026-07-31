@@ -356,6 +356,17 @@ struct SessionDetailView: View {
                 }
             }
             if accumulate {
+                // 全問に選択があるまで送らせない。
+                // 以前は「1問でも選べば押せる」条件だったため、複数質問のとき
+                // 1問目だけ答えて残りが未回答のまま Claude に返っていた
+                let answeredCount = (0..<questions.count)
+                    .filter { !(selections[$0] ?? []).isEmpty }.count
+                let allAnswered = answeredCount == questions.count
+                if questions.count > 1 {
+                    Text("\(questions.count)問中 \(answeredCount)問を選択")
+                        .font(.caption)
+                        .foregroundStyle(allAnswered ? .secondary : Color.orange)
+                }
                 Button {
                     let answers = (0..<questions.count).map { Array(selections[$0] ?? []) }
                     answering = true
@@ -365,13 +376,14 @@ struct SessionDetailView: View {
                         selections = [:]
                     }
                 } label: {
-                    Text(answering ? "送信中…" : "回答する")
+                    Text(answering ? "送信中…"
+                         : (allAnswered ? "回答する" : "すべての質問を選んでください"))
                         .font(.subheadline.bold())
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Color.claudeBrand)
-                .disabled(answering || selections.values.allSatisfy(\.isEmpty))
+                .disabled(answering || !allAnswered)
             } else {
                 // 選択肢にない答えを自由入力できるようにする
                 HStack(spacing: 6) {
