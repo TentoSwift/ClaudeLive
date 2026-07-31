@@ -18,13 +18,21 @@ COMMAND = (
     ">/dev/null 2>&1 || true"
 )
 # AskUserQuestion 専用: デーモンが iPhone の回答を待つ間フックを保留するので
-# タイムアウトを長くし、stdout（デーモンの decision JSON）は捨てずに返す
+# タイムアウトを長くし、stdout（デーモンの decision JSON）は捨てずに返す。
+#
+# この -m はデーモン側の questionHoldSeconds（既定 60 秒）より必ず長くすること。
+# 短いと curl が先に諦めてしまい、デーモンがまだ回答を待っている最中でも
+# Claude が先に進んでしまう（保留を延ばしても効かなくなる）。
+# 余裕を見て 10 分にしてあるので、questionHoldSeconds は 10 分未満で設定する
 QUESTION_MARKER = "127.0.0.1:53536/question"
 QUESTION_COMMAND = (
-    "curl -sS -m 90 -X POST http://127.0.0.1:53536/question "
+    "curl -sS -m 600 -X POST http://127.0.0.1:53536/question "
     "-H 'Content-Type: application/json' --data-binary @- "
     "2>/dev/null || true"
 )
+# Claude Code 側がフックを打ち切るまでの秒数。curl の -m と同じく、
+# questionHoldSeconds より長くないと保留の途中で打ち切られる
+QUESTION_TIMEOUT = 600
 EVENTS = [
     "SessionStart",
     "UserPromptSubmit",
@@ -69,10 +77,20 @@ def main():
         for entry in entries
         for hook in entry.get("hooks", [])
     )
-    if not question_installed:
+    if question_installed:
+        # 既に入っている場合も、タイムアウトが古い値のままだと保留を延ばしても
+        # 効かないので、コマンドと timeout は最新の値に上書きする
+        for entry in entries:
+            for hook in entry.get("hooks", []):
+                if QUESTION_MARKER in hook.get("command", ""):
+                    if hook.get("command") != QUESTION_COMMAND or hook.get("timeout") != QUESTION_TIMEOUT:
+                        hook["command"] = QUESTION_COMMAND
+                        hook["timeout"] = QUESTION_TIMEOUT
+                        added.append("PreToolUse(AskUserQuestion) のタイムアウト更新")
+    else:
         entries.append({
             "matcher": "AskUserQuestion",
-            "hooks": [{"type": "command", "command": QUESTION_COMMAND, "timeout": 120}],
+            "hooks": [{"type": "command", "command": QUESTION_COMMAND, "timeout": QUESTION_TIMEOUT}],
         })
         added.append("PreToolUse(AskUserQuestion)")
 
