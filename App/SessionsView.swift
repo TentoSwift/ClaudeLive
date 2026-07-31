@@ -351,7 +351,7 @@ struct SessionDetailView: View {
                         .buttonStyle(.borderedProminent)
                         .tint(accumulate && !isSelected
                               ? Color.gray.opacity(0.35)
-                              : Color(red: 0.85, green: 0.47, blue: 0.34))
+                              : Color.claudeBrand)
                     }
                 }
             }
@@ -370,7 +370,7 @@ struct SessionDetailView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(Color(red: 0.85, green: 0.47, blue: 0.34))
+                .tint(Color.claudeBrand)
                 .disabled(answering || selections.values.allSatisfy(\.isEmpty))
             } else {
                 // 選択肢にない答えを自由入力できるようにする

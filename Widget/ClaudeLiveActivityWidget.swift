@@ -682,7 +682,7 @@ private struct WatchSmallView: View {
                             .minimumScaleFactor(0.7)
                             .frame(maxWidth: .infinity)
                     }
-                    .tint(Color(red: 0.85, green: 0.47, blue: 0.34))
+                    .tint(Color.claudeBrand)
                 }
             } else {
                 if !context.state.currentTool.isEmpty {

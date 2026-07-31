@@ -73,10 +73,8 @@ func shortModelName(_ raw: String) -> String {
     return raw.hasPrefix("claude-") ? String(raw.dropFirst("claude-".count)) : raw
 }
 
-extension Color {
-    /// Claude のブランドカラー（クレイ系オレンジ）
-    static let claudeBrand = Color(red: 0.85, green: 0.47, blue: 0.34)
-}
+// Color.claudeBrand は Watch ターゲットからも使うため
+// Shared/ClaudeBrandColor.swift へ移動した
 
 /// 表示用のステータス定義（アプリ・ウィジェット共用）
 enum ClaudeStatus: String {

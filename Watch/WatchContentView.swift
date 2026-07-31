@@ -25,7 +25,7 @@ struct WatchContentView: View {
                     NavigationLink(value: "__new__") {
                         Label("新規セッション", systemImage: "plus.circle.fill")
                             .font(.headline)
-                            .foregroundStyle(Color(red: 0.85, green: 0.47, blue: 0.34))
+                            .foregroundStyle(Color.claudeBrand)
                     }
                 }
                 ForEach(model.sessions) { session in
@@ -220,7 +220,7 @@ struct WatchSessionDetailView: View {
                                 .buttonStyle(.borderedProminent)
                                 .tint(accumulate && !isSelected
                                       ? Color.gray.opacity(0.35)
-                                      : Color(red: 0.85, green: 0.47, blue: 0.34))
+                                      : Color.claudeBrand)
                             }
                         }
                         if accumulate {
@@ -238,7 +238,7 @@ struct WatchSessionDetailView: View {
                                     .frame(maxWidth: .infinity)
                             }
                             .buttonStyle(.borderedProminent)
-                            .tint(Color(red: 0.85, green: 0.47, blue: 0.34))
+                            .tint(Color.claudeBrand)
                             .disabled(answering || selections.values.allSatisfy(\.isEmpty))
                         } else {
                             // 選択肢にない答えを自由入力できるようにする
@@ -376,7 +376,7 @@ struct WatchNewSessionView: View {
                     .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(Color(red: 0.85, green: 0.47, blue: 0.34))
+                .tint(Color.claudeBrand)
                 .disabled(promptInput.isEmpty || sending)
             }
         }
@@ -447,7 +447,7 @@ func statusLabel(_ status: String) -> String {
 
 func statusColor(_ status: String) -> Color {
     switch status {
-    case "working", "done": return Color(red: 0.85, green: 0.47, blue: 0.34)
+    case "working", "done": return Color.claudeBrand
     case "permission":      return .yellow
     case "waiting":         return .cyan
     case "question":        return .indigo

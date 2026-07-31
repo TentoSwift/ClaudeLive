@@ -24,6 +24,10 @@ struct ClaudeLiveApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(model)
+                // アプリ全体のアクセントを Claude のブランドカラーに揃える。
+                // ボタン・トグル・リンク・ナビゲーションの戻るなど、
+                // 個別に指定していない標準コントロールがすべてこの色になる
+                .tint(Color.claudeBrand)
                 .onOpenURL { url in
                     // ライブアクティビティのタップ（claudelive://session/<id>）で
                     // 該当セッションの詳細（回答 UI 込み）を直接開く

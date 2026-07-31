@@ -14,6 +14,9 @@ struct ClaudeLiveWatchApp: App {
         WindowGroup {
             WatchContentView()
                 .environmentObject(model)
+                // iPhone 側と同じく、アプリ全体のアクセントを
+                // Claude のブランドカラーに揃える
+                .tint(Color.claudeBrand)
                 .onOpenURL { url in
                     // claudelive://session/<sessionId>（ライブアクティビティのタップ）
                     if url.host == "session" || url.pathComponents.count > 1 {

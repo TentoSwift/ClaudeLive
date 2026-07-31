@@ -14,6 +14,12 @@
 
 		CB000000000000000BD00 /* MarkdownTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000BD0 /* MarkdownTable.swift */; };
 
+		CB000000000000000BE00 /* ClaudeBrandColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000BE0 /* ClaudeBrandColor.swift */; };
+
+		CB000000000000000BE10 /* ClaudeBrandColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000BE0 /* ClaudeBrandColor.swift */; };
+
+		CB000000000000000BE20 /* ClaudeBrandColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000BE0 /* ClaudeBrandColor.swift */; };
+
 		CB000000000000000BD20 /* MarkdownTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000BD0 /* MarkdownTable.swift */; };
 
 		CB000000000000000BD30 /* MarkdownText.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000AB /* MarkdownText.swift */; };
@@ -157,6 +163,7 @@
 		CA00000000000000000000A4 /* ClaudeActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeActivityAttributes.swift; sourceTree = "<group>"; };
 
 		CA00000000000000000BD0 /* MarkdownTable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownTable.swift; sourceTree = "<group>"; };
+CA00000000000000000BE0 /* ClaudeBrandColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeBrandColor.swift; sourceTree = "<group>"; };
 		CA00000000000000000000A5 /* ClaudeLiveWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLiveWidgetBundle.swift; sourceTree = "<group>"; };
 		CA00000000000000000000A6 /* ClaudeLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLiveActivityWidget.swift; sourceTree = "<group>"; };
 		CA00000000000000000000A7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -234,6 +241,7 @@
 			children = (
 				CA00000000000000000000A4 /* ClaudeActivityAttributes.swift */,
 				CA00000000000000000BD0 /* MarkdownTable.swift */,
+				CA00000000000000000BE0 /* ClaudeBrandColor.swift */,
 				CA00000000000000000000AB /* MarkdownText.swift */,
 				CA00000000000000000000AC /* AnswerIntent.swift */,
 				CA00000000000000000009A0 /* DaemonURL.swift */,
@@ -500,6 +508,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CB000000000000000BE00 /* ClaudeBrandColor.swift in Sources */,
 				CB00000000000000000000A1 /* ClaudeLiveApp.swift in Sources */,
 				CB00000000000000000000A2 /* ContentView.swift in Sources */,
 				CB00000000000000000000A3 /* AppModel.swift in Sources */,
@@ -530,6 +539,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CB000000000000000BE10 /* ClaudeBrandColor.swift in Sources */,
 				CB00000000000000000000A5 /* ClaudeActivityAttributes.swift in Sources */,
 				CB000000000000000BD10 /* MarkdownTable.swift in Sources */,
 				CB00000000000000000000AD /* AnswerIntent.swift in Sources */,
@@ -546,6 +556,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CB000000000000000BE20 /* ClaudeBrandColor.swift in Sources */,
 				CB000000000000000BD20 /* MarkdownTable.swift in Sources */,
 				CB000000000000000BD30 /* MarkdownText.swift in Sources */,
 				CB000000000000000006A1 /* ClaudeLiveWatchApp.swift in Sources */,
@@ -711,6 +722,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tento.ClaudeLive;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -727,6 +739,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tento.ClaudeLive;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -742,6 +755,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tento.ClaudeLive.Widget;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -758,6 +772,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tento.ClaudeLive.Widget;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -780,6 +795,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tento.ClaudeLive.watchkitapp;
 				PRODUCT_NAME = ClaudeLiveWatch;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -806,6 +822,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tento.ClaudeLive.watchkitapp;
 				PRODUCT_NAME = ClaudeLiveWatch;
 				PROVISIONING_PROFILE_SPECIFIER = "";
