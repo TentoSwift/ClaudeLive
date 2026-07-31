@@ -1266,15 +1266,14 @@ final class Daemon {
 
         let summary = items.count == 1 ? items[0].question : "\(items.count)件の質問"
         log("質問を iPhone へ送信: \(session.projectName)「\(Self.truncate(summary, 40))」")
-        pushUpdate(session, alert: [
-            "title": "\(session.projectName): 質問",
-            "body": Self.truncate(summary, 100),
-            "sound": "default",
-        ])
+        // 質問はライブアクティビティに出るので、通知（バナー・サウンド）は付けない。
+        // 通知とライブアクティビティで同じ内容が二重に出るのが煩わしいため
+        pushUpdate(session)
 
-        // 返信アクション付きの通常通知も送る。通知を長押し →「回答を入力」で
-        // アプリを一切開かずにシステムのテキスト入力欄から自由回答できる
-        pushQuestionNotification(session, questionText: summary)
+        // 返信アクション付きの通常通知は送らない（質問の通知は出さない方針）。
+        // 回答はライブアクティビティのボタン、または アプリから行う。
+        // pushQuestionNotification 自体は残してあるので、通知を復活させたく
+        // なったらここで呼び出しを戻すだけでよい
 
         // Mac 側にも選択肢ダイアログを出す（保留中は Claude Desktop に質問が
         // 出ないため、その代わり）。選べば iPhone のボタンと同じ扱いで回答、
