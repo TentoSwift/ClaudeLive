@@ -163,10 +163,9 @@ struct MarkdownText: View {
         return String(line[line.index(dot, offsetBy: 2)...])
     }
 
-    /// 本文のフォント。Watch（compact）では周囲のテキスト（.footnote）と
-    /// 大きさを揃える——.subheadline のままだと「入力」欄などより一回り大きく
-    /// 見えて不揃いだった
-    private var bodyFont: Font { compact ? .footnote : .subheadline }
+    /// 本文のフォント。Watch（compact）でも iPhone と同じ .subheadline を使う。
+    /// 周囲のテキスト（「入力」欄など）も .subheadline に揃えてあるので不揃いにならない
+    private var bodyFont: Font { .subheadline }
 
     // MARK: 描画
 

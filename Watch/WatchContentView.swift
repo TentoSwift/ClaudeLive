@@ -252,7 +252,8 @@ struct WatchSessionDetailView: View {
                     // （会話履歴だけ Markdown 化してここが漏れていた）
                     if !session.lastPrompt.isEmpty {
                         label("入力")
-                        Text(session.lastPrompt).font(.footnote)
+                        // 返答・会話（MarkdownText の本文 = .subheadline）と大きさを揃える
+                        Text(session.lastPrompt).font(.subheadline)
                     }
                     if !session.lastResponse.isEmpty {
                         label("返答")
