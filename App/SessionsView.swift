@@ -188,6 +188,8 @@ struct SessionDetailView: View {
     @State private var sendingPrompt = false
     /// 複数質問・複数選択(multiSelect)のときの選択状態。質問のインデックス → 選んだ選択肢
     @State private var selections: [Int: Set<String>] = [:]
+    /// 選択肢に無い答えを質問ごとに書いたもの。質問のインデックス → 入力文字列
+    @State private var customAnswers: [Int: String] = [:]
     /// 操作モード。オフのあいだは送信系の UI を出さない（既定オフ）
     @AppStorage(controlModeKey) private var controlMode = false
 
@@ -315,6 +317,17 @@ struct SessionDetailView: View {
     /// 複数質問、または multiSelect の質問があるときは、選んでから
     /// 「回答する」でまとめて送信する（1回の AskUserQuestion への回答は
     /// ひとまとめに解決する必要があるため）
+    /// 質問 index の回答＝選ばれた選択肢と自由入力を合わせたもの。
+    /// 単一選択の質問で自由入力があれば、それを答えとして優先する
+    /// （選択肢の代わりに「その他」を選んだのと同じ扱い）
+    private func composedAnswer(at index: Int, in questions: [AppModel.QuestionItem]) -> [String] {
+        let custom = (customAnswers[index] ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let selected = Array(selections[index] ?? [])
+        guard !custom.isEmpty else { return selected }
+        return questions[index].multiSelect ? selected + [custom] : [custom]
+    }
+
     private func questionSection(_ session: AppModel.RemoteSession) -> some View {
         let questions = session.questions.isEmpty
             ? [AppModel.QuestionItem(question: session.question, options: session.options, multiSelect: false)]
@@ -353,14 +366,24 @@ struct SessionDetailView: View {
                               ? Color.gray.opacity(0.35)
                               : Color.claudeBrand)
                     }
+                    // 選択肢に無い答えを質問ごとに書けるようにする。
+                    // Claude Code 本体は各質問に「その他」で自由記述できるので、
+                    // 複数質問のときだけ選択肢に縛られるのを避ける
+                    if accumulate {
+                        TextField("その他（自由入力）",
+                                  text: Binding(get: { customAnswers[index] ?? "" },
+                                                set: { customAnswers[index] = $0 }))
+                            .textFieldStyle(.roundedBorder)
+                            .font(.subheadline)
+                    }
                 }
             }
             if accumulate {
-                // 全問に選択があるまで送らせない。
+                // 全問に回答があるまで送らせない。
                 // 以前は「1問でも選べば押せる」条件だったため、複数質問のとき
                 // 1問目だけ答えて残りが未回答のまま Claude に返っていた
-                let answeredCount = (0..<questions.count)
-                    .filter { !(selections[$0] ?? []).isEmpty }.count
+                let composed = (0..<questions.count).map { composedAnswer(at: $0, in: questions) }
+                let answeredCount = composed.filter { !$0.isEmpty }.count
                 let allAnswered = answeredCount == questions.count
                 if questions.count > 1 {
                     Text("\(questions.count)問中 \(answeredCount)問を選択")
@@ -368,12 +391,13 @@ struct SessionDetailView: View {
                         .foregroundStyle(allAnswered ? .secondary : Color.orange)
                 }
                 Button {
-                    let answers = (0..<questions.count).map { Array(selections[$0] ?? []) }
+                    let answers = composed
                     answering = true
                     Task {
                         await model.answer(sessionId: sessionId, answers: answers)
                         answering = false
                         selections = [:]
+                        customAnswers = [:]
                     }
                 } label: {
                     Text(answering ? "送信中…"

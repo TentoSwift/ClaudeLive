@@ -102,11 +102,23 @@ struct WatchSessionDetailView: View {
     @State private var showCommandPicker = false
     /// 複数質問・複数選択(multiSelect)のときの選択状態。質問のインデックス → 選んだ選択肢
     @State private var selections: [Int: Set<String>] = [:]
+    /// 選択肢に無い答えを質問ごとに書いたもの。質問のインデックス → 入力文字列
+    @State private var customAnswers: [Int: String] = [:]
     /// 操作モード。オフのあいだは送信系の UI を出さない（既定オフ）
     @AppStorage(controlModeKey) private var controlMode = false
 
     private var session: WatchModel.Session? {
         model.sessions.first { $0.id == sessionId }
+    }
+
+    /// 質問 index の回答＝選ばれた選択肢と自由入力を合わせたもの。
+    /// 単一選択の質問で自由入力があれば、それを答えとして優先する
+    private func composedAnswer(at index: Int, in questions: [WatchModel.QuestionItem]) -> [String] {
+        let custom = (customAnswers[index] ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let selected = Array(selections[index] ?? [])
+        guard !custom.isEmpty else { return selected }
+        return questions[index].multiSelect ? selected + [custom] : [custom]
     }
 
     private func toggleSelection(_ option: String, at index: Int, multiSelect: Bool) {
@@ -222,12 +234,20 @@ struct WatchSessionDetailView: View {
                                       ? Color.gray.opacity(0.35)
                                       : Color.claudeBrand)
                             }
+                            // 選択肢に無い答えを質問ごとに書けるようにする
+                            if accumulate {
+                                TextField("その他（自由入力）",
+                                          text: Binding(get: { customAnswers[index] ?? "" },
+                                                        set: { customAnswers[index] = $0 }))
+                                    .font(.footnote)
+                            }
                         }
                         if accumulate {
                             // iPhone 側と同じく、全問に選択があるまで送らせない
                             // （1問だけ答えて残りが未回答で返る事故を防ぐ）
-                            let answeredCount = (0..<questions.count)
-                                .filter { !(selections[$0] ?? []).isEmpty }.count
+                            let composed = (0..<questions.count)
+                                .map { composedAnswer(at: $0, in: questions) }
+                            let answeredCount = composed.filter { !$0.isEmpty }.count
                             let allAnswered = answeredCount == questions.count
                             if questions.count > 1 {
                                 Text("\(questions.count)問中 \(answeredCount)問")
@@ -235,12 +255,13 @@ struct WatchSessionDetailView: View {
                                     .foregroundStyle(allAnswered ? .secondary : Color.orange)
                             }
                             Button {
-                                let answers = (0..<questions.count).map { Array(selections[$0] ?? []) }
+                                let answers = composed
                                 answering = true
                                 Task {
                                     await model.answer(sessionId: sessionId, answers: answers)
                                     answering = false
                                     selections = [:]
+                                    customAnswers = [:]
                                 }
                             } label: {
                                 Text(answering ? "送信中…"
