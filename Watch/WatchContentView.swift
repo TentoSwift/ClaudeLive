@@ -20,14 +20,6 @@ struct WatchContentView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                // 新規セッション開始（操作モードのときだけ）
-                if controlMode {
-                    NavigationLink(value: "__new__") {
-                        Label("新規セッション", systemImage: "plus.circle.fill")
-                            .font(.headline)
-                            .foregroundStyle(Color.claudeBrand)
-                    }
-                }
                 ForEach(model.sessions) { session in
                     NavigationLink(value: session.id) {
                         VStack(alignment: .leading, spacing: 2) {
@@ -59,6 +51,22 @@ struct WatchContentView: View {
                     .foregroundStyle(.tertiary)
             }
             .navigationTitle("ClaudeLive")
+            // 新規セッション開始（操作モードのときだけ）。
+            // 一覧の行ではなく、下部ツールバー左端の + ボタンにする
+            .toolbar {
+                if controlMode {
+                    ToolbarItemGroup(placement: .bottomBar) {
+                        Button {
+                            path.append("__new__")
+                        } label: {
+                            Image(systemName: "plus")
+                                .foregroundStyle(.white)
+                        }
+                        .tint(Color.claudeBrand)
+                        Spacer()
+                    }
+                }
+            }
             .navigationDestination(for: String.self) { value in
                 if value == "__new__" {
                     WatchNewSessionView()
