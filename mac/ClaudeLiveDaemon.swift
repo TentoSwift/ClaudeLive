@@ -498,6 +498,16 @@ final class Daemon {
     private let config: Config
     private let apns: APNSClient
     private let queue = DispatchQueue(label: "claudelive.daemon")
+    /// AppleScript（キー入力・アプリ前面化）専用のキュー。
+    ///
+    /// これらは happy path でも delay 込みで 3 秒以上かかり、System Events が
+    /// 応答しない状況（モーダルダイアログが開いている、アクセシビリティ権限の
+    /// 確認が出ている等）では返ってこない。メインの直列キューで待つと
+    /// フックも API も含めデーモン全体が止まるため、別キューに逃がす。
+    ///
+    /// ただしクリップボードと前面アプリという共有資源を触るので、
+    /// 同時実行はさせず直列のままにする
+    private let scriptQueue = DispatchQueue(label: "claudelive.applescript")
     private var tokens = TokenStore.load()
     private var sessions: [String: SessionState] = [:]
     private var listener: NWListener?
@@ -1506,24 +1516,51 @@ final class Daemon {
             set the clipboard to prev
         end try
         """
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        process.arguments = ["-e", script]
-        process.standardOutput = FileHandle.nullDevice
-        let errPipe = Pipe()
-        process.standardError = errPipe
-        do {
-            try process.run()
+        // メインの直列キューでは絶対に待たない。
+        // 以前はここで waitUntilExit() をタイムアウトなしに呼んでおり、
+        // System Events が応答しないとデーモン全体が固まって
+        // フックも API も一切受け付けなくなる不具合があった
+        scriptQueue.async { [weak self] in
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+            process.arguments = ["-e", script]
+            process.standardOutput = FileHandle.nullDevice
+            let errPipe = Pipe()
+            process.standardError = errPipe
+            do {
+                try process.run()
+            } catch {
+                self?.queue.async { log("キー入力失敗: \(error.localizedDescription)") }
+                return
+            }
+            // 応答が返らない場合に備えた見張り。スクリプト自体の delay 合計が
+            // 3 秒強なので、余裕を見た秒数で打ち切る
+            let deadline = DispatchTime.now() + Self.appleScriptTimeout
+            let watchdog = DispatchWorkItem {
+                guard process.isRunning else { return }
+                process.terminate()
+                self?.queue.async {
+                    log("キー入力がタイムアウトしたので中断しました"
+                        + "（\(Int(Self.appleScriptTimeout))秒）。Claude アプリの応答か"
+                        + "アクセシビリティ権限を確認してください")
+                }
+            }
+            DispatchQueue.global().asyncAfter(deadline: deadline, execute: watchdog)
             process.waitUntilExit()
+            watchdog.cancel()
             if process.terminationStatus != 0 {
                 let err = String(data: errPipe.fileHandleForReading.readDataToEndOfFile(),
                                  encoding: .utf8) ?? ""
-                log("キー入力失敗: \(err.trimmingCharacters(in: .whitespacesAndNewlines))")
+                let detail = err.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !detail.isEmpty {
+                    self?.queue.async { log("キー入力失敗: \(detail)") }
+                }
             }
-        } catch {
-            log("キー入力失敗: \(error.localizedDescription)")
         }
     }
+
+    /// AppleScript が返ってこない場合に打ち切るまでの秒数
+    private static let appleScriptTimeout: TimeInterval = 20
 
     /// 新規セッションを開始できる既知のプロジェクト（過去に使った cwd）の一覧。
     /// ~/.claude/projects/ のディレクトリ名（cwd を "-" 区切りにしたもの）を
@@ -2056,6 +2093,9 @@ final class Daemon {
             "sessionTitle": session.title,
             "question": session.question,
             "options": session.options,
+            // ライブアクティビティは 1 問目しか出せないので、複数あることを
+            // iOS 側に伝えてアプリへ誘導させる
+            "questionCount": session.questionItems.count,
             "textSettled": session.textSettled,
             "model": session.model,
             "compactAnimated": compactAnimated,

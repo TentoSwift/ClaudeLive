@@ -19,7 +19,8 @@ struct LiveActivityMirrorView: View {
                              options: state.options,
                              tint: status.color,
                              compact: false,
-                             isSettled: state.textSettled)
+                             isSettled: state.textSettled,
+                              questionCount: state.questionCount)
             } else {
                 // ヘッダ: 状態アイコン（作業中はアニメーション）・状態ラベル・
                 // 実行中ツール・モデル名・経過時間
