@@ -789,12 +789,25 @@ final class Daemon {
             if let json = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any],
                let sessionId = json["sessionId"] as? String {
                 let answers: [[String]]
+                let shape: String
                 if let structured = json["answers"] as? [[String]] {
                     answers = structured
+                    shape = "answers[\(structured.count)]"
                 } else if let legacy = json["answer"] as? String, !legacy.isEmpty {
                     answers = [[legacy]]
+                    shape = "answer(単一)"
                 } else {
                     answers = []
+                    shape = "空"
+                }
+                // 「複数質問なのに1件しか回答が来ない」を追えるようにする。
+                // どのクライアントの、どの UI から来たかを切り分けるため、
+                // 受け取った形と保留中の質問数を突き合わせて記録する
+                let held = sessions[sessionId]?.questionItems.count ?? 0
+                if held > 1 || answers.count > 1 {
+                    log("回答の内訳: 形式=\(shape) 保留中の質問=\(held)問 "
+                        + "受信=\(answers.count)問分 "
+                        + "空でない回答=\(answers.filter { !$0.isEmpty }.count)問")
                 }
                 handleAnswer(sessionId: sessionId, answers: answers, pass: json["pass"] as? Bool ?? false)
                 respond(connection)

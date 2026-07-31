@@ -53,7 +53,12 @@ struct ContentView: View {
             Task {
                 await model.loadRemoteSessions()
                 if let session = model.remoteSessions.first(where: { $0.id == sessionId }),
-                   !session.question.isEmpty {
+                   !session.question.isEmpty, session.questions.count <= 1 {
+                    // 質問が1つのときだけ、その場で答えられるアラートを出す。
+                    // このアラートは session.question / session.options という
+                    // 「1問目だけ」の情報しか持てないため、複数質問で使うと
+                    // 1問だけ答えて残りが未回答のまま Claude に返ってしまう
+                    // （実際にその不具合が出ていた）
                     alertSessionId = sessionId
                     alertQuestion = session.question
                     alertOptions = session.options
