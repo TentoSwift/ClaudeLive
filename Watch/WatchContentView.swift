@@ -121,6 +121,30 @@ struct WatchSessionDetailView: View {
         return questions[index].multiSelect ? selected + [custom] : [custom]
     }
 
+    /// 「返答」欄に出すテキスト。
+    /// session.lastResponse はライブアクティビティ用に 300 文字へ切り詰めた値
+    /// （APNs のペイロード上限があるためデーモン側で必要な措置）なので、
+    /// そのまま出すと長い返答が途中で切れる。会話履歴（/messages 由来、
+    /// 1 メッセージ最大 2000 文字）に同じメッセージの全文があればそちらを使う。
+    /// 「同じメッセージか」は切り詰め前の先頭部分が一致するかで判定し、
+    /// 履歴の取得が追いついていない（別の古い発言しか無い）ときは
+    /// 誤った全文を出さず切り詰め版のままにする
+    private func fullLastResponse(_ session: WatchModel.Session) -> String {
+        let truncated = session.lastResponse
+        guard let full = messages.last(where: { $0.role == "assistant" })?.text else {
+            return truncated
+        }
+        // デーモンの切り詰めは「300 文字 + …」。末尾の … を除いた部分が
+        // 全文の先頭と一致すれば同一メッセージとみなす。
+        // 表を含まない返答は切り詰め時に改行が空白へ潰されているため、
+        // 比較は両者とも空白に正規化して行う
+        let head = truncated.hasSuffix("…") ? String(truncated.dropLast()) : truncated
+        func normalized(_ s: String) -> String {
+            s.replacingOccurrences(of: "\n", with: " ")
+        }
+        return normalized(full).hasPrefix(normalized(head)) ? full : truncated
+    }
+
     private func toggleSelection(_ option: String, at index: Int, multiSelect: Bool) {
         var set = selections[index] ?? []
         if multiSelect {
@@ -132,6 +156,7 @@ struct WatchSessionDetailView: View {
     }
 
     var body: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
                 if let session {
@@ -176,6 +201,51 @@ struct WatchSessionDetailView: View {
                         WatchCommandPickerView(sessionId: sessionId)
                     }
 
+
+                }
+
+                // 会話履歴
+                if !messages.isEmpty {
+                    label("会話")
+                    ForEach(messages) { message in
+                        VStack(alignment: .leading, spacing: 1) {
+                            // Claude の発言は文字ラベルではなくブランドのマークで示す
+                            if message.role == "user" {
+                                Text("あなた")
+                                    .font(.caption2.bold())
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Image("ClaudeMark")
+                                    .renderingMode(.template)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 12, height: 12)
+                                    .foregroundStyle(Color.claudeBrand)
+                            }
+                            // 素の Text だと表がパイプの羅列、見出しが "## " のまま
+                            // 出てしまうので、iPhone 側と同じ Markdown 描画にする。
+                            // compact は Watch の狭い横幅に表を詰めるため
+                            MarkdownText(text: message.text, compact: true)
+                        }
+                        .padding(.bottom, 3)
+                    }
+                }
+
+                // 下ほど新しい並び: 会話履歴（古い） → 直近のやり取り → 質問・送信（最新）。
+                // チャットと同じ向きにして、開いて下を見れば今の状態が分かるようにする
+                if let session {
+                    // 直近のやり取り（省略なしの全文）。
+                    // 会話履歴と同じく Markdown で描く——素の Text のままだと
+                    // 表がパイプの羅列、見出しが "## " のまま出てしまう
+                    // （会話履歴だけ Markdown 化してここが漏れていた）
+                    if !session.lastPrompt.isEmpty {
+                        label("入力")
+                        Text(session.lastPrompt).font(.footnote)
+                    }
+                    if !session.lastResponse.isEmpty {
+                        label("返答")
+                        MarkdownText(text: fullLastResponse(session), compact: true)
+                    }
                     // プロンプト送信・質問への回答は操作モードのときだけ出す
                     if controlMode {
                     // プロンプト送信（音声ディクテーション対応の標準 TextField）
@@ -296,37 +366,9 @@ struct WatchSessionDetailView: View {
                         }
                     }
                     }  // if controlMode（プロンプト送信＋質問回答をまとめて隠す）
-
-                    // 直近のやり取り（省略なしの全文）。
-                    // 会話履歴と同じく Markdown で描く——素の Text のままだと
-                    // 表がパイプの羅列、見出しが "## " のまま出てしまう
-                    // （会話履歴だけ Markdown 化してここが漏れていた）
-                    if !session.lastPrompt.isEmpty {
-                        label("入力")
-                        Text(session.lastPrompt).font(.footnote)
-                    }
-                    if !session.lastResponse.isEmpty {
-                        label("返答")
-                        MarkdownText(text: session.lastResponse, compact: true)
-                    }
                 }
-
-                // 会話履歴
-                if !messages.isEmpty {
-                    label("会話")
-                    ForEach(messages) { message in
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(message.role == "user" ? "あなた" : "Claude")
-                                .font(.caption2.bold())
-                                .foregroundStyle(.secondary)
-                            // 素の Text だと表がパイプの羅列、見出しが "## " のまま
-                            // 出てしまうので、iPhone 側と同じ Markdown 描画にする。
-                            // compact は Watch の狭い横幅に表を詰めるため
-                            MarkdownText(text: message.text, compact: true)
-                        }
-                        .padding(.bottom, 3)
-                    }
-                }
+                // 開いたとき最下部（最新）へスクロールするためのアンカー
+                Color.clear.frame(height: 1).id("bottom")
             }
         }
         .navigationTitle(session.map { s in
@@ -336,11 +378,17 @@ struct WatchSessionDetailView: View {
         .task {
             await model.refresh()
             messages = await model.fetchMessages(sessionId: sessionId)
+            // 下ほど新しい並びなので、開いたら最新（最下部）から読めるようにする
+            proxy.scrollTo("bottom", anchor: .bottom)
         }
         .refreshable {
             await model.refresh()
             messages = await model.fetchMessages(sessionId: sessionId)
         }
+        .onChange(of: messages.count) { _, _ in
+            withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
+        }
+        }  // ScrollViewReader
     }
 
     private func label(_ text: String) -> some View {
