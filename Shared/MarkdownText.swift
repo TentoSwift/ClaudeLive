@@ -163,6 +163,11 @@ struct MarkdownText: View {
         return String(line[line.index(dot, offsetBy: 2)...])
     }
 
+    /// 本文のフォント。Watch（compact）では周囲のテキスト（.footnote）と
+    /// 大きさを揃える——.subheadline のままだと「入力」欄などより一回り大きく
+    /// 見えて不揃いだった
+    private var bodyFont: Font { compact ? .footnote : .subheadline }
+
     // MARK: 描画
 
     @ViewBuilder
@@ -170,7 +175,7 @@ struct MarkdownText: View {
         switch block {
         case .paragraph(let text):
             Text(Self.inline(text))
-                .font(.subheadline)
+                .font(bodyFont)
 
         case .heading(let level, let text):
             Text(Self.inline(text))
@@ -195,7 +200,7 @@ struct MarkdownText: View {
                         Text("•")
                         Text(Self.inline(item))
                     }
-                    .font(.subheadline)
+                    .font(bodyFont)
                 }
             }
 
@@ -207,7 +212,7 @@ struct MarkdownText: View {
                             .foregroundStyle(.secondary)
                         Text(Self.inline(item))
                     }
-                    .font(.subheadline)
+                    .font(bodyFont)
                 }
             }
 
@@ -217,7 +222,7 @@ struct MarkdownText: View {
                     .fill(Color.secondary.opacity(0.5))
                     .frame(width: 3)
                 Text(Self.inline(text))
-                    .font(.subheadline)
+                    .font(bodyFont)
                     .foregroundStyle(.secondary)
             }
 
