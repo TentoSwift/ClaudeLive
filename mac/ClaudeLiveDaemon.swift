@@ -436,6 +436,10 @@ final class SessionState {
     /// 取得済み）のデバイス名。端末ごとに独立して開始・再開できるようにする
     var startedDevices: Set<String> = []
     var lastPushAt = Date.distantPast
+    /// push-to-start を送った直近の時刻（端末ごと）。
+    /// handleRegister の「スナップショットに無いセッションはユーザーが消した」
+    /// 判定に、送信直後だけ猶予を与えるために使う（下記コメント参照）
+    var lastStartPushAt: [String: Date] = [:]
     var updateScheduled = false
     /// 直近でフックを受信した時刻。working/compacting のまま長時間これが
     /// 更新されない場合、Mac のスリープやネットワーク断とみなす
@@ -531,6 +535,9 @@ final class Daemon {
     private var recentStartPushes: [Date] = []
     private let maxStartsPerWindow = 3
     private let startPushWindow: TimeInterval = 120
+    /// push-to-start 送信から、この秒数の間は register の
+    /// 「スナップショットに無い＝ユーザーが消した」判定を保留する
+    private let startPushGracePeriod: TimeInterval = 20
 
     private var watchdogTimer: DispatchSourceTimer?
 
@@ -1191,6 +1198,22 @@ final class Daemon {
             // （アクティビティを手動で消されると、古いトークン宛ての update は
             // APNs 200 のまま黙って捨てられ続けるので、Mac 側からは検知できない）
             for sessionId in device.activityTokens.keys where map[sessionId] == nil {
+                // push-to-start を送った直後は、OS がアクティビティを作ってから
+                // アプリが per-activity トークンを受け取って activityTokens に
+                // 反映するまでにラグがある。その間に来た register は「まだ
+                // このセッションのトークンを持っていないだけ」のスナップショットで、
+                // 「ユーザーが消した」わけではない。実際、複数の registerToServer()
+                // 呼び出しが競合すると、揃っていない古いスナップショットが後から
+                // 届いてしまうことがあり、それをそのまま「ユーザーが消した」と
+                // 解釈すると、以後そのセッションは自動再表示されなくなっていた
+                // （iOS 側の直列化でも大きく減らしたが、二重の保険としてここでも
+                // 猶予期間を設ける）
+                if let pushedAt = sessions[sessionId]?.lastStartPushAt[deviceName],
+                   Date().timeIntervalSince(pushedAt) < startPushGracePeriod {
+                    log("push-to-start 直後のため「消えた」判定を保留: "
+                        + "\(sessionId.prefix(8)) (\(deviceName))")
+                    continue
+                }
                 device.activityTokens.removeValue(forKey: sessionId)
                 if let session = sessions[sessionId] {
                     // ユーザーが消したアクティビティを勝手に即再作成しない。
@@ -2186,6 +2209,7 @@ final class Daemon {
 
         for target in targets {
             session.startedDevices.insert(target.name)  // 多重送信防止（失敗したら戻す）
+            session.lastStartPushAt[target.name] = now
             let payload: [String: Any] = [
                 "aps": [
                     "timestamp": Int(Date().timeIntervalSince1970),

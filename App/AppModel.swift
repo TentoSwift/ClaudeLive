@@ -454,8 +454,44 @@ final class AppModel: ObservableObject {
 
     // MARK: - デーモンへの登録
 
+    /// 直列化された登録が実行中か。実行中に来た呼び出しは早期リターンし、
+    /// pendingRegistration を立てるだけにする
+    private var isRegistering = false
+    /// 実行中に追加の registerToServer() 呼び出しがあったか
+    private var pendingRegistration = false
+
+    /// activityTokens のスナップショットを Mac へ送る。
+    ///
+    /// 呼び出しごとに Task { await performRegistration() } と fire-and-forget して
+    /// いた頃は、複数の登録が同時に飛べてしまっていた。performRegistration は
+    /// 呼ばれた瞬間の activityTokens を捕まえてから非同期にネットワーク送信する
+    /// ため、「トークンがまだ揃っていない古いスナップショット」の送信が、
+    /// 「トークンが揃った新しいスナップショット」の送信より後にサーバへ届く
+    /// ことがあった。デーモン側は「送られてきたスナップショットに無いセッションは
+    /// ユーザーが消した」と解釈するため、揃っているはずのセッションが誤って
+    /// 「ユーザーが消した」扱いになり、以後ライブアクティビティが二度と
+    /// 自動再表示されなくなる不具合があった
+    /// （push-to-start 直後の pushTokenUpdates 到着と、他のイベントからの
+    /// registerToServer() 呼び出しが競合しやすかった）。
+    ///
+    /// 実行中は新規送信をせず、完了後に「実行中にもう一度呼ばれたか」だけを見て
+    /// 最新のスナップショットで 1 回だけ送り直す。常に「直前の送信が完了してから
+    /// 次を送る」順序になるので、古いスナップショットが新しいものを追い越して
+    /// 届くことがなくなる
     func registerToServer() {
-        Task { await performRegistration() }
+        guard !isRegistering else {
+            pendingRegistration = true
+            return
+        }
+        isRegistering = true
+        Task {
+            await performRegistration()
+            isRegistering = false
+            if pendingRegistration {
+                pendingRegistration = false
+                registerToServer()
+            }
+        }
     }
 
     private func performRegistration() async {
