@@ -191,6 +191,7 @@ final class APNSClient {
     /// completion(成功したか)
     func send(deviceToken: String, payload: [String: Any],
               label: String, pushType: String = "liveactivity",
+              onInvalidToken: (() -> Void)? = nil,
               completion: @escaping (Bool) -> Void) {
         let token: String
         let body: Data
@@ -230,6 +231,12 @@ final class APNSClient {
             } else {
                 let reason = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
                 log("APNs \(status) (\(label)): \(reason)")
+                // トークン自体がもう使えない失敗（失効・未登録）は呼び出し側へ伝え、
+                // 同じトークンへ送り続けないようにする。
+                // 410 = ExpiredToken/Unregistered、400 BadDeviceToken = 環境不一致など
+                if status == 410 || (status == 400 && reason.contains("BadDeviceToken")) {
+                    onInvalidToken?()
+                }
                 completion(false)
             }
         }.resume()
@@ -2226,10 +2233,32 @@ final class Daemon {
             ]
             if let alert { aps["alert"] = alert }
             apns.send(deviceToken: token, payload: ["aps": aps],
-                      label: "update \(session.projectName) [\(session.status)] (\(name))") { _ in }
+                      label: "update \(session.projectName) [\(session.status)] (\(name))",
+                      onInvalidToken: { [weak self] in
+                          self?.queue.async {
+                              self?.discardInvalidActivityToken(device: name, sessionId: session.id)
+                          }
+                      }) { _ in }
             sent = true
         }
         if sent { session.lastPushAt = Date() }
+    }
+
+    /// APNs に失効（410）と言われた per-activity トークンを破棄する。
+    /// 以前は失効トークンへ update を送り続けるだけで、
+    /// 「セッション開始時は表示されるがその後更新されない」原因になっていた
+    /// （失効トークンが残っている限り開始済み扱いで、再表示もされない）。
+    /// 破棄して未開始扱いに戻せば、次のフックで push-to-start が飛び、
+    /// 新しいアクティビティとトークンが立ち上がる。
+    /// dismissedByUser は立てない——ユーザーが消したのではなく失効なので、
+    /// 自動で再表示してよい
+    private func discardInvalidActivityToken(device name: String, sessionId: String) {
+        guard tokens.devices[name]?.activityTokens[sessionId] != nil else { return }
+        tokens.devices[name]?.activityTokens.removeValue(forKey: sessionId)
+        tokens.save()
+        sessions[sessionId]?.startedDevices.remove(name)
+        log("失効したアクティビティトークンを破棄（次のイベントで再表示を試みる）: "
+            + "\(sessionId.prefix(8)) (\(name))")
     }
 
     /// アクティビティトークンを持つ全端末へ end を送る
@@ -2251,7 +2280,12 @@ final class Daemon {
             ]
             if let alert { aps["alert"] = alert }
             apns.send(deviceToken: token, payload: ["aps": aps],
-                      label: "end \(session.projectName) (\(name))") { _ in }
+                      label: "end \(session.projectName) (\(name))",
+                      onInvalidToken: { [weak self] in
+                          self?.queue.async {
+                              self?.discardInvalidActivityToken(device: name, sessionId: session.id)
+                          }
+                      }) { _ in }
             sent = true
         }
         if sent {
