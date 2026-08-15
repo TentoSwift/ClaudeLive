@@ -15,11 +15,10 @@ mkdir -p "$BASE"
 echo "==> デーモンをビルド"
 swiftc -O -o "$BASE/claudelive-daemon" "$DIR/ClaudeLiveDaemon.swift"
 
-# コード署名。ad-hoc 署名（--sign -）だと「アクセシビリティ」の許可が
-# バイナリのハッシュに紐づくため、再ビルドはもちろん Mac の再起動でも
-# 許可が失効してしまう。自己署名のコード署名証明書があればそれで署名すると、
-# 許可が「証明書」に紐づくので、再ビルド・再起動しても許可が保持され、
-# アクセシビリティの再付与が二度と要らなくなる。
+# コード署名。ad-hoc 署名（--sign -）だとバイナリのハッシュ自体が署名になるため、
+# 再ビルドのたびに変わってしまい、通知など OS 側の許可がバイナリに紐づく場合は
+# 再付与が要ることがある。自己署名のコード署名証明書があればそれで署名することで、
+# 許可が「証明書」に紐づき、再ビルド・再起動しても保持される。
 #
 # 証明書は一度だけ作る（キーチェーンに永続）:
 #   キーチェーンアクセス → 証明書アシスタント → 自分に証明書を作成
@@ -30,7 +29,7 @@ if security find-certificate -c "$SIGN_CERT" >/dev/null 2>&1; then
     echo "==> コード署名（自己署名証明書 '$SIGN_CERT'。再起動・再ビルドで許可が切れない）"
     codesign --force --sign "$SIGN_CERT" --identifier com.tento.claudelive.daemon "$BASE/claudelive-daemon"
 else
-    echo "==> コード署名（ad-hoc。証明書 '$SIGN_CERT' が無いため。再起動でアクセシビリティ許可が切れる場合あり）"
+    echo "==> コード署名（ad-hoc。証明書 '$SIGN_CERT' が無いため）"
     codesign --force --sign - --identifier com.tento.claudelive.daemon "$BASE/claudelive-daemon"
 fi
 

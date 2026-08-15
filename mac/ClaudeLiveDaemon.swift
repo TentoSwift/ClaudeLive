@@ -17,7 +17,6 @@
 
 import AppKit
 import CryptoKit
-import CoreGraphics
 import Darwin
 import Foundation
 import Network
@@ -509,15 +508,10 @@ final class Daemon {
     private let config: Config
     private let apns: APNSClient
     private let queue = DispatchQueue(label: "claudelive.daemon")
-    /// AppleScript（キー入力・アプリ前面化）専用のキュー。
-    ///
-    /// これらは happy path でも delay 込みで 3 秒以上かかり、System Events が
-    /// 応答しない状況（モーダルダイアログが開いている、アクセシビリティ権限の
-    /// 確認が出ている等）では返ってこない。メインの直列キューで待つと
-    /// フックも API も含めデーモン全体が止まるため、別キューに逃がす。
-    ///
-    /// ただしクリップボードと前面アプリという共有資源を触るので、
-    /// 同時実行はさせず直列のままにする
+    /// AppleScript（Mac 側の質問ダイアログ・通知表示）専用のキュー。
+    /// osascript の起動から応答までメインの直列キューで待つと、
+    /// フックも API も含めデーモン全体が止まってしまうため別キューに逃がす。
+    /// 同時に複数出すと紛らわしいので直列のままにする
     private let scriptQueue = DispatchQueue(label: "claudelive.applescript")
     private var tokens = TokenStore.load()
     private var sessions: [String: SessionState] = [:]
@@ -557,10 +551,6 @@ final class Daemon {
     /// 複数が同じ Mac に届いてしまい、同じ指示が2回ペースト＆送信される事故が
     /// あったため、同一内容の連続実行を短時間だけ弾く
     private var recentPromptKeys: [String: Date] = [:]
-    // typeIntoClaudeApp 自体が（セッション切り替えを伴う場合）delay の合計で
-    // 3秒以上かかることがあり、重複リクエストは daemon の直列キューで順番待ち
-    // させられてから重複チェックに来る。そのため排除ウィンドウは
-    // typeIntoClaudeApp の最大所要時間より十分長く取る必要がある
     private let promptDedupeWindow: TimeInterval = 10
 
     init(config: Config) {
@@ -871,7 +861,7 @@ final class Daemon {
                 respond(connection, status: "400 Bad Request", json: #"{"ok":false}"#)
             }
         case ("POST", "/changemodel"):
-            // Watch / iPhone からのモデル変更。/prompt と同じキー入力方式で
+            // Watch / iPhone からのモデル変更。/prompt と同じくヘッドレス実行で
             // 「/model <id>」を該当セッションに送るだけ（Claude Code 本体の
             // /model スラッシュコマンドがモデル切り替えを処理する）
             if let json = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any],
@@ -885,7 +875,7 @@ final class Daemon {
             }
         case ("POST", "/command"):
             // Watch / iPhone からのスラッシュコマンド送信（/compact 等）。
-            // /prompt と同じキー入力方式でそのまま該当セッションに送るだけ
+            // /prompt と同じくヘッドレス実行でそのまま該当セッションに送るだけ
             if let json = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any],
                let sessionId = json["sessionId"] as? String,
                let command = json["command"] as? String,
@@ -1455,34 +1445,25 @@ final class Daemon {
         guard pendingQuestions[sessionId] != nil else {
             // 保留のタイムアウト（questionHold）を過ぎてすでに素通しされた質問。
             // ブロック中のフック接続がもう無く release では届けられないため、
-            // /prompt と同じキー入力方式で Claude Desktop に直接反映する
+            // /prompt と同じくヘッドレス実行で Claude に直接反映する
             let items = sessions[sessionId]?.questionItems ?? []
             let text = composeAnswerText(items: items, answers: answers)
-            log("iPhone から回答（保留期限切れ、キー入力で反映）: session \(sessionId.prefix(8))「\(Self.truncate(text, 40))」")
-            typeIntoClaudeApp(text)
+            let cwd = sessions[sessionId]?.cwd ?? ""
+            log("iPhone から回答（保留期限切れ、ヘッドレスで反映）: session \(sessionId.prefix(8))「\(Self.truncate(text, 40))」")
+            runPromptHeadless(sessionId: sessionId, text: text, cwd: cwd)
             return
         }
         log("iPhone から回答: session \(sessionId.prefix(8))")
         releaseQuestion(sessionId: sessionId, answers: answers, notify: true)
     }
 
-    /// Mac の画面がロックされているか（スクリーンセーバ含む）。
-    /// ロック中は System Events によるキー入力・クリックが一切効かない
-    /// （OS のセキュリティ境界で、貫通する方法が無い）ため、その場合は
-    /// runPrompt がヘッドレス送信にフォールバックする判定に使う
-    private func isScreenLocked() -> Bool {
-        guard let info = CGSessionCopyCurrentDictionary() as? [String: Any] else { return false }
-        return (info["CGSSessionScreenIsLocked"] as? Bool) ?? false
-    }
-
     /// Watch / iPhone から送られたプロンプトを該当セッションに注入する。
-    /// 通常は宛先セッションを claude://resume?session=<id> のディープリンクで
-    /// 名指しで前面に出してから、キー入力で流し込む（GUI に即反映され、
-    /// 最前面でなかったセッションにも送れる）。
-    /// ただし Mac の画面がロックされている間はこの方式が一切効かないため
-    /// （デーモンは "送信成功" を返すのに実際は何も起きない、という不具合の
-    /// 原因だった）、ロック中は `claude -p --resume` によるヘッドレス送信に
-    /// 切り替える。画面操作が要らないのでロック中でも確実に届く
+    /// 常に `claude -p --resume <sessionId> <text>` のヘッドレス実行で送る。
+    /// 画面操作を一切行わないため、Claude アプリが前面にあるか・
+    /// Mac がロックされているかに関係なく確実に届く。
+    /// 以前は前面化＋キー入力方式を優先し、ロック中だけヘッドレスに切り替えて
+    /// いたが、フォーカスの奪い合いや貼り付け失敗が起きうる複雑な経路だったため、
+    /// 常にヘッドレスに一本化した。
     /// sessionId は hooks の session_id（= Claude Desktop の cliSessionId）
     private func runPrompt(sessionId: String, text: String) {
         let key = "\(sessionId)|\(text)"
@@ -1495,14 +1476,11 @@ final class Daemon {
         }
         recentPromptKeys[key] = now
 
-        if isScreenLocked() {
-            let cwd = sessions[sessionId]?.cwd ?? ""
-            runPromptHeadless(sessionId: sessionId, text: text, cwd: cwd)
-            log("プロンプト送信(セッション\(sessionId.prefix(8))・画面ロック中のためヘッドレス): 「\(Self.truncate(text, 60))」")
-        } else {
-            typeIntoClaudeApp(text, focusCLISessionId: sessionId)
-            log("プロンプト送信(セッション\(sessionId.prefix(8))を前面化→キー入力): 「\(Self.truncate(text, 60))」")
-        }
+        // 常にヘッドレス実行にする（Claude Desktop の前面化・キー入力は使わない）。
+        // 画面ロック中でも動き、フォーカスの奪い合いや貼り付け失敗も起きない
+        let cwd = sessions[sessionId]?.cwd ?? ""
+        runPromptHeadless(sessionId: sessionId, text: text, cwd: cwd)
+        log("プロンプト送信(セッション\(sessionId.prefix(8))・ヘッドレス): 「\(Self.truncate(text, 60))」")
     }
 
     /// 画面操作なしでプロンプトを送る。`claude -p --resume <id> <text>` を
@@ -1530,108 +1508,6 @@ final class Daemon {
         }
     }
 
-    /// Claude アプリを前面に出し、クリップボード経由でテキストを貼り付けて Enter。
-    /// 長文・日本語でも確実に入るよう keystroke ではなくペーストを使う。
-    /// focusCLISessionId を渡すと、claude://resume?session=<id> のディープリンクで
-    /// そのセッションを名指しで前面に出してから入力する（最前面でなくても届く）
-    private func typeIntoClaudeApp(_ text: String, focusCLISessionId: String? = nil) {
-        func esc(_ s: String) -> String {
-            s.replacingOccurrences(of: "\\", with: "\\\\")
-                .replacingOccurrences(of: "\"", with: "\\\"")
-        }
-        // 宛先セッションを名指しで前面化する（指定があれば）。
-        // ディープリンクの反映に少し時間がかかるので長めに待つ
-        let focusScript: String
-        if let cliId = focusCLISessionId,
-           cliId.range(of: "^[0-9a-fA-F-]{36}$", options: .regularExpression) != nil {
-            // 未キャッシュのセッションに切り替える場合、履歴の読み込み・描画に
-            // 1.2秒では足りずコンポーザーにフォーカスが来る前にペーストしてしまい
-            // 何も入力されないことがあったため、安全側に長めに待つ
-            focusScript = """
-            do shell script "open " & quoted form of "claude://resume?session=\(cliId)"
-            delay 2.5
-            """
-        } else {
-            focusScript = "tell application id \"com.anthropic.claudefordesktop\" to activate\ndelay 0.4"
-        }
-        let script = """
-        set prev to ""
-        try
-            set prev to the clipboard as text
-        end try
-        set the clipboard to "\(esc(text))"
-        \(focusScript)
-        tell application "System Events"
-            tell process "Claude"
-                set frontmost to true
-            end tell
-            -- 既にそのセッションが前面表示されている場合、ディープリンクを
-            -- 開き直しても画面遷移が起きず入力欄にフォーカスが来ないことがあり、
-            -- その状態で貼り付けても何も入力されない不具合があった。
-            -- ウィンドウ下端中央（入力欄がある位置）を直接クリックして
-            -- 確実にフォーカスしてから貼り付ける
-            try
-                set winPos to position of window 1 of process "Claude"
-                set winSize to size of window 1 of process "Claude"
-                set clickX to (item 1 of winPos) + ((item 1 of winSize) / 2)
-                set clickY to (item 2 of winPos) + (item 2 of winSize) - 40
-                click at {clickX, clickY}
-                delay 0.15
-            end try
-            keystroke "v" using command down
-            delay 0.3
-            key code 36
-        end tell
-        delay 0.2
-        try
-            set the clipboard to prev
-        end try
-        """
-        // メインの直列キューでは絶対に待たない。
-        // 以前はここで waitUntilExit() をタイムアウトなしに呼んでおり、
-        // System Events が応答しないとデーモン全体が固まって
-        // フックも API も一切受け付けなくなる不具合があった
-        scriptQueue.async { [weak self] in
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-            process.arguments = ["-e", script]
-            process.standardOutput = FileHandle.nullDevice
-            let errPipe = Pipe()
-            process.standardError = errPipe
-            do {
-                try process.run()
-            } catch {
-                self?.queue.async { log("キー入力失敗: \(error.localizedDescription)") }
-                return
-            }
-            // 応答が返らない場合に備えた見張り。スクリプト自体の delay 合計が
-            // 3 秒強なので、余裕を見た秒数で打ち切る
-            let deadline = DispatchTime.now() + Self.appleScriptTimeout
-            let watchdog = DispatchWorkItem {
-                guard process.isRunning else { return }
-                process.terminate()
-                self?.queue.async {
-                    log("キー入力がタイムアウトしたので中断しました"
-                        + "（\(Int(Self.appleScriptTimeout))秒）。Claude アプリの応答か"
-                        + "アクセシビリティ権限を確認してください")
-                }
-            }
-            DispatchQueue.global().asyncAfter(deadline: deadline, execute: watchdog)
-            process.waitUntilExit()
-            watchdog.cancel()
-            if process.terminationStatus != 0 {
-                let err = String(data: errPipe.fileHandleForReading.readDataToEndOfFile(),
-                                 encoding: .utf8) ?? ""
-                let detail = err.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !detail.isEmpty {
-                    self?.queue.async { log("キー入力失敗: \(detail)") }
-                }
-            }
-        }
-    }
-
-    /// AppleScript が返ってこない場合に打ち切るまでの秒数
-    private static let appleScriptTimeout: TimeInterval = 20
 
     /// 新規セッションを開始できる既知のプロジェクト（過去に使った cwd）の一覧。
     /// ~/.claude/projects/ のディレクトリ名（cwd を "-" 区切りにしたもの）を

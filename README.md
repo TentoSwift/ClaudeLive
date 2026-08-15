@@ -61,7 +61,9 @@ Mac で動いている **Claude Code の状態を iPhone のライブアクテ�
   - `PostToolUse` が届いた（＝許可された）時点で表示を戻す
 
   ⚠️ 承認そのものは iPhone からできない。フックが発火しないため公式の decision 機構が使えず、
-  キー入力での代行は Mac がロック中に動かないため採用していない
+  キー入力・クリックで代行する方式はロック中に動かず不確実なため採用していない
+  （指示の送信・質問回答は headless（`claude -p --resume`）に統一しているのと対照的に、
+  許可ダイアログは Claude アプリの GUI 操作でしか閉じられない）
 - 許可待ち・入力待ち・完了時はアラート付きプッシュ（サウンドあり）。
   **質問（AskUserQuestion）は通知を出さない**——ライブアクティビティに選択肢が
   出るので、通知と二重になって煩わしいため。
@@ -105,7 +107,7 @@ Mac で動いている **Claude Code の状態を iPhone のライブアクテ�
 | `GET /messages?session=<id>&limit=N` | transcript JSONL から会話テキストを抽出（読み取り専用） |
 | `POST /question` | AskUserQuestion の PreToolUse フック専用。iPhone 回答待ちで保留 |
 | `POST /answer` | iPhone の回答ボタン（App Intent）からの `{sessionId, answers, pass}` |
-| `POST /prompt` | **セッションに指示を送る**（画面ロック中は `claude -p --resume`、通常は Claude アプリへキー入力） |
+| `POST /prompt` | **セッションに指示を送る**（`claude -p --resume` によるヘッドレス実行。画面操作は行わない） |
 | `POST /command` | **スラッシュコマンドを送る**（`/compact` など） |
 | `POST /changemodel` | **モデルを変更**（`/model <id>` の送信） |
 | `POST /newsession` | **新規セッションを開始**（指定 cwd で `claude -p`） |
@@ -337,9 +339,10 @@ Bonjour が止まるため、これが未設定だとアプリから到達でき
 
 ### デーモンが Mac 上で行う操作
 
-- `osascript` でクリップボードの読み書き、Claude アプリの前面化、⌘V / Enter のキー入力
-  （そのためアクセシビリティ権限が必要）
-- `claude -p` / `claude -p --resume` のプロセス起動
+- 指示の送信・質問への回答は `claude -p` / `claude -p --resume` のヘッドレス実行のみ。
+  Claude アプリの前面化や画面操作は行わない
+- `osascript` は Mac 側の質問ダイアログ（`choose from list`）と、通知
+  （`display notification`）の表示にのみ使う
 - `~/.claude/` 配下の transcript / セッションレジストリの読み取り
 
 ## 制約・注意
@@ -367,4 +370,4 @@ Bonjour が止まるため、これが未設定だとアプリから到達でき
 | 同上・ログに「許可されない接続元を切断」 | `tailscaleOnly` が有効。Tailscale 経由で繋ぐか、設定を外す |
 | 送信欄やコマンドのボタンが出ない | 操作モードがオフ。アプリの設定でオンにする（既定はオフ） |
 | Watch から送ると「操作モードがオフです」 | iPhone 側の操作モードがオフ。Watch は iPhone 経由で中継するため iPhone の設定が効く |
-| 指示を送っても Mac に入力されない | Mac がロックされていないか（ロック中は `claude -p --resume` に自動で切り替わる）。`daemon.log` に「キー入力失敗」が出ていればアクセシビリティ権限を再付与する |
+| 指示を送っても反映されない | `daemon.log` に「プロンプト送信」「ヘッドレス送信失敗」が出ているか確認。`claude` コマンド（`~/.local/bin/claude`）が存在するか、セッションの cwd が有効かを見る |
