@@ -1490,7 +1490,7 @@ final class Daemon {
     private func runPromptHeadless(sessionId: String, text: String, cwd: String) {
         let claudePath = ("~/.local/bin/claude" as NSString).expandingTildeInPath
         guard FileManager.default.fileExists(atPath: claudePath) else {
-            log("ヘッドレス送信失敗: claude が見つからない")
+            log("ヘッドレス送信失敗: claude が見つからない (\(claudePath))")
             return
         }
         let process = Process()
@@ -1499,12 +1499,38 @@ final class Daemon {
         if !cwd.isEmpty {
             process.currentDirectoryURL = URL(fileURLWithPath: cwd)
         }
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-        do {
-            try process.run()
-        } catch {
-            log("ヘッドレス送信失敗: \(error.localizedDescription)")
+        let outPipe = Pipe()
+        let errPipe = Pipe()
+        process.standardOutput = outPipe
+        process.standardError = errPipe
+
+        // `-p` はモデルの応答が終わるまで（数秒〜数十秒）ブロックするので、
+        // メインの直列キューでは待たない。以前は標準出力・エラーを
+        // FileHandle.nullDevice に捨てて起動できたかどうかしか見ておらず、
+        // プロセスは起動できたが認証切れ等で実際には失敗している場合に
+        // 気づけなかった（"送信成功" のログだけが残り、実際は何も届かない）
+        scriptQueue.async { [weak self] in
+            do {
+                try process.run()
+            } catch {
+                self?.queue.async {
+                    log("ヘッドレス送信失敗(セッション\(sessionId.prefix(8))): \(error.localizedDescription)")
+                }
+                return
+            }
+            process.waitUntilExit()
+            let out = String(data: outPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let err = String(data: errPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            self?.queue.async {
+                if process.terminationStatus != 0 {
+                    log("ヘッドレス送信失敗(セッション\(sessionId.prefix(8))・終了コード\(process.terminationStatus)): "
+                        + "\(Self.truncate(err.isEmpty ? out : err, 200))")
+                } else {
+                    log("ヘッドレス送信 完了(セッション\(sessionId.prefix(8)))")
+                }
+            }
         }
     }
 
