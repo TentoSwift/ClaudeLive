@@ -636,6 +636,35 @@ final class Daemon {
         return (64...127).contains(second)
     }
 
+    /// この Mac 自身が Tailscale の IP（100.64.0.0/10）を持っているか。
+    /// tailscale コマンドを外部プロセスとして呼ばず、getifaddrs で
+    /// 自ホストのネットワークインターフェースを直接見る（依存ゼロ・低コスト）。
+    /// tailscaleOnly が有効なのに接続が切れていることに、ログだけでは
+    /// 数日気づけなかった実績があるため、監視ループから定期的に呼ぶ
+    private static func isTailscaleUp() -> Bool {
+        var ifaddrPtr: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifaddrPtr) == 0, let first = ifaddrPtr else { return false }
+        defer { freeifaddrs(ifaddrPtr) }
+
+        var ptr: UnsafeMutablePointer<ifaddrs>? = first
+        while let current = ptr {
+            defer { ptr = current.pointee.ifa_next }
+            guard let addr = current.pointee.ifa_addr, addr.pointee.sa_family == UInt8(AF_INET)
+            else { continue }
+            var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+            guard getnameinfo(addr, socklen_t(addr.pointee.sa_len),
+                              &host, socklen_t(host.count), nil, 0, NI_NUMERICHOST) == 0
+            else { continue }
+            let text = String(cString: host)
+            let parts = text.split(separator: ".")
+            if parts.count == 4, parts[0] == "100", let second = Int(parts[1]),
+               (64...127).contains(second) {
+                return true
+            }
+        }
+        return false
+    }
+
     private func accept(_ connection: NWConnection) {
         // Tailscale 限定モードでは、トークン検証にも進ませず接続段階で切る。
         // これで LAN 側からは（ポートスキャンで見えても）何も引き出せない
@@ -2336,10 +2365,57 @@ final class Daemon {
             if tick >= 30 {  // 2秒 × 30 = 60秒ごと
                 tick = 0
                 self.checkForDisconnectedSessions()
+                self.checkTailscaleConnectivity()
             }
         }
         timer.resume()
         watchdogTimer = timer
+    }
+
+    /// tailscaleOnly が有効なときだけ Tailscale の生死を見張る。
+    /// 切れている間は iPhone がこの Mac に一切到達できず、ライブアクティビティの
+    /// 更新も操作も止まる。以前はログにしか残らず、気づくまで数日かかったことが
+    /// あったため、状態が変わった瞬間だけ（エッジトリガ）Mac 通知でも知らせる
+    private var lastTailscaleUp: Bool? = nil
+    private func checkTailscaleConnectivity() {
+        guard config.isTailscaleOnly else { return }
+        let up = Self.isTailscaleUp()
+        defer { lastTailscaleUp = up }
+        guard up != lastTailscaleUp else { return }
+        // 起動直後の nil → false は「初回チェックでたまたま落ちていた」ことも
+        // 多く、毎起動で必ず通知が出ると煩わしいので、初回は状態の記録だけにする
+        guard lastTailscaleUp != nil else { return }
+
+        if up {
+            log("Tailscale が復旧しました")
+            notifyOnMac(title: "ClaudeLive",
+                        body: "Tailscale が復旧しました。iPhone との接続が戻っているはずです。")
+        } else {
+            log("⚠️ Tailscale が切断されています。tailscaleOnly が有効なため、"
+                + "iPhone はこの Mac に到達できません")
+            notifyOnMac(title: "ClaudeLive: Tailscale が切断されています",
+                        body: "iPhone との接続が止まっています。Tailscale を確認してください。")
+        }
+    }
+
+    /// Mac にネイティブ通知を出す。デーモンは launchd 常駐の CLI なので
+    /// UNUserNotificationCenter の権限付与フローに乗せづらく、既存の
+    /// AppleScript 経路（scriptQueue）に乗せた display notification で代用する
+    private func notifyOnMac(title: String, body: String) {
+        func esc(_ s: String) -> String {
+            s.replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"", with: "\\\"")
+        }
+        let script = "display notification \"\(esc(body))\" with title \"\(esc(title))\""
+        scriptQueue.async {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+            process.arguments = ["-e", script]
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            try? process.run()
+            process.waitUntilExit()
+        }
     }
 
     // MARK: 許可待ちの推定
