@@ -280,6 +280,28 @@ APNs 経由なので外出先でも届く** — 届かないのは iPhone → Ma
 
 ⚠️ Tailscale 経由でも**通信は平文 HTTP** のままなので、[セキュリティ](#セキュリティ)も読むこと。
 
+## visionOS 版（実験的）
+
+Vision Pro を装着したまま Mac 作業をするときに、セッション状態を空間に
+常駐するウィンドウとして置いておくクライアント（`Vision/`）。
+APNs もトークン登録も使わず、**2 秒間隔の HTTP ポーリング**だけで動く
+（設計の詳細は [VISIONOS_SPEC.md](VISIONOS_SPEC.md)）。
+
+- **ダッシュボード**: セッション一覧と会話ビュー（Markdown 描画）、
+  質問への回答、操作モード ON なら指示の送信
+- **ミニタイル**: 1 セッション = 1 ウィンドウの小型パネル。
+  Mac Virtual Display の周囲に並べて置ける（位置は再起動後も復元される）。
+  タイルには**セッションの状態を演じる 3D キャラクター**が付く——
+  作業中はタイピング、入力待ちは読書、質問が来ると手を上げて振り、
+  完了するとひと息つく（v1 は RealityKit の基本ジオメトリによる
+  プレースホルダー。`Vision/CharacterPoseView.swift` だけ差し替えれば
+  本格的なモデルにできる）
+- 接続先・トークン・操作モードの設定キーは iPhone 版と共通
+  （Mac が `tailscaleOnly` のときは Bonjour が出ないため手動指定が必要）
+
+ビルド: `xcodebuild -project ClaudeLive.xcodeproj -target ClaudeLiveVision -sdk xrsimulator26.2`。
+シミュレータは同一 Mac の `127.0.0.1:53536` に届く（loopback は認証免除）。
+
 ## 仕組みのメモ
 
 - hooks（SessionStart / UserPromptSubmit / PreToolUse / PostToolUse / Notification / Stop / PreCompact / SessionEnd）が

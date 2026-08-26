@@ -16,6 +16,12 @@
 
 		CB000000000000000BE00 /* ClaudeBrandColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000BE0 /* ClaudeBrandColor.swift */; };
 
+		CB000000000000000BF00 /* ClaudeStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000BF0 /* ClaudeStatus.swift */; };
+
+		CB000000000000000BF10 /* ClaudeStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000BF0 /* ClaudeStatus.swift */; };
+
+		CB000000000000000BF20 /* ClaudeStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000BF0 /* ClaudeStatus.swift */; };
+
 		CB000000000000000BE10 /* ClaudeBrandColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000BE0 /* ClaudeBrandColor.swift */; };
 
 		CB000000000000000BE20 /* ClaudeBrandColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000BE0 /* ClaudeBrandColor.swift */; };
@@ -112,6 +118,20 @@
 		CB00000000000000000009A0 /* DaemonURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000009A0 /* DaemonURL.swift */; };
 		CB00000000000000000009A1 /* DaemonURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000009A0 /* DaemonURL.swift */; };
 		CB00000000000000000009A2 /* DaemonURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000009A0 /* DaemonURL.swift */; };
+		CB000000000000000007A1 /* ClaudeLiveVisionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000007A1 /* ClaudeLiveVisionApp.swift */; };
+		CB000000000000000007A2 /* VisionAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000007A2 /* VisionAppModel.swift */; };
+		CB000000000000000007A3 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000007A3 /* DashboardView.swift */; };
+		CB000000000000000007A4 /* VisionSessionDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000007A4 /* VisionSessionDetailView.swift */; };
+		CB000000000000000007A5 /* TileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000007A5 /* TileView.swift */; };
+		CB000000000000000007A6 /* CharacterPoseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000007A6 /* CharacterPoseView.swift */; };
+		CB000000000000000007A7 /* VisionSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000007A7 /* VisionSettingsView.swift */; };
+		CB000000000000000007B1 /* DaemonURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000009A0 /* DaemonURL.swift */; };
+		CB000000000000000007B2 /* MarkdownText.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000AB /* MarkdownText.swift */; };
+		CB000000000000000007B3 /* MarkdownTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000BD0 /* MarkdownTable.swift */; };
+		CB000000000000000007B4 /* ClaudeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000008C0 /* ClaudeModel.swift */; };
+		CB000000000000000007B5 /* ClaudeBrandColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000BE0 /* ClaudeBrandColor.swift */; };
+		CB000000000000000007B6 /* ClaudeStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000BF0 /* ClaudeStatus.swift */; };
+		CB000000000000000007C1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000C9 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -164,6 +184,7 @@
 
 		CA00000000000000000BD0 /* MarkdownTable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownTable.swift; sourceTree = "<group>"; };
 CA00000000000000000BE0 /* ClaudeBrandColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeBrandColor.swift; sourceTree = "<group>"; };
+CA00000000000000000BF0 /* ClaudeStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeStatus.swift; sourceTree = "<group>"; };
 		CA00000000000000000000A5 /* ClaudeLiveWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLiveWidgetBundle.swift; sourceTree = "<group>"; };
 		CA00000000000000000000A6 /* ClaudeLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLiveActivityWidget.swift; sourceTree = "<group>"; };
 		CA00000000000000000000A7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -215,6 +236,14 @@ CA00000000000000000BE0 /* ClaudeBrandColor.swift */ = {isa = PBXFileReference; l
 		CA00000000000000000008D0 /* ChangeModelIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangeModelIntent.swift; sourceTree = "<group>"; };
 		CA00000000000000000008E0 /* SendCommandIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendCommandIntent.swift; sourceTree = "<group>"; };
 		CA00000000000000000009A0 /* DaemonURL.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonURL.swift; sourceTree = "<group>"; };
+		CA000000000000000007A0 /* ClaudeLiveVision.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClaudeLiveVision.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CA000000000000000007A1 /* ClaudeLiveVisionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLiveVisionApp.swift; sourceTree = "<group>"; };
+		CA000000000000000007A2 /* VisionAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionAppModel.swift; sourceTree = "<group>"; };
+		CA000000000000000007A3 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		CA000000000000000007A4 /* VisionSessionDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionSessionDetailView.swift; sourceTree = "<group>"; };
+		CA000000000000000007A5 /* TileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TileView.swift; sourceTree = "<group>"; };
+		CA000000000000000007A6 /* CharacterPoseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterPoseView.swift; sourceTree = "<group>"; };
+		CA000000000000000007A7 /* VisionSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionSettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -242,6 +271,7 @@ CA00000000000000000BE0 /* ClaudeBrandColor.swift */ = {isa = PBXFileReference; l
 				CA00000000000000000000A4 /* ClaudeActivityAttributes.swift */,
 				CA00000000000000000BD0 /* MarkdownTable.swift */,
 				CA00000000000000000BE0 /* ClaudeBrandColor.swift */,
+				CA00000000000000000BF0 /* ClaudeStatus.swift */,
 				CA00000000000000000000AB /* MarkdownText.swift */,
 				CA00000000000000000000AC /* AnswerIntent.swift */,
 				CA00000000000000000009A0 /* DaemonURL.swift */,
@@ -273,6 +303,7 @@ CA00000000000000000BE0 /* ClaudeBrandColor.swift */ = {isa = PBXFileReference; l
 				CA00000000000000000000AF /* ClaudeLive.app */,
 				CA00000000000000000000B0 /* ClaudeLiveWidget.appex */,
 				CA000000000000000006A0 /* ClaudeLiveWatch.app */,
+				CA000000000000000007A0 /* ClaudeLiveVision.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -282,6 +313,7 @@ CA00000000000000000BE0 /* ClaudeBrandColor.swift */ = {isa = PBXFileReference; l
 			children = (
 				CC00000000000000000000A1 /* App */,
 				CC000000000000000006A1 /* Watch */,
+				CC000000000000000007A0 /* Vision */,
 				CC00000000000000000000A2 /* Shared */,
 				CC00000000000000000000A3 /* Widget */,
 				CC00000000000000000000A4 /* Products */,
@@ -327,6 +359,20 @@ CA00000000000000000BE0 /* ClaudeBrandColor.swift */ = {isa = PBXFileReference; l
 				CA000000000000000006A4 /* Info.plist */,
 			);
 			path = Watch;
+			sourceTree = "<group>";
+		};
+		CC000000000000000007A0 /* Vision */ = {
+			isa = PBXGroup;
+			children = (
+				CA000000000000000007A1 /* ClaudeLiveVisionApp.swift */,
+				CA000000000000000007A2 /* VisionAppModel.swift */,
+				CA000000000000000007A3 /* DashboardView.swift */,
+				CA000000000000000007A4 /* VisionSessionDetailView.swift */,
+				CA000000000000000007A5 /* TileView.swift */,
+				CA000000000000000007A6 /* CharacterPoseView.swift */,
+				CA000000000000000007A7 /* VisionSettingsView.swift */,
+			);
+			path = Vision;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -390,6 +436,22 @@ CA00000000000000000BE0 /* ClaudeBrandColor.swift */ = {isa = PBXFileReference; l
 			productReference = CA000000000000000006A0 /* ClaudeLiveWatch.app */;
 			productType = "com.apple.product-type.application";
 		};
+		CD000000000000000007A1 /* ClaudeLiveVision */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D0000000000000000007A1 /* Build configuration list for PBXNativeTarget "ClaudeLiveVision" */;
+			buildPhases = (
+				CE000000000000000007A1 /* Sources */,
+				CE000000000000000007A3 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ClaudeLiveVision;
+			productName = ClaudeLiveVision;
+			productReference = CA000000000000000007A0 /* ClaudeLiveVision.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -426,6 +488,7 @@ CA00000000000000000BE0 /* ClaudeBrandColor.swift */ = {isa = PBXFileReference; l
 				CD00000000000000000000A1 /* ClaudeLive */,
 				CD00000000000000000000A2 /* ClaudeLiveWidget */,
 				CD000000000000000006A1 /* ClaudeLiveWatch */,
+				CD000000000000000007A1 /* ClaudeLiveVision */,
 			);
 		};
 /* End PBXProject section */
@@ -501,6 +564,14 @@ CA00000000000000000BE0 /* ClaudeBrandColor.swift */ = {isa = PBXFileReference; l
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CE000000000000000007A3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CB000000000000000007C1 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -508,6 +579,7 @@ CA00000000000000000BE0 /* ClaudeBrandColor.swift */ = {isa = PBXFileReference; l
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CB000000000000000BF00 /* ClaudeStatus.swift in Sources */,
 				CB000000000000000BE00 /* ClaudeBrandColor.swift in Sources */,
 				CB00000000000000000000A1 /* ClaudeLiveApp.swift in Sources */,
 				CB00000000000000000000A2 /* ContentView.swift in Sources */,
@@ -539,6 +611,7 @@ CA00000000000000000BE0 /* ClaudeBrandColor.swift */ = {isa = PBXFileReference; l
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CB000000000000000BF10 /* ClaudeStatus.swift in Sources */,
 				CB000000000000000BE10 /* ClaudeBrandColor.swift in Sources */,
 				CB00000000000000000000A5 /* ClaudeActivityAttributes.swift in Sources */,
 				CB000000000000000BD10 /* MarkdownTable.swift in Sources */,
@@ -556,6 +629,7 @@ CA00000000000000000BE0 /* ClaudeBrandColor.swift */ = {isa = PBXFileReference; l
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CB000000000000000BF20 /* ClaudeStatus.swift in Sources */,
 				CB000000000000000BE20 /* ClaudeBrandColor.swift in Sources */,
 				CB000000000000000BD20 /* MarkdownTable.swift in Sources */,
 				CB000000000000000BD30 /* MarkdownText.swift in Sources */,
@@ -570,6 +644,26 @@ CA00000000000000000BE0 /* ClaudeBrandColor.swift */ = {isa = PBXFileReference; l
 				CB00000000000000000008D1 /* ChangeModelIntent.swift in Sources */,
 				CB00000000000000000008E1 /* SendCommandIntent.swift in Sources */,
 				CB00000000000000000009A2 /* DaemonURL.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CE000000000000000007A1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CB000000000000000007A1 /* ClaudeLiveVisionApp.swift in Sources */,
+				CB000000000000000007A2 /* VisionAppModel.swift in Sources */,
+				CB000000000000000007A3 /* DashboardView.swift in Sources */,
+				CB000000000000000007A4 /* VisionSessionDetailView.swift in Sources */,
+				CB000000000000000007A5 /* TileView.swift in Sources */,
+				CB000000000000000007A6 /* CharacterPoseView.swift in Sources */,
+				CB000000000000000007A7 /* VisionSettingsView.swift in Sources */,
+				CB000000000000000007B1 /* DaemonURL.swift in Sources */,
+				CB000000000000000007B2 /* MarkdownText.swift in Sources */,
+				CB000000000000000007B3 /* MarkdownTable.swift in Sources */,
+				CB000000000000000007B4 /* ClaudeModel.swift in Sources */,
+				CB000000000000000007B5 /* ClaudeBrandColor.swift in Sources */,
+				CB000000000000000007B6 /* ClaudeStatus.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -834,6 +928,60 @@ CA00000000000000000BE0 /* ClaudeBrandColor.swift */ = {isa = PBXFileReference; l
 			};
 			name = Release;
 		};
+		CF000000000000000007A1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = LV3H7Q68W6;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tento.ClaudeLive.Vision;
+				PRODUCT_NAME = ClaudeLiveVision;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = xros;
+				SUPPORTED_PLATFORMS = "xros xrsimulator";
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 7;
+				XROS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Debug;
+		};
+		CF000000000000000007A2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = LV3H7Q68W6;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tento.ClaudeLive.Vision;
+				PRODUCT_NAME = ClaudeLiveVision;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = xros;
+				SUPPORTED_PLATFORMS = "xros xrsimulator";
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 7;
+				XROS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -869,6 +1017,15 @@ CA00000000000000000BE0 /* ClaudeBrandColor.swift */ = {isa = PBXFileReference; l
 			buildConfigurations = (
 				CF000000000000000006A1 /* Debug */,
 				CF000000000000000006A2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D0000000000000000007A1 /* Build configuration list for PBXNativeTarget "ClaudeLiveVision" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CF000000000000000007A1 /* Debug */,
+				CF000000000000000007A2 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
