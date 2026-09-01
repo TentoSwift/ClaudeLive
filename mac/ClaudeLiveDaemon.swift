@@ -976,7 +976,7 @@ final class Daemon {
             // （呼ぶのはここで足りないときだけ＝毎回 transcript を読むわけではない）
             let lastPrompt = (session?.lastPrompt).flatMap { $0.isEmpty ? nil : $0 }
                 ?? latestUserPrompt(forSessionId: sessionId) ?? ""
-            list.append([
+            var entryJSON: [String: Any] = [
                 "sessionId": sessionId,
                 "name": entry.name,
                 "title": session?.title ?? "",
@@ -995,7 +995,13 @@ final class Daemon {
                     ["question": $0.question, "options": $0.options, "multiSelect": $0.multiSelect]
                 },
                 "model": session?.model ?? "",
-            ])
+            ]
+            if let progress = taskProgress(for: sessionId) {
+                entryJSON["taskDone"] = progress.done
+                entryJSON["taskTotal"] = progress.total
+                entryJSON["taskActive"] = progress.active
+            }
+            list.append(entryJSON)
         }
         list.sort { ($0["startedAt"] as? Int ?? 0) > ($1["startedAt"] as? Int ?? 0) }
         let data = (try? JSONSerialization.data(withJSONObject: ["ok": true, "host": macName, "sessions": list]))
@@ -1182,6 +1188,39 @@ final class Daemon {
         let path = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".claude/projects/\(munged)/\(sessionId).jsonl").path
         return FileManager.default.fileExists(atPath: path) ? path : nil
+    }
+
+    /// バックグラウンドタスク（タスクリスト）の進捗を読む。
+    /// ~/.claude/tasks/<sessionId>/N.json を N（ファイル名の数値）昇順に読み、
+    /// 完了数・全体数・進行中タスクの activeForm を返す。ディレクトリが無ければ nil
+    private func taskProgress(for sessionId: String) -> (done: Int, total: Int, active: String)? {
+        let dir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".claude/tasks/\(sessionId)")
+        guard let names = try? FileManager.default.contentsOfDirectory(atPath: dir.path) else { return nil }
+        let jsonNames = names.filter { $0.hasSuffix(".json") }
+        guard !jsonNames.isEmpty else { return nil }
+        // .lock 等を除外した上でファイル名の数値昇順に処理する（Dictionary/Set の列挙順に依存しない）
+        let sorted = jsonNames.sorted { lhs, rhs in
+            let l = Int((lhs as NSString).deletingPathExtension) ?? 0
+            let r = Int((rhs as NSString).deletingPathExtension) ?? 0
+            return l < r
+        }
+        var done = 0
+        var total = 0
+        var active = ""
+        for name in sorted {
+            guard let data = FileManager.default.contents(atPath: dir.appendingPathComponent(name).path),
+                  let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+                  let status = obj["status"] as? String else { continue }
+            total += 1
+            if status == "completed" {
+                done += 1
+            } else if status == "in_progress", active.isEmpty {
+                active = (obj["activeForm"] as? String) ?? ""
+            }
+        }
+        guard total > 0 else { return nil }
+        return (done, total, active)
     }
 
     // MARK: iPhone からのトークン登録
@@ -2051,7 +2090,7 @@ final class Daemon {
     /// content-state は compactAnimated 以外は全端末共通。compactAnimated だけは
     /// 端末ごとの設定なので引数で受け取る
     private func contentState(for session: SessionState, compactAnimated: Bool) -> [String: Any] {
-        [
+        var state: [String: Any] = [
             "status": session.status,
             "detail": session.detail,
             "currentTool": session.currentTool,
@@ -2074,6 +2113,14 @@ final class Daemon {
             "compactAnimated": compactAnimated,
             "lastTool": session.lastTool,
         ]
+        // バックグラウンドタスクの進捗（タスクが無いセッションではキー自体を入れない）。
+        // APNs ペイロードは 4KB 制限があるため activeForm は短く切る
+        if let progress = taskProgress(for: session.id) {
+            state["taskDone"] = progress.done
+            state["taskTotal"] = progress.total
+            state["taskActive"] = Self.truncate(progress.active, 60)
+        }
+        return state
     }
 
     /// 複数セッションが同時にライブアクティビティを持つとき、iOS が

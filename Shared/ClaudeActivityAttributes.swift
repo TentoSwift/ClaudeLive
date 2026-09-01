@@ -58,6 +58,14 @@ struct ClaudeActivityAttributes: ActivityAttributes {
         /// 直近に使ったツール名（例 "Bash"）。currentTool と違い完了後も残る。
         /// 完了時、そのツールのチェックマーク付きカスタムアイコンを出すのに使う
         var lastTool: String
+        /// バックグラウンドタスク（タスクリスト）の完了数。タスクが無いセッションでは nil。
+        /// 旧バージョンのデーモンから届いた content-state でもデコードが落ちないよう Optional
+        var taskDone: Int?
+        /// バックグラウンドタスクの総数。nil = タスクなし（旧デーモン互換のため Optional）
+        var taskTotal: Int?
+        /// 進行中タスクの activeForm（例 "〜を作成中"）。無ければ空文字か nil。
+        /// 旧デーモン互換のため Optional
+        var taskActive: String?
     }
 
     var sessionId: String

@@ -131,6 +131,13 @@ struct ClaudeLiveActivityWidget: Widget {
                                          isSettled: context.state.textSettled,
                               questionCount: context.state.questionCount)
                         } else {
+                            // バックグラウンドタスクの進捗。ツールログや返答表示の邪魔にならない
+                            // 控えめな 1 行として最上部に添える
+                            if (context.state.taskTotal ?? 0) > 0 {
+                                TaskProgressLine(done: context.state.taskDone ?? 0,
+                                                  total: context.state.taskTotal ?? 0,
+                                                  active: context.state.taskActive ?? "")
+                            }
                             // 完了時、返答が長くて場所を取るならツールログ・実行回数は省いて
                             // 返答を複数行で優先表示する（マーキーは1行しか流せないため）
                             if expandResponse {
@@ -517,6 +524,18 @@ private struct LockScreenView: View {
                     }
                 }
 
+                // バックグラウンドタスクの進捗。ツールログや返答表示の邪魔にならない
+                // 控えめな 1 行として添える
+                if (context.state.taskTotal ?? 0) > 0 {
+                    HStack(spacing: 8) {
+                        Color.clear.frame(width: 26, height: 0)
+                        TaskProgressLine(done: context.state.taskDone ?? 0,
+                                          total: context.state.taskTotal ?? 0,
+                                          active: context.state.taskActive ?? "")
+                        Spacer(minLength: 0)
+                    }
+                }
+
                 // 完了時、返答が長くて場所を取るならツールログ・実行回数は省いて
                 // 返答を複数行で優先表示する（マーキーは1行しか流せないため）
                 let expandResponse = status == .done && context.state.lastResponse.count >= 100
@@ -838,6 +857,31 @@ struct QuestionView: View {
                 .background(tint, in: Capsule())
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// バックグラウンドタスク（タスクリスト）の進捗を示す控えめな 1 行。
+/// checklist アイコン + "done/total" + 進行中タスクの activeForm
+struct TaskProgressLine: View {
+    let done: Int
+    let total: Int
+    let active: String
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "checklist")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text("\(done)/\(total)")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            if !active.isEmpty {
+                Text(active)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
     }
 }
 
