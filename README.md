@@ -124,7 +124,9 @@ Mac で動いている **Claude Code の状態を iPhone のライブアクテ�
 | パス | 役割 |
 |---|---|
 | `App/` | iOS アプリ本体。トークン監視と Mac への登録、ローカルテスト UI |
-| `Widget/` | ライブアクティビティの表示（ロック画面 + Dynamic Island） |
+| `Widget/` | ライブアクティビティの表示（ロック画面 + Dynamic Island + Watch Smart Stack） |
+| `Watch/` | watchOS コンパニオンアプリ。iPhone 経由で閲覧・操作 |
+| `Vision/` | visionOS クライアント（実験的）。HTTP ポーリングで空間にタイル表示 |
 | `Shared/ClaudeActivityAttributes.swift` | ContentState 定義。**デーモンの content-state と対応。変えたら両方更新** |
 | `mac/ClaudeLiveDaemon.swift` | Mac 側デーモン。hooks 受信 → APNs 送信。依存ライブラリなし |
 | `mac/install.sh` | デーモンのビルド・launchd 常駐化・hooks 設定を一括実行 |

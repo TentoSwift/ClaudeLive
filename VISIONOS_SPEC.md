@@ -126,35 +126,42 @@ visionOS にはライブアクティビティ相当がなく、バックグラ�
 
 ```
 ClaudeLive/
-  Vision/                      # 新規
-    ClaudeLiveVisionApp.swift  # WindowGroup: dashboard / tile(for: String) / orb(volumetric)
-    VisionAppModel.swift       # ポーリング、セッション配列、状態遷移検知、効果音
+  Vision/                          # 実装済み
+    ClaudeLiveVisionApp.swift      # WindowGroup: dashboard / tile(for: String)
+    VisionAppModel.swift           # ポーリング、セッション配列、Bonjour 発見
     DashboardView.swift
-    SessionDetailView.swift
+    VisionSessionDetailView.swift  # 会話ビュー + 質問回答 + 送信
     TileView.swift
-    CharacterPoseView.swift   # タイル内キャラクター。v1 はプレースホルダー形状
-    OrbView.swift              # M4
-    VisionSettingsView.swift   # 接続先・authToken・操作モード
-    Info.plist                 # シーンロール（volumetric 用）
+    CharacterPoseView.swift        # タイル内の 3D Claude マーク（脈動）
+    VisionSettingsView.swift       # 接続先・authToken・操作モード
 ```
 
-ターゲット: visionOS 2.0+（ウィンドウ位置永続化と広い空間配置の恩恵を受けるなら 26 推奨。
-実機の OS バージョンを確認して決める）。
+Info.plist は GENERATE_INFOPLIST_FILE で自動生成（volumetric の OrbView を
+作る段になったらシーンロール指定のため実ファイル化する）。
+効果音・ローカル通知（M2 の一部）と OrbView（M4）は未実装。
+
+ターゲット: visionOS 26.0+（実装済み。xros SDK 26.2 でビルド・検証）。
 
 ## マイルストーン
 
-- **M1: 閲覧** — ターゲット追加、`DaemonURL` 再利用で `/sessions` ポーリング、
-  ダッシュボード+詳細（読み取り専用）。シミュレータ+実 Mac デーモンで検証可能
-- **M2: タイル** — ミニタイル WindowGroup、状態遷移の色/音、ウィンドウ復元確認、
-  `CharacterPoseView`（プレースホルダー形状）で状態別ポーズの切り替えを実装
-- **M3: 操作** — 操作モード設定、プロンプト送信・質問回答・コマンド・モデル変更・新規セッション
-- **M4: オーブ** — volumetric ステータスオーブ（任意）
-- **M5: 磨き** — 接続断 UX、Tailscale 手動指定、README 追記
+- **M1: 閲覧** ✅ — ターゲット追加、`DaemonURL` 再利用で `/sessions` ポーリング、
+  ダッシュボード+詳細。シミュレータ+実 Mac デーモンで検証済み
+- **M2: タイル** ✅（音・ローカル通知を除く）— ミニタイル WindowGroup、
+  `CharacterPoseView`（3D Claude マークの脈動）。状態遷移の効果音と
+  ローカル通知は未実装。実機でのウィンドウ復元確認も未
+- **M3: 操作** ✅ — 操作モード設定、プロンプト送信・質問回答
+  （コマンド・モデル変更・新規セッションの UI は未。API 呼び出しは実装済み）
+- **M4: オーブ** — volumetric ステータスオーブ（任意・未実装）
+- **M5: 磨き** — 接続断 UX の実機検証、README 追記 ✅、効果音・通知
 
 ## 検証
 
 - visionOS シミュレータは同一 Mac の loopback でデーモンに届く（`127.0.0.1:53536` は
-  認証免除なのでシミュレータからは Bearer 不要で試せる。※実機は LAN 経由なので要トークン）
+  認証免除なのでシミュレータからは Bearer 不要で試せる。※実機は LAN 経由なので要トークン）。
+  接続先は `xcrun simctl spawn <udid> defaults write com.tento.ClaudeLive.Vision
+  manualHost "127.0.0.1:53536"` で仕込める
+- 起動引数 `-openTile <sessionId>` で、UI 操作なしにタイルを直接開ける
+  （visionOS シミュレータは CLI からのタップ操作ができないため用意した検証フック）
 - 実機 Vision Pro + Mac の実運用検証（Bonjour で見つかること、装着作業しながらの視認性）
 - デーモンをモックするより実デーモンに実セッションを立てて検証する方が早い
   （このリポジトリ自体で Claude Code を走らせれば /sessions に現れる）
