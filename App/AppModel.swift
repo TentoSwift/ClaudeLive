@@ -53,6 +53,25 @@ final class AppModel: ObservableObject {
         var taskActive: String = ""
     }
 
+    /// サブエージェント（Agent ツールで起動されるバックグラウンドタスク）1件分。
+    /// Mac デーモンの GET /agents が返す JSON をそのまま写したもの
+    struct AgentTask: Identifiable {
+        let id: String        // agent-<id>.jsonl の <id> 部分
+        var description: String
+        var agentType: String
+        var model: String
+        var startedAt: Int    // epoch 秒
+        var updatedAt: Int    // epoch 秒（transcript の mtime）
+        var running: Bool
+        var messageCount: Int
+        var summary: String
+
+        /// 画面に出す見出し。description が空なら agentType で代用する
+        var displayTitle: String {
+            description.isEmpty ? (agentType.isEmpty ? "サブエージェント" : agentType) : description
+        }
+    }
+
     struct ChatMessage: Identifiable {
         let id: Int           // 配列内の連番
         var role: String      // user / assistant
@@ -280,6 +299,47 @@ final class AppModel: ObservableObject {
         let encoded = sessionId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
             ?? sessionId
         guard let data = await fetchData(path: "/messages?session=\(encoded)&limit=60"),
+              let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let entries = object["messages"] as? [[String: Any]] else { return nil }
+        return entries.enumerated().map { index, entry in
+            ChatMessage(
+                id: index,
+                role: entry["role"] as? String ?? "assistant",
+                text: entry["text"] as? String ?? "",
+                timestamp: entry["timestamp"] as? String ?? "")
+        }
+    }
+
+    /// セッションのサブエージェント一覧を取得する（更新時刻の新しい順）
+    func fetchAgents(sessionId: String) async -> [AgentTask]? {
+        let encoded = sessionId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
+            ?? sessionId
+        guard let data = await fetchData(path: "/agents?session=\(encoded)"),
+              let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let entries = object["agents"] as? [[String: Any]] else { return nil }
+        return entries.compactMap { entry in
+            guard let id = entry["id"] as? String else { return nil }
+            return AgentTask(
+                id: id,
+                description: entry["description"] as? String ?? "",
+                agentType: entry["agentType"] as? String ?? "",
+                model: entry["model"] as? String ?? "",
+                startedAt: entry["startedAt"] as? Int ?? 0,
+                updatedAt: entry["updatedAt"] as? Int ?? 0,
+                running: entry["running"] as? Bool ?? false,
+                messageCount: entry["messageCount"] as? Int ?? 0,
+                summary: entry["summary"] as? String ?? "")
+        }
+    }
+
+    /// サブエージェント1件の会話履歴を取得する（形式はセッション本体と同じ）
+    func fetchAgentMessages(sessionId: String, agentId: String) async -> [ChatMessage]? {
+        let encoded = sessionId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
+            ?? sessionId
+        let encodedAgent = agentId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
+            ?? agentId
+        guard let data = await fetchData(
+                path: "/agentmessages?session=\(encoded)&agent=\(encodedAgent)&limit=200"),
               let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
               let entries = object["messages"] as? [[String: Any]] else { return nil }
         return entries.enumerated().map { index, entry in

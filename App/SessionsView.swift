@@ -182,6 +182,8 @@ struct SessionDetailView: View {
 
     @State private var messages: [AppModel.ChatMessage] = []
     @State private var loaded = false
+    /// このセッションのサブエージェント（バックグラウンドタスク）一覧
+    @State private var agents: [AppModel.AgentTask] = []
     @State private var answerInput = ""
     @State private var answering = false
     @State private var promptInput = ""
@@ -205,6 +207,11 @@ struct SessionDetailView: View {
                     // ライブアクティビティと同じ情報を、アプリ内でも最上部に出す
                     if let session, session.taskTotal > 0 {
                         taskProgressRow(session)
+                    }
+                    // サブエージェント（Agent ツールで起動したバックグラウンドタスク）。
+                    // 1件も無いセッションでは何も出さない
+                    if !agents.isEmpty {
+                        agentsSection
                     }
                     // 操作モードがオフのときは、送っても届かない／届いてほしくない
                     // 入力欄と回答ボタンを出さない（設定画面でオンにできる）
@@ -290,7 +297,73 @@ struct SessionDetailView: View {
         if let fetched = await model.fetchMessages(sessionId: sessionId) {
             messages = fetched
         }
+        if let fetchedAgents = await model.fetchAgents(sessionId: sessionId) {
+            agents = fetchedAgents
+        }
         await model.loadRemoteSessions()
+    }
+
+    /// サブエージェント一覧。タップで各エージェントのトランスクリプトへ
+    private var agentsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("バックグラウンドタスク")
+                .font(.footnote.bold())
+                .foregroundStyle(.secondary)
+            ForEach(agents) { agent in
+                NavigationLink {
+                    AgentTranscriptView(sessionId: sessionId, agent: agent)
+                } label: {
+                    agentRow(agent)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal, 12)
+    }
+
+    private func agentRow(_ agent: AppModel.AgentTask) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Group {
+                if agent.running {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Image(systemName: "checkmark.circle")
+                        .foregroundStyle(Color.claudeBrand)
+                }
+            }
+            .frame(width: 18)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(agent.displayTitle)
+                    .font(.subheadline.bold())
+                    .lineLimit(1)
+                Text(agentSubtitle(agent))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                if !agent.summary.isEmpty {
+                    Text(agent.summary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+        .contentShape(Rectangle())
+    }
+
+    private func agentSubtitle(_ agent: AppModel.AgentTask) -> String {
+        var parts: [String] = []
+        if !agent.agentType.isEmpty { parts.append(agent.agentType) }
+        if !agent.model.isEmpty { parts.append(agent.model) }
+        parts.append(relativeTimeText(epoch: agent.updatedAt))
+        return parts.joined(separator: " · ")
     }
 
     /// 新しい指示の送信。Mac 側はキー入力方式（typeIntoClaudeApp）で
@@ -499,6 +572,106 @@ private struct MessageBubble: View {
                 in: RoundedRectangle(cornerRadius: 14))
             .textSelection(.enabled)
             if message.role != "user" { Spacer(minLength: 40) }
+        }
+    }
+}
+
+/// 「◯分前」形式の相対時刻。epoch 秒が 0（不明）のときは空文字
+func relativeTimeText(epoch: Int) -> String {
+    guard epoch > 0 else { return "" }
+    let formatter = RelativeDateTimeFormatter()
+    formatter.locale = Locale(identifier: "ja_JP")
+    formatter.unitsStyle = .short
+    return formatter.localizedString(for: Date(timeIntervalSince1970: TimeInterval(epoch)),
+                                     relativeTo: Date())
+}
+
+/// サブエージェント1件のトランスクリプト。表示は会話履歴と同じ MessageBubble を使う。
+/// 実行中のあいだは 3 秒おきに取り直して追従する（閲覧専用）
+struct AgentTranscriptView: View {
+    @EnvironmentObject private var model: AppModel
+    let sessionId: String
+    let agent: AppModel.AgentTask
+
+    @State private var messages: [AppModel.ChatMessage] = []
+    @State private var loaded = false
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 10) {
+                    header
+                    if !loaded {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                    } else if messages.isEmpty {
+                        Text("このタスクの記録を読み込めませんでした")
+                            .foregroundStyle(.secondary)
+                            .padding()
+                    }
+                    ForEach(messages) { message in
+                        MessageBubble(message: message)
+                            .id(message.id)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+            }
+            .onChange(of: messages.count) { _, _ in
+                if let last = messages.last {
+                    withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
+                }
+            }
+        }
+        .navigationTitle(agent.displayTitle)
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            await reload()
+            loaded = true
+            // 終了済みのタスクは内容が変わらないので取り直さない
+            while agent.running, !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(3))
+                await reload()
+            }
+        }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                if agent.running {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Image(systemName: "checkmark.circle")
+                        .foregroundStyle(Color.claudeBrand)
+                }
+                Text(agent.displayTitle)
+                    .font(.subheadline.bold())
+            }
+            Text(subtitle)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var subtitle: String {
+        var parts: [String] = []
+        if !agent.agentType.isEmpty { parts.append(agent.agentType) }
+        if !agent.model.isEmpty { parts.append(agent.model) }
+        parts.append(agent.running ? "実行中" : "完了")
+        let relative = relativeTimeText(epoch: agent.updatedAt)
+        if !relative.isEmpty { parts.append(relative) }
+        return parts.joined(separator: " · ")
+    }
+
+    private func reload() async {
+        if let fetched = await model.fetchAgentMessages(sessionId: sessionId, agentId: agent.id) {
+            messages = fetched
         }
     }
 }

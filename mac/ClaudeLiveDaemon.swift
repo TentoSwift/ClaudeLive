@@ -801,6 +801,20 @@ final class Daemon {
             } else {
                 respond(connection, status: "400 Bad Request", json: #"{"ok":false}"#)
             }
+        case ("GET", "/agents"):
+            if let sessionId = query["session"] {
+                respond(connection, json: agentsJSON(sessionId: sessionId))
+            } else {
+                respond(connection, status: "400 Bad Request", json: #"{"ok":false}"#)
+            }
+        case ("GET", "/agentmessages"):
+            if let sessionId = query["session"], let agentId = query["agent"] {
+                let limit = query["limit"].flatMap(Int.init) ?? 200
+                respond(connection, json: agentMessagesJSON(sessionId: sessionId,
+                                                            agentId: agentId, limit: limit))
+            } else {
+                respond(connection, status: "400 Bad Request", json: #"{"ok":false}"#)
+            }
         case ("POST", "/hook"):
             respond(connection)  // hooks を待たせないよう先に応答
             if let json = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any] {
@@ -1012,48 +1026,201 @@ final class Daemon {
     /// transcript JSONL から直近の会話（ユーザー入力と Claude の返答テキスト）を抽出する。
     /// 形式は Claude Code 内部仕様でバージョンにより変わりうる。壊れても空を返すだけにする
     private func messagesJSON(sessionId: String, limit: Int) -> String {
-        let path = transcriptPath(for: sessionId)
-        var messages: [[String: String]] = []
-        if let path, let handle = FileHandle(forReadingAtPath: path) {
-            // 長大なファイルは末尾 2MB だけ読む
-            let maxBytes: UInt64 = 2 * 1024 * 1024
-            let size = (try? handle.seekToEnd()) ?? 0
-            let offset = size > maxBytes ? size - maxBytes : 0
-            try? handle.seek(toOffset: offset)
-            let data = (try? handle.readToEnd()) ?? Data()
-            try? handle.close()
-            var lines = data.split(separator: UInt8(ascii: "\n"))
-            if offset > 0, !lines.isEmpty { lines.removeFirst() }  // 途中から読んだ先頭行は捨てる
-
-            for line in lines {
-                guard let obj = (try? JSONSerialization.jsonObject(with: Data(line))) as? [String: Any],
-                      let type = obj["type"] as? String, type == "user" || type == "assistant",
-                      obj["isSidechain"] as? Bool != true,
-                      obj["isMeta"] as? Bool != true,
-                      let message = obj["message"] as? [String: Any] else { continue }
-                var text = ""
-                if let content = message["content"] as? String {
-                    text = content
-                } else if let content = message["content"] as? [[String: Any]] {
-                    text = content.compactMap { item in
-                        (item["type"] as? String) == "text" ? item["text"] as? String : nil
-                    }.joined(separator: "\n")
-                }
-                let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                // tool_result のみの user 行や、コマンド実行などのシステム的な行は出さない
-                guard !trimmed.isEmpty, !trimmed.hasPrefix("<"),
-                      !trimmed.hasPrefix("[Request interrupted") else { continue }
-                messages.append([
-                    "role": type,
-                    "text": String(trimmed.prefix(2000)),
-                    "timestamp": obj["timestamp"] as? String ?? "",
-                ])
-            }
-        }
+        let messages = Self.parseTranscript(path: transcriptPath(for: sessionId),
+                                            includeSidechain: false)
         let tail = Array(messages.suffix(limit))
         let data = (try? JSONSerialization.data(withJSONObject: ["ok": true, "messages": tail]))
             ?? Data("{}".utf8)
         return String(data: data, encoding: .utf8) ?? "{}"
+    }
+
+    /// transcript JSONL（セッション本体・サブエージェントとも同じ形式）から
+    /// 会話テキストを抽出する共通処理。/messages と /agentmessages が共用する。
+    /// includeSidechain=false はセッション本体用（サブエージェントの行を除く）、
+    /// true はサブエージェント自身の transcript 用（全行が isSidechain のため除いてはいけない）
+    private static func parseTranscript(path: String?, includeSidechain: Bool) -> [[String: String]] {
+        var messages: [[String: String]] = []
+        guard let path, let handle = FileHandle(forReadingAtPath: path) else { return messages }
+        // 長大なファイルは末尾 2MB だけ読む
+        let maxBytes: UInt64 = 2 * 1024 * 1024
+        let size = (try? handle.seekToEnd()) ?? 0
+        let offset = size > maxBytes ? size - maxBytes : 0
+        try? handle.seek(toOffset: offset)
+        let data = (try? handle.readToEnd()) ?? Data()
+        try? handle.close()
+        var lines = data.split(separator: UInt8(ascii: "\n"))
+        if offset > 0, !lines.isEmpty { lines.removeFirst() }  // 途中から読んだ先頭行は捨てる
+
+        for line in lines {
+            guard let obj = (try? JSONSerialization.jsonObject(with: Data(line))) as? [String: Any],
+                  let type = obj["type"] as? String, type == "user" || type == "assistant",
+                  includeSidechain || obj["isSidechain"] as? Bool != true,
+                  obj["isMeta"] as? Bool != true,
+                  let message = obj["message"] as? [String: Any] else { continue }
+            var text = ""
+            if let content = message["content"] as? String {
+                text = content
+            } else if let content = message["content"] as? [[String: Any]] {
+                text = content.compactMap { item in
+                    (item["type"] as? String) == "text" ? item["text"] as? String : nil
+                }.joined(separator: "\n")
+            }
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            // tool_result のみの user 行や、コマンド実行などのシステム的な行は出さない
+            guard !trimmed.isEmpty, !trimmed.hasPrefix("<"),
+                  !trimmed.hasPrefix("[Request interrupted") else { continue }
+            messages.append([
+                "role": type,
+                "text": String(trimmed.prefix(2000)),
+                "timestamp": obj["timestamp"] as? String ?? "",
+            ])
+        }
+        return messages
+    }
+
+    /// サブエージェント（Agent ツールで起動されるバックグラウンドタスク）の一覧。
+    /// transcript と同じディレクトリの <sessionId>/subagents/agent-*.jsonl を列挙する
+    private func agentsJSON(sessionId: String) -> String {
+        var list: [[String: Any]] = []
+        let fm = FileManager.default
+        if let dir = subagentsDir(for: sessionId),
+           let names = try? fm.contentsOfDirectory(atPath: dir) {
+            // Dictionary/Set の列挙順に依存しないよう、まず名前順に固定してから処理する
+            for name in names.sorted() where name.hasPrefix("agent-") && name.hasSuffix(".jsonl") {
+                let agentId = String(name.dropFirst("agent-".count).dropLast(".jsonl".count))
+                guard Self.isValidAgentId(agentId) else { continue }
+                let jsonlPath = (dir as NSString).appendingPathComponent(name)
+                guard let lines = Self.tailLines(ofFile: jsonlPath), !lines.isEmpty else { continue }
+
+                var entry: [String: Any] = ["id": agentId]
+                // メタ情報（無い・壊れている場合もあるので全て任意扱い）
+                let metaPath = (dir as NSString)
+                    .appendingPathComponent("agent-\(agentId).meta.json")
+                if let mdata = fm.contents(atPath: metaPath),
+                   let meta = (try? JSONSerialization.jsonObject(with: mdata)) as? [String: Any] {
+                    entry["description"] = meta["description"] as? String ?? ""
+                    entry["agentType"] = meta["agentType"] as? String ?? ""
+                    entry["model"] = meta["model"] as? String ?? ""
+                } else {
+                    entry["description"] = ""
+                    entry["agentType"] = ""
+                    entry["model"] = ""
+                }
+
+                // 開始時刻は最初の行の timestamp（取れなければファイルの作成日時）
+                var startedAt = 0
+                for line in lines {
+                    if let obj = (try? JSONSerialization.jsonObject(with: Data(line))) as? [String: Any],
+                       let ts = obj["timestamp"] as? String,
+                       let date = Self.parseISODate(ts) {
+                        startedAt = Int(date.timeIntervalSince1970)
+                        break
+                    }
+                }
+                let attrs = try? fm.attributesOfItem(atPath: jsonlPath)
+                let mtime = (attrs?[.modificationDate] as? Date) ?? Date(timeIntervalSince1970: 0)
+                if startedAt == 0 {
+                    startedAt = Int(((attrs?[.creationDate] as? Date) ?? mtime).timeIntervalSince1970)
+                }
+                entry["startedAt"] = startedAt
+                entry["updatedAt"] = Int(mtime.timeIntervalSince1970)
+
+                // 最後の行がアシスタントの text で終わっていれば「レポート提出済み＝終了」。
+                // tool_use / tool_result / thinking で終わっていて、かつ更新が
+                // 5 分以内なら実行中とみなす（デーモンは起動を直接観測できない）
+                var endsWithReport = false
+                var summary = ""
+                if let last = lines.last,
+                   let obj = (try? JSONSerialization.jsonObject(with: Data(last))) as? [String: Any],
+                   obj["type"] as? String == "assistant",
+                   let message = obj["message"] as? [String: Any] {
+                    var text = ""
+                    if let content = message["content"] as? String {
+                        text = content
+                    } else if let content = message["content"] as? [[String: Any]] {
+                        text = content.compactMap { item in
+                            (item["type"] as? String) == "text" ? item["text"] as? String : nil
+                        }.joined(separator: "\n")
+                    }
+                    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty {
+                        endsWithReport = true
+                        summary = String(trimmed.prefix(120))
+                    }
+                }
+                let fresh = Date().timeIntervalSince(mtime) < 300
+                entry["running"] = !endsWithReport && fresh
+
+                let parsed = Self.parseTranscript(path: jsonlPath, includeSidechain: true)
+                entry["messageCount"] = parsed.count
+                if summary.isEmpty {
+                    // 末尾がツール実行中なら、直近のアシスタント発言を要約として使う
+                    let lastAssistant = parsed.last { $0["role"] == "assistant" }
+                    summary = String((lastAssistant?["text"] ?? "").prefix(120))
+                }
+                entry["summary"] = summary
+                list.append(entry)
+            }
+        }
+        list.sort { ($0["startedAt"] as? Int ?? 0) > ($1["startedAt"] as? Int ?? 0) }
+        let data = (try? JSONSerialization.data(withJSONObject: ["ok": true, "agents": list]))
+            ?? Data(#"{"ok":true,"agents":[]}"#.utf8)
+        return String(data: data, encoding: .utf8) ?? #"{"ok":true,"agents":[]}"#
+    }
+
+    /// サブエージェント1件分の会話履歴（/messages と同じ形）
+    private func agentMessagesJSON(sessionId: String, agentId: String, limit: Int) -> String {
+        guard Self.isValidAgentId(agentId), let dir = subagentsDir(for: sessionId) else {
+            return #"{"ok":true,"messages":[]}"#
+        }
+        let path = (dir as NSString).appendingPathComponent("agent-\(agentId).jsonl")
+        let messages = Self.parseTranscript(path: path, includeSidechain: true)
+        let tail = Array(messages.suffix(limit))
+        let data = (try? JSONSerialization.data(withJSONObject: ["ok": true, "messages": tail]))
+            ?? Data("{}".utf8)
+        return String(data: data, encoding: .utf8) ?? "{}"
+    }
+
+    /// <sessionId>.jsonl と同じ場所の <sessionId>/subagents/。無ければ nil
+    private func subagentsDir(for sessionId: String) -> String? {
+        guard let transcript = transcriptPath(for: sessionId) else { return nil }
+        let base = (transcript as NSString).deletingPathExtension  // .jsonl を落とす
+        let dir = (base as NSString).appendingPathComponent("subagents")
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: dir, isDirectory: &isDir), isDir.boolValue
+        else { return nil }
+        return dir
+    }
+
+    /// agentId は 16 進の ID のみ許す。"../" などを弾いてパストラバーサルを防ぐ
+    private static func isValidAgentId(_ id: String) -> Bool {
+        !id.isEmpty && id.count <= 64 && id.allSatisfy { $0.isHexDigit && !$0.isUppercase }
+    }
+
+    private static let isoFractional: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+    private static let isoPlain = ISO8601DateFormatter()
+
+    /// transcript の timestamp は "…Z" と "….479Z" の両方がありうるので両方試す
+    private static func parseISODate(_ s: String) -> Date? {
+        isoFractional.date(from: s) ?? isoPlain.date(from: s)
+    }
+
+    /// ファイル末尾 2MB を行に分割して返す（途中から読んだ先頭行は捨てる）
+    private static func tailLines(ofFile path: String) -> [Data]? {
+        guard let handle = FileHandle(forReadingAtPath: path) else { return nil }
+        let maxBytes: UInt64 = 2 * 1024 * 1024
+        let size = (try? handle.seekToEnd()) ?? 0
+        let offset = size > maxBytes ? size - maxBytes : 0
+        try? handle.seek(toOffset: offset)
+        let data = (try? handle.readToEnd()) ?? Data()
+        try? handle.close()
+        var lines = data.split(separator: UInt8(ascii: "\n"))
+        if offset > 0, !lines.isEmpty { lines.removeFirst() }
+        return lines
     }
 
     /// PreToolUse のたびに transcript 末尾から直近のアシスタントのテキストを拾い、

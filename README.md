@@ -105,6 +105,8 @@ Mac で動いている **Claude Code の状態を iPhone のライブアクテ�
 | `POST /register` | iPhone からのトークン登録（生存アクティビティのスナップショット） |
 | `GET /sessions` | 対話セッション一覧（`~/.claude/sessions` レジストリ + フック状態のマージ） |
 | `GET /messages?session=<id>&limit=N` | transcript JSONL から会話テキストを抽出（読み取り専用） |
+| `GET /agents?session=<id>` | サブエージェント（バックグラウンドタスク）一覧。`<sessionId>/subagents/agent-*.jsonl` を列挙（読み取り専用） |
+| `GET /agentmessages?session=<id>&agent=<agentId>&limit=N` | サブエージェント1件の会話テキスト。形式は `/messages` と同じ（読み取り専用） |
 | `POST /question` | AskUserQuestion の PreToolUse フック専用。iPhone 回答待ちで保留 |
 | `POST /answer` | iPhone の回答ボタン（App Intent）からの `{sessionId, answers, pass}` |
 | `POST /prompt` | **セッションに指示を送る**（`claude -p --resume` によるヘッドレス実行。画面操作は行わない） |
