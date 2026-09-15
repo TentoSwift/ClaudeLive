@@ -201,6 +201,11 @@ struct SessionDetailView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 10) {
+                    // バックグラウンドタスク（タスクリスト）の進捗。
+                    // ライブアクティビティと同じ情報を、アプリ内でも最上部に出す
+                    if let session, session.taskTotal > 0 {
+                        taskProgressRow(session)
+                    }
                     // 操作モードがオフのときは、送っても届かない／届いてほしくない
                     // 入力欄と回答ボタンを出さない（設定画面でオンにできる）
                     if controlMode {
@@ -291,6 +296,28 @@ struct SessionDetailView: View {
     /// 新しい指示の送信。Mac 側はキー入力方式（typeIntoClaudeApp）で
     /// Claude Desktop に即反映する。ただし今フォーカスされているセッションに
     /// 入るため、他のセッションが前面のときは意図した相手に届かない点に注意
+    /// タスクリストの進捗（完了数/総数 + 進行中タスクの文言）
+    private func taskProgressRow(_ session: AppModel.RemoteSession) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: session.taskDone == session.taskTotal
+                  ? "checklist.checked" : "checklist")
+                .foregroundStyle(Color.claudeBrand)
+            Text("\(session.taskDone)/\(session.taskTotal)")
+                .font(.subheadline.monospacedDigit().bold())
+            if !session.taskActive.isEmpty {
+                Text(session.taskActive)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal, 12)
+    }
+
     private var promptSection: some View {
         HStack(spacing: 8) {
             TextField("指示を送る…", text: $promptInput)

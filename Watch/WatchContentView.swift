@@ -210,6 +210,23 @@ struct WatchSessionDetailView: View {
                         WatchCommandPickerView(sessionId: sessionId)
                     }
 
+                    // バックグラウンドタスク（タスクリスト）の進捗
+                    if session.taskTotal > 0 {
+                        HStack(spacing: 4) {
+                            Image(systemName: session.taskDone == session.taskTotal
+                                  ? "checklist.checked" : "checklist")
+                                .foregroundStyle(Color.claudeBrand)
+                            Text("\(session.taskDone)/\(session.taskTotal)")
+                                .font(.caption.monospacedDigit().bold())
+                            if !session.taskActive.isEmpty {
+                                Text(session.taskActive)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                    }
+
 
                 }
 

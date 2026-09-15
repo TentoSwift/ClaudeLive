@@ -32,6 +32,10 @@ final class WatchModel: NSObject, ObservableObject {
         var model: String
         /// 質問がすべて入る（1回の AskUserQuestion に複数問あることがある）
         var questions: [QuestionItem]
+        /// バックグラウンドタスクの完了数 / 総数（0 = なし）と進行中タスクの文言
+        var taskDone: Int = 0
+        var taskTotal: Int = 0
+        var taskActive: String = ""
     }
 
     struct Message: Identifiable {
@@ -128,7 +132,10 @@ final class WatchModel: NSObject, ObservableObject {
                         question: q["question"] as? String ?? "",
                         options: q["options"] as? [String] ?? [],
                         multiSelect: q["multiSelect"] as? Bool ?? false)
-                })
+                },
+                taskDone: entry["taskDone"] as? Int ?? 0,
+                taskTotal: entry["taskTotal"] as? Int ?? 0,
+                taskActive: entry["taskActive"] as? String ?? "")
         }
     }
 

@@ -46,6 +46,11 @@ final class AppModel: ObservableObject {
         /// 質問がすべて入る（1回の AskUserQuestion に複数問あることがある）。
         /// question/options は互換用に先頭1問を反映したもの
         var questions: [QuestionItem]
+        /// バックグラウンドタスク（タスクリスト）の完了数 / 総数。0 = タスクなし
+        var taskDone: Int = 0
+        var taskTotal: Int = 0
+        /// 進行中タスクの activeForm（例 "〜を作成中"）。無ければ空
+        var taskActive: String = ""
     }
 
     struct ChatMessage: Identifiable {
@@ -249,7 +254,10 @@ final class AppModel: ObservableObject {
                         question: q["question"] as? String ?? "",
                         options: q["options"] as? [String] ?? [],
                         multiSelect: q["multiSelect"] as? Bool ?? false)
-                })
+                },
+                taskDone: entry["taskDone"] as? Int ?? 0,
+                taskTotal: entry["taskTotal"] as? Int ?? 0,
+                taskActive: entry["taskActive"] as? String ?? "")
         }
     }
 
