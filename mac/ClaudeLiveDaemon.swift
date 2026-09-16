@@ -447,6 +447,9 @@ final class SessionState {
     /// lastResponse が変わるたびに false に戻し、少し待ってから true にする
     var textSettled = false
     var settleTimer: DispatchSourceTimer?
+    /// transcript 監視タイマーが直近に見たファイルサイズ。変化がなければ
+    /// latestAssistantTurn の再パース（JSON デコード込み）を毎秒スキップして安く済ませる
+    var lastTranscriptSize: UInt64 = 0
 
     init(id: String, projectName: String, hostName: String) {
         self.id = id
@@ -534,6 +537,9 @@ final class Daemon {
     private let startPushGracePeriod: TimeInterval = 20
 
     private var watchdogTimer: DispatchSourceTimer?
+    /// transcript を 1 秒間隔で監視し、フック（PreToolUse/Stop）を待たずに
+    /// 文章を書いている最中でもライブアクティビティへ即反映するためのタイマー
+    private var transcriptWatcherTimer: DispatchSourceTimer?
 
     /// iPhone 回答待ちで保留中の AskUserQuestion フック接続
     private final class PendingQuestion {
@@ -591,6 +597,7 @@ final class Daemon {
         listener.start(queue: queue)
         self.listener = listener
         startWatchdog()
+        startTranscriptWatcher()
         observeSystemPowerEvents()
         log("起動: port \(config.port), APNs \(config.apnsHost), bundle \(config.bundleId)")
         if !tokens.hasAnyPushToStartToken {
@@ -2029,9 +2036,12 @@ final class Daemon {
             // ツール呼び出し前に書いた説明文があれば、途中経過としてライブアクティビティにも
             // 反映する（transcript の非同期書き込みにより 1 手遅れになることがある）
             let turn = latestAssistantTurn(forSessionId: session.id)
-            if let text = turn.text, text != session.lastResponse {
-                session.lastResponse = Self.truncateResponse(text, 300)
-                markTextChanged(session)
+            if let text = turn.text {
+                let truncated = Self.truncateResponse(text, 300)
+                if truncated != session.lastResponse {
+                    session.lastResponse = truncated
+                    markTextChanged(session)
+                }
             }
 
         case "PostToolUse":
@@ -2467,6 +2477,43 @@ final class Daemon {
     /// working/compacting のまま、この時間フックが来なければ接続断とみなす。
     /// 長時間かかるビルド等の誤検知を避けるため余裕を持たせる
     private let disconnectTimeout: TimeInterval = 15 * 60
+
+    /// フック（PreToolUse の直前 or Stop の完了時）を待たず、作業中セッションの
+    /// transcript を 1 秒おきに見て新しいアシスタントのテキストが書かれたら即反映する。
+    /// PreToolUse はツール呼び出し直前にしか飛ばず、しかも transcript の非同期書き込みが
+    /// 間に合わず 1 手遅れることがある。ツールを呼ばず文章だけ書いている間は
+    /// フックが一切飛ばないため、そのままだと完了（Stop）までライブアクティビティが
+    /// 更新されない。ファイルサイズが変わっていないセッションは毎秒パースせず
+    /// stat だけで済ませ、CPU 負荷を抑える
+    private func startTranscriptWatcher() {
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now() + 1, repeating: 1)
+        timer.setEventHandler { [weak self] in
+            self?.pollTranscripts()
+        }
+        timer.resume()
+        transcriptWatcherTimer = timer
+    }
+
+    private func pollTranscripts() {
+        for session in sessions.values {
+            guard session.status == "working" || session.status == "compacting" else { continue }
+            guard let path = transcriptPath(for: session.id), !path.isEmpty else { continue }
+            guard let attrs = try? FileManager.default.attributesOfItem(atPath: path),
+                  let size = attrs[.size] as? UInt64 else { continue }
+            guard size != session.lastTranscriptSize else { continue }
+            session.lastTranscriptSize = size
+
+            let turn = latestAssistantTurn(forSessionId: session.id)
+            guard let text = turn.text, !text.isEmpty else { continue }
+            let truncated = Self.truncateResponse(text, 300)
+            guard truncated != session.lastResponse else { continue }
+            session.lastResponse = truncated
+            markTextChanged(session)
+            sync(session, alert: nil)
+            log("返答を transcript から反映: \(session.projectName) (\(session.id.prefix(8))) \(truncated.count)文字")
+        }
+    }
 
     private func startWatchdog() {
         let timer = DispatchSource.makeTimerSource(queue: queue)
