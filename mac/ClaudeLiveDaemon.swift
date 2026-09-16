@@ -999,7 +999,11 @@ final class Daemon {
                 ?? latestUserPrompt(forSessionId: sessionId) ?? ""
             var entryJSON: [String: Any] = [
                 "sessionId": sessionId,
-                "name": entry.name,
+                // 再起動直後は title が空なので、transcript から復元した直近プロンプトで代用
+                "name": Self.displayName(
+                    name: entry.name,
+                    title: (session?.title).flatMap { $0.isEmpty ? nil : $0 }
+                        ?? Self.truncate(lastPrompt, 60)),
                 "title": session?.title ?? "",
                 "project": (entry.cwd as NSString).lastPathComponent,
                 "status": session?.status ?? "idle",
@@ -2136,10 +2140,25 @@ final class Daemon {
         }
     }
 
+    /// Claude Code が題名を付ける前の内部名（"claud-fd" のようなスラッグ + 2 桁 16 進）か
+    static func isAutoName(_ name: String) -> Bool {
+        if name.isEmpty { return true }
+        return name.range(of: #"^[a-z0-9_.-]+-[0-9a-f]{2}$"#, options: .regularExpression) != nil
+    }
+
+    /// 表示用のセッション名。題名が付いていれば題名、まだ内部名なら最初のプロンプト
+    /// （それも無ければ空 → iOS 側でプロジェクト名にフォールバックする）
+    static func displayName(name: String, title: String) -> String {
+        isAutoName(name) ? title : name
+    }
+
     private func ensureSession(_ sessionId: String, json: [String: Any]) -> SessionState {
         if let existing = sessions[sessionId] {
-            if existing.name.isEmpty,
-               let entry = loadSessionRegistry()[sessionId] {
+            // Claude Code は会話が進んでから題名を付ける。それまでは "claud-fd" の
+            // ような内部名なので、題名が付くまではフックごとにレジストリを読み直す
+            // （以前は最初の一度しか読まず、再起動まで内部名のままだった）
+            if Self.isAutoName(existing.name),
+               let entry = loadSessionRegistry()[sessionId], !entry.name.isEmpty {
                 existing.name = entry.name
             }
             return existing
@@ -2291,7 +2310,7 @@ final class Daemon {
             "toolCount": session.toolCount,
             "lastPrompt": session.lastPrompt,
             "lastResponse": session.lastResponse,
-            "sessionName": session.name,
+            "sessionName": Self.displayName(name: session.name, title: session.title),
             "sessionTitle": session.title,
             "question": session.question,
             "options": session.options,
