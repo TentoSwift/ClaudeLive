@@ -2121,6 +2121,19 @@ final class Daemon {
         }
 
         sync(session, alert: alert)
+
+        // 完了に変わったセッションのプッシュが「最後に届いた更新」になると、
+        // iOS の並び替えで完了したものが前に出てくることがある。
+        // まだ作業中のセッションを続けて再プッシュし、高い relevance-score を
+        // 持つ更新が最新になるようにして、作業中のものを最前に保つ
+        if event == "Stop" {
+            for other in sessions.values
+            where other.id != session.id
+                && (other.status == "working" || other.status == "compacting")
+                && tokens.hasActivityToken(for: other.id) {
+                pushUpdate(other)
+            }
+        }
     }
 
     private func ensureSession(_ sessionId: String, json: [String: Any]) -> SessionState {
@@ -2316,9 +2329,9 @@ final class Daemon {
         case "question": return 1.0      // 回答しないと Claude が進めない
         case "permission": return 0.95   // 許可を待っている
         case "working", "compacting": return 0.8  // 進行中＝いちばん見たいもの
-        case "done": return 0.5          // 終わっている（返答は読む価値がある）
-        case "waiting": return 0.3       // 何も起きていない（セッション開始直後など）
-        default: return 0.4
+        case "done": return 0.3          // 終わっている（返答は読む価値がある）。作業中との差を大きく取る
+        case "waiting": return 0.1       // 何も起きていない（セッション開始直後など）
+        default: return 0.2
         }
     }
 
