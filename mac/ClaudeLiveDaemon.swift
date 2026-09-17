@@ -416,6 +416,8 @@ final class SessionState {
     /// これより前のバイトは前のターンの内容なので、latestAssistantTurn で拾わないよう
     /// 読み取り開始位置をこれ未満に遡らせない（前ターンの返答が作業中に再表示される事故を防ぐ）
     var turnStartOffset: UInt64 = 0
+    /// transcript 先頭のユーザー発言（セッションの題名代わり）。一度読めば変わらない
+    var firstPrompt = ""
     /// AskUserQuestion の質問文と選択肢（iPhone 回答待ちの間だけ入る）。
     /// 複数質問・複数選択に対応する前からの互換フィールドで、常に
     /// questionItems の最初の1問を反映する（ライブアクティビティの
@@ -999,11 +1001,11 @@ final class Daemon {
                 ?? latestUserPrompt(forSessionId: sessionId) ?? ""
             var entryJSON: [String: Any] = [
                 "sessionId": sessionId,
-                // 再起動直後は title が空なので、transcript から復元した直近プロンプトで代用
+                // 題名が付く前のセッションは transcript の最初の発言を名前にする
                 "name": Self.displayName(
                     name: entry.name,
                     title: (session?.title).flatMap { $0.isEmpty ? nil : $0 }
-                        ?? Self.truncate(lastPrompt, 60)),
+                        ?? firstUserPrompt(forSessionId: sessionId) ?? ""),
                 "title": session?.title ?? "",
                 "project": (entry.cwd as NSString).lastPathComponent,
                 "status": session?.status ?? "idle",
@@ -1332,23 +1334,52 @@ final class Daemon {
                   obj["isSidechain"] as? Bool != true,
                   obj["isMeta"] as? Bool != true,
                   let message = obj["message"] as? [String: Any] else { continue }
-            var text = ""
-            if let content = message["content"] as? String {
-                text = content
-            } else if let content = message["content"] as? [[String: Any]] {
-                text = content.compactMap { item in
-                    (item["type"] as? String) == "text" ? item["text"] as? String : nil
-                }.joined(separator: "\n")
-            }
-            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            // tool_result のみの行やシステム的な行は messagesJSON と同じ基準で除く。
-            // 加えて、コンテキスト圧縮時に自動挿入される要約継続メッセージも、
-            // ユーザーが実際に打った文言ではないので除外する
-            guard !trimmed.isEmpty, !trimmed.hasPrefix("<"),
-                  !trimmed.hasPrefix("[Request interrupted"),
-                  !trimmed.hasPrefix("This session is being continued from a previous conversation")
-            else { continue }
+            guard let trimmed = Self.userPromptText(message) else { continue }
             return Self.truncate(trimmed, 180)
+        }
+        return nil
+    }
+
+    /// user 行の message から「ユーザーが実際に打った文言」を取り出す。
+    /// tool_result のみの行やシステム的な行は messagesJSON と同じ基準で除く。
+    /// 加えて、コンテキスト圧縮時に自動挿入される要約継続メッセージも除外する
+    private static func userPromptText(_ message: [String: Any]) -> String? {
+        var text = ""
+        if let content = message["content"] as? String {
+            text = content
+        } else if let content = message["content"] as? [[String: Any]] {
+            text = content.compactMap { item in
+                (item["type"] as? String) == "text" ? item["text"] as? String : nil
+            }.joined(separator: "\n")
+        }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !trimmed.hasPrefix("<"),
+              !trimmed.hasPrefix("[Request interrupted"),
+              !trimmed.hasPrefix("This session is being continued from a previous conversation")
+        else { return nil }
+        return trimmed
+    }
+
+    /// transcript 先頭から最初のユーザー発言を拾い、セッションに記憶する。
+    /// Claude Code が題名を付ける前のセッションの表示名に使う。
+    /// 「直近のプロンプト」だと送るたびに名前が変わってしまうので、必ず最初の発言にする
+    private func firstUserPrompt(forSessionId sessionId: String) -> String? {
+        if let cached = sessions[sessionId]?.firstPrompt, !cached.isEmpty { return cached }
+        guard let path = transcriptPath(for: sessionId),
+              let handle = FileHandle(forReadingAtPath: path) else { return nil }
+        defer { try? handle.close() }
+        // 冒頭に長いシステム行が並ぶことがあるので余裕を持って読む
+        let data = (try? handle.read(upToCount: 512 * 1024)) ?? Data()
+        for line in data.split(separator: UInt8(ascii: "\n")) {
+            guard let obj = (try? JSONSerialization.jsonObject(with: Data(line))) as? [String: Any],
+                  obj["type"] as? String == "user",
+                  obj["isSidechain"] as? Bool != true,
+                  obj["isMeta"] as? Bool != true,
+                  let message = obj["message"] as? [String: Any],
+                  let text = Self.userPromptText(message) else { continue }
+            let title = Self.truncate(text, 60)
+            sessions[sessionId]?.firstPrompt = title
+            return title
         }
         return nil
     }
@@ -2012,7 +2043,9 @@ final class Daemon {
             if let prompt = json["prompt"] as? String {
                 session.lastPrompt = Self.truncate(prompt, 180)
                 if session.title.isEmpty {
-                    session.title = Self.truncate(prompt, 60)
+                    // 再起動後に途中から見始めた場合も、題名は最初の発言にする
+                    session.title = firstUserPrompt(forSessionId: session.id)
+                        ?? Self.truncate(prompt, 60)
                 }
                 markTextChanged(session)
             }
@@ -2310,7 +2343,10 @@ final class Daemon {
             "toolCount": session.toolCount,
             "lastPrompt": session.lastPrompt,
             "lastResponse": session.lastResponse,
-            "sessionName": Self.displayName(name: session.name, title: session.title),
+            "sessionName": Self.displayName(
+                name: session.name,
+                title: session.title.isEmpty
+                    ? (firstUserPrompt(forSessionId: session.id) ?? "") : session.title),
             "sessionTitle": session.title,
             "question": session.question,
             "options": session.options,
