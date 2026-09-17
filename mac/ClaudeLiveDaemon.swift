@@ -483,6 +483,41 @@ private func isClaudeProcess(pid: Int32) -> Bool {
     return (path as NSString).lastPathComponent == "claude"
 }
 
+/// レジストリファイルは Claude Code が上書きするとき、短くなった分の末尾を
+/// 切り詰めないことがあり、`{...}07,"waitingFor":"input needed"}` のように
+/// 古い内容の断片が残って JSON として壊れる（実際に起きた）。そのまま
+/// JSONSerialization に渡すと失敗し、そのセッションは「対話セッションと確認
+/// できない」扱いでライブアクティビティが一切開始されなくなる。
+/// 先頭の完全な JSON オブジェクトだけを取り出して読む
+func parseLeadingJSONObject(_ data: Data) -> [String: Any]? {
+    if let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+        return obj
+    }
+    var depth = 0
+    var inString = false
+    var escaped = false
+    for (index, byte) in data.enumerated() {
+        if inString {
+            if escaped { escaped = false }
+            else if byte == UInt8(ascii: "\\") { escaped = true }
+            else if byte == UInt8(ascii: "\"") { inString = false }
+            continue
+        }
+        switch byte {
+        case UInt8(ascii: "\""): inString = true
+        case UInt8(ascii: "{"): depth += 1
+        case UInt8(ascii: "}"):
+            depth -= 1
+            if depth == 0 {
+                let prefix = data.prefix(index + 1)
+                return (try? JSONSerialization.jsonObject(with: prefix)) as? [String: Any]
+            }
+        default: break
+        }
+    }
+    return nil
+}
+
 func loadSessionRegistry() -> [String: RegistryEntry] {
     let dir = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent(".claude/sessions", isDirectory: true)
@@ -493,7 +528,7 @@ func loadSessionRegistry() -> [String: RegistryEntry] {
         guard let pid = Int32(file.deletingPathExtension().lastPathComponent),
               pid > 0, kill(pid, 0) == 0, isClaudeProcess(pid: pid),
               let data = try? Data(contentsOf: file),
-              let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let obj = parseLeadingJSONObject(data),
               let sessionId = obj["sessionId"] as? String else { continue }
         let entry = RegistryEntry(
             sessionId: sessionId,
