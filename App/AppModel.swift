@@ -547,22 +547,43 @@ final class AppModel: ObservableObject {
     /// 次を送る」順序になるので、古いスナップショットが新しいものを追い越して
     /// 届くことがなくなる
     func registerToServer() {
+        // 外から呼ばれたら再試行回数を仕切り直す
+        registrationRetryCount = 0
+        runRegistration()
+    }
+
+    /// 登録に失敗したあとの再試行回数。Mac に届かない間（Tailscale 停止など）に
+    /// 失敗した登録は、以前は次に何かのきっかけで呼ばれるまで放置され、
+    /// 接続が戻っても Mac 側は古いトークンのまま → ライブアクティビティが
+    /// 出ない・更新されない状態がアプリを開くまで続いていた
+    private var registrationRetryCount = 0
+    private let registrationRetryDelays: [Double] = [3, 6, 12, 24, 48, 60, 60, 60]
+
+    private func runRegistration() {
         guard !isRegistering else {
             pendingRegistration = true
             return
         }
         isRegistering = true
         Task {
-            await performRegistration()
+            let success = await performRegistration()
             isRegistering = false
             if pendingRegistration {
                 pendingRegistration = false
-                registerToServer()
+                runRegistration()
+            } else if success {
+                registrationRetryCount = 0
+            } else if registrationRetryCount < registrationRetryDelays.count {
+                let delay = registrationRetryDelays[registrationRetryCount]
+                registrationRetryCount += 1
+                try? await Task.sleep(for: .seconds(delay))
+                runRegistration()
             }
         }
     }
 
-    private func performRegistration() async {
+    @discardableResult
+    private func performRegistration() async -> Bool {
         var payload: [String: Any] = ["device": UIDevice.current.name]
         payload["compactAnimated"] = compactAnimated
         if let token = pushToStartToken { payload["pushToStartToken"] = token }
@@ -573,7 +594,7 @@ final class AppModel: ObservableObject {
         // 「いま生きているアクティビティ」のスナップショットとして常に送る（空でも）。
         // Mac 側はここに無いセッションのトークンを破棄して再開始可能に戻す
         payload["activityTokens"] = activityTokens
-        guard let body = try? JSONSerialization.data(withJSONObject: payload) else { return }
+        guard let body = try? JSONSerialization.data(withJSONObject: payload) else { return false }
 
         // 発見済みエンドポイント・手動指定すべてに同時に登録を投げる（生きている
         // Mac 全部に届けたいので、こちらは先着1つで打ち切らず全部の結果を待つ）。
@@ -606,6 +627,7 @@ final class AppModel: ObservableObject {
                 ? "登録成功（\(stamp)）"
                 : "登録失敗 — Mac に届いていません（\(stamp)）"
         }
+        return success
     }
 
     private func manualURL(path: String = "/register") -> URL? {
