@@ -441,6 +441,8 @@ final class SessionState {
     /// handleRegister の「スナップショットに無いセッションはユーザーが消した」
     /// 判定に、送信直後だけ猶予を与えるために使う（下記コメント参照）
     var lastStartPushAt: [String: Date] = [:]
+    /// 開始プッシュを送ったのにトークンが届かず、やり直した回数（端末名ごと）
+    var startRetryCount: [String: Int] = [:]
     var updateScheduled = false
     /// 直近でフックを受信した時刻。working/compacting のまま長時間これが
     /// 更新されない場合、Mac のスリープやネットワーク断とみなす
@@ -1531,6 +1533,7 @@ final class Daemon {
                 device.activityTokens[sessionId] = token
                 if let session = sessions[sessionId] {
                     session.startedDevices.insert(deviceName)
+                    session.startRetryCount[deviceName] = 0  // 届いたのでやり直し回数を戻す
                     session.dismissedByUser = false  // アプリからの取り込み等で復活した
                 }
                 newActivitySessions.append(sessionId)
@@ -2627,6 +2630,7 @@ final class Daemon {
         timer.setEventHandler { [weak self] in
             guard let self else { return }
             self.checkForPendingPermission()
+            self.checkForLostStartPushes()
             tick += 1
             if tick >= 30 {  // 2秒 × 30 = 60秒ごと
                 tick = 0
@@ -2636,6 +2640,32 @@ final class Daemon {
         }
         timer.resume()
         watchdogTimer = timer
+    }
+
+    /// 開始プッシュが APNs に受理されても、iPhone 側でアクティビティが作られない／
+    /// アプリが落ちていてトークンを登録できない、ということが実際に起きる。
+    /// 以前はその端末を「開始済み」と見なしたままで、update も再開始も送られず、
+    /// セッションが終わるまでライブアクティビティが出ない状態で固まっていた。
+    /// 一定時間トークンが届かなければ未開始に戻し、次のフックで開始をやり直す。
+    /// 二重表示と push-to-start の予算消費を避けるため、回数と間隔を絞る
+    private let startTokenTimeouts: [TimeInterval] = [90, 300, 900]
+    private func checkForLostStartPushes() {
+        // iPhone が Mac に届かない間は、表示されていてもトークンは来ない。
+        // その状態でやり直すと同じセッションが二重に出るだけなので待つ
+        if config.isTailscaleOnly && !Self.isTailscaleUp() { return }
+        let now = Date()
+        for session in sessions.values {
+            for name in session.startedDevices {
+                guard tokens.devices[name]?.activityTokens[session.id] == nil,
+                      let sentAt = session.lastStartPushAt[name] else { continue }
+                let tries = session.startRetryCount[name] ?? 0
+                guard tries < startTokenTimeouts.count,
+                      now.timeIntervalSince(sentAt) > startTokenTimeouts[tries] else { continue }
+                session.startRetryCount[name] = tries + 1
+                session.startedDevices.remove(name)
+                log("開始プッシュ後 \(Int(startTokenTimeouts[tries])) 秒たってもトークンが届かないため、開始をやり直します (\(tries + 1)/\(startTokenTimeouts.count)): \(session.projectName) (\(session.id.prefix(8))) (\(name))")
+            }
+        }
     }
 
     /// tailscaleOnly が有効なときだけ Tailscale の生死を見張る。
